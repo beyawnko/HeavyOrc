@@ -1,10 +1,8 @@
 
-export enum AgentStatus {
-  PENDING = 'PENDING',
-  RUNNING = 'RUNNING',
-  COMPLETED = 'COMPLETED',
-  FAILED = 'FAILED',
-}
+
+
+export type ApiProvider = 'gemini' | 'openai';
+export type AgentStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
 
 export interface AgentState {
   id: number;
@@ -12,4 +10,6 @@ export interface AgentState {
   status: AgentStatus;
   content: string;
   error: string | null;
+  model: string;
+  provider: ApiProvider;
 }

@@ -4,6 +4,17 @@ This document outlines the phased approach to refactor the "Gemini Heavy Orchest
 
 ---
 
+### Phase 0 - Project Setup & Baseline
+
+**Goal**: Establish a clean, testable foundation before major architectural changes.
+
+*   **0.1 Env + Build Cleanliness**: Standardize environment variables (`.env.example`), build process, and TypeScript configuration (`tsconfig.json`).
+*   **0.2 Setup Testing Framework**: Integrate Vitest, @testing-library, and CI to enable test-driven development from the start. (Moved from Phase 6).
+*   **0.3 Initial Documentation**: Document the existing architecture and the goals of the refactor. (Moved from Phase 8).
+*   **0.4 Configuration Management**: Define a strategy for managing configurations (e.g., `experts.json`) across different environments, including validation.
+
+---
+
 ### Phase 1 — MoE Engine Extraction (architecture baseline)
 
 **Goal**: Decouple strategy from UI; make experts/routing/arbitration pluggable.
@@ -18,6 +29,7 @@ This document outlines the phased approach to refactor the "Gemini Heavy Orchest
 *   **1.2 Move personas to config**:
     *   `src/config/experts.json`: Data-driven expert definitions.
     *   `src/config/moe.default.json`: Default MoE policies.
+*   **1.3 Continuous Documentation**: All new interfaces, modules, and significant decisions will be documented as they are implemented.
 
 ---
 
@@ -37,6 +49,7 @@ This document outlines the phased approach to refactor the "Gemini Heavy Orchest
 
 *   **3.1 Differential sampling per expert**: Apply unique sampling parameters (temperature, topK, topP) to each selected expert.
 *   **3.2 Retry, timeout, circuit breaker**: Implement robust error handling for individual expert failures.
+*   **Success Criterion**: The system demonstrates resilience by successfully recovering from >90% of simulated single-expert failures during integration tests.
 
 ---
 
@@ -54,16 +67,18 @@ This document outlines the phased approach to refactor the "Gemini Heavy Orchest
 **Goal**: Measure performance and control costs.
 
 *   **5.1 Structured telemetry**: Implement an event emitter for key MoE lifecycle events (routing, dispatch, arbitration).
+    *   *Success Criterion*: >95% of MoE lifecycle events are instrumented and visible in a debug console.
 *   **5.2 Budget policy & cache**: Introduce request-level budgets and cache results in IndexedDB.
+    *   *Success Criterion*: P95 latency for repeated queries is reduced by >50%; token usage can be capped on a per-request basis.
 
 ---
 
 ### Phase 6 — Simulator & Testing Harness (true “MoE simulation”)
 
-**Goal**: Enable deterministic, offline testing.
+**Goal**: Enable deterministic, offline testing of the full MoE flow.
 
-*   **6.1 Stub LLM + scripted experts**: Create a fake LLM for fast, network-free testing.
-*   **6.2 Add Vitest, @testing-library, and CI**: Formalize the testing framework and integrate into CI.
+*   **6.1 Stub LLM + scripted experts**: Create a fake LLM for fast, network-free testing of the orchestration logic.
+*   **6.2 Expand Test Coverage**: Write integration tests for complex routing and arbitration scenarios identified during development.
 
 ---
 
@@ -76,23 +91,23 @@ This document outlines the phased approach to refactor the "Gemini Heavy Orchest
 
 ---
 
-### Phase 8 — Docs & Guardrails
+### Phase 8 — Final Review, Docs & Guardrails
 
-**Goal**: Ensure the project is maintainable and safe.
+**Goal**: Ensure the project is maintainable and safe for production use.
 
-*   **8.1 Docs**: Create architecture, policy, and testing documentation.
-*   **8.2 Safety preprocessing**: Add an optional pre-processing step to redact PII from prompts.
+*   **8.1 Consolidate and publish guides**: Review and package all continuous documentation into a coherent set of user and architecture guides.
+*   **8.2 Security & Privacy Review**: Conduct a review covering potential vulnerabilities such as prompt injection, data handling policies for the cache, and PII redaction.
 
 ---
 
 ## Concrete "Next PRs" for the Agent (chunked and atomic)
-1.	**PR-1: Env + Build Cleanliness**
-2.	**PR-2: Extract MoE engine**
-3.	**PR-3: Routing v1 (rules) + capacity**
-4.	**PR-4: Embedding router**
-5.	**PR-5: Arbiter modes & dedup**
-6.	**PR-6: Robust dispatch**
-7.	**PR-7: Budgeting & cache**
-8.	**PR-8: Simulator & CI**
-9.	**PR-9: UX debug panel**
-10.	**PR-10: Docs**
+1.	**PR-1: Env, Build, Testing & CI Setup** (Phase 0)
+2.	**PR-2: Extract MoE engine** (Phase 1)
+3.	**PR-3: Robust dispatch** (Phase 3)
+4.	**PR-4: Routing v1 (rules) + capacity** (Phase 2)
+5.	**PR-5: Embedding router** (Phase 2)
+6.	**PR-6: Arbiter modes & dedup** (Phase 4)
+7.	**PR-7: Telemetry, Budgeting & cache** (Phase 5)
+8.	**PR-8: Simulator & Integration Tests** (Phase 6)
+9.	**PR-9: UX debug panel** (Phase 7)
+10.	**PR-10: Final Docs & Guardrails** (Phase 8)
