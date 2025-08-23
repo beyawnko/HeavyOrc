@@ -1,0 +1,284 @@
+
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+    DownloadIcon, 
+    UploadIcon,
+    ChevronLeftIcon,
+    KeyIcon,
+    ClockIcon,
+    DocumentDuplicateIcon,
+    XMarkIcon
+} from './icons';
+
+// --- SECTION DEFINITIONS ---
+
+type SectionId = 'api-keys' | 'session' | 'history';
+
+interface Section {
+    id: SectionId;
+    label: string;
+    icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+    description: string;
+}
+
+const sections: Section[] = [
+    { 
+        id: 'api-keys', 
+        label: 'API Keys', 
+        icon: KeyIcon,
+        description: "Manage your OpenAI API key. It's stored in your browser and never sent to our servers." 
+    },
+    { 
+        id: 'session', 
+        label: 'Session Management', 
+        icon: DocumentDuplicateIcon,
+        description: 'Save your current settings, API key, and query history to a file, or load a previous session.' 
+    },
+    { 
+        id: 'history', 
+        label: 'Query History', 
+        icon: ClockIcon,
+        description: 'Review and reuse your most recent prompts.'
+    },
+];
+
+// --- PROPS & COMPONENT INTERFACE ---
+
+interface SettingsViewProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSaveApiKey: (apiKey: string) => void;
+    currentApiKey: string;
+    onSaveSession: () => void;
+    onLoadSession: (file: File) => void;
+    queryHistory: string[];
+    onSelectQuery: (query: string) => void;
+}
+
+// --- SECTION CONTENT COMPONENTS ---
+
+const ApiKeySection: React.FC<Pick<SettingsViewProps, 'currentApiKey' | 'onSaveApiKey'>> = ({ currentApiKey, onSaveApiKey }) => {
+    const [apiKey, setApiKey] = useState(currentApiKey);
+
+    useEffect(() => {
+        setApiKey(currentApiKey);
+    }, [currentApiKey]);
+
+    const handleSave = () => onSaveApiKey(apiKey);
+
+    return (
+        <div>
+            <label htmlFor="openai-api-key" className="block text-sm font-medium text-gray-300 mb-2">
+                OpenAI API Key
+            </label>
+            <div className="flex gap-2">
+                <input
+                    id="openai-api-key"
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="sk-..."
+                    className="flex-grow p-2 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                />
+                <button
+                    onClick={handleSave}
+                    type="button"
+                    className="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-500 disabled:bg-gray-600 transition-colors"
+                >
+                    Save Key
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const SessionSection: React.FC<Pick<SettingsViewProps, 'onSaveSession' | 'onLoadSession'>> = ({ onSaveSession, onLoadSession }) => {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleLoadClick = () => fileInputRef.current?.click();
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            onLoadSession(file);
+        }
+    };
+
+    return (
+        <div className="flex flex-col sm:flex-row gap-4">
+            <button onClick={onSaveSession} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-700/80 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-colors">
+                <DownloadIcon className="w-5 h-5" />
+                Save Session
+            </button>
+            <button onClick={handleLoadClick} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-700/80 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-colors">
+                <UploadIcon className="w-5 h-5" />
+                Load Session
+            </button>
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={handleFileChange}
+                aria-hidden="true"
+            />
+        </div>
+    );
+};
+
+const HistorySection: React.FC<Pick<SettingsViewProps, 'queryHistory' | 'onSelectQuery' | 'onClose'>> = ({ queryHistory, onSelectQuery, onClose }) => {
+    const handleQueryClick = (query: string) => {
+        onSelectQuery(query);
+        onClose();
+    };
+    
+    if (queryHistory.length === 0) {
+        return <p className="text-gray-500 italic">Your query history is empty.</p>;
+    }
+
+    return (
+        <ul className="space-y-2 max-h-96 overflow-y-auto">
+            {queryHistory.map((query, index) => (
+                <li key={index}>
+                    <button 
+                        onClick={() => handleQueryClick(query)}
+                        className="w-full text-left p-2.5 text-sm text-indigo-300 bg-gray-900/50 rounded-md hover:bg-gray-700 transition-colors truncate"
+                        title={query}
+                    >
+                        {query}
+                    </button>
+                </li>
+            ))}
+        </ul>
+    );
+};
+
+
+// --- MAIN SETTINGS VIEW COMPONENT ---
+
+const SettingsView: React.FC<SettingsViewProps> = (props) => {
+    const { isOpen, onClose, queryHistory } = props;
+    const [activeSectionId, setActiveSectionId] = useState<SectionId>('api-keys');
+    const [mobileDrillIn, setMobileDrillIn] = useState<boolean>(false);
+    
+    const activeSection = sections.find(s => s.id === activeSectionId) ?? sections[0];
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') onClose();
+        };
+        if (isOpen) {
+            window.addEventListener('keydown', handleKeyDown);
+            // Reset to default view on open
+            setActiveSectionId('api-keys');
+            setMobileDrillIn(false);
+        }
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
+    if (!isOpen) return null;
+
+    const handleSectionSelect = (id: SectionId) => {
+        setActiveSectionId(id);
+        setMobileDrillIn(true);
+    };
+    
+    const handleMobileBack = () => setMobileDrillIn(false);
+
+    const renderSectionContent = (sectionId: SectionId) => {
+        switch(sectionId) {
+            case 'api-keys': return <ApiKeySection {...props} />;
+            case 'session': return <SessionSection {...props} />;
+            case 'history': return <HistorySection {...props} />;
+            default: return null;
+        }
+    };
+    
+    const sectionsToDisplay = queryHistory.length > 0 ? sections : sections.filter(s => s.id !== 'history');
+
+    const navigation = (
+        <nav className="flex flex-col gap-1 p-2" aria-label="Settings navigation">
+            {sectionsToDisplay.map(section => {
+                const Icon = section.icon;
+                const isActive = section.id === activeSectionId;
+                return (
+                    <button
+                        key={section.id}
+                        onClick={() => handleSectionSelect(section.id)}
+                        className={`w-full flex items-center gap-3 text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                            isActive ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
+                        }`}
+                        aria-current={isActive ? 'page' : undefined}
+                    >
+                        <Icon className="w-5 h-5 flex-shrink-0" />
+                        <span>{section.label}</span>
+                    </button>
+                );
+            })}
+        </nav>
+    );
+
+    return (
+        <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 animate-fade-in-up p-4"
+            style={{ animationDuration: '0.3s'}}
+            onClick={onClose}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-title"
+        >
+            <div 
+                className="bg-gray-800 rounded-xl shadow-2xl border border-gray-700 w-full max-w-4xl h-full max-h-[700px] flex flex-col"
+                onClick={e => e.stopPropagation()}
+            >
+                {/* --- Header --- */}
+                <header className="flex items-center justify-between p-4 border-b border-gray-700 flex-shrink-0">
+                    <div className="flex items-center gap-3">
+                         <button onClick={handleMobileBack} className="p-1 rounded-full text-gray-400 hover:bg-gray-700 md:hidden" aria-label="Back to settings sections" style={{ visibility: mobileDrillIn ? 'visible': 'hidden' }}>
+                            <ChevronLeftIcon className="w-6 h-6" />
+                        </button>
+                        <h2 id="settings-title" className="text-lg font-bold text-gray-100">
+                             <span className="md:hidden">{mobileDrillIn ? activeSection.label : "Settings"}</span>
+                             <span className="hidden md:inline">Settings</span>
+                        </h2>
+                    </div>
+                     <button onClick={onClose} type="button" className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white" aria-label="Close settings">
+                        <XMarkIcon className="w-6 h-6" />
+                    </button>
+                </header>
+                
+                {/* --- Main Content --- */}
+                <div className="flex-grow grid md:grid-cols-[240px_1fr] grid-cols-1 min-h-0">
+                    {/* Sidebar (Desktop) */}
+                    <aside className="hidden md:block border-r border-gray-700/50 overflow-y-auto">
+                        {navigation}
+                    </aside>
+
+                    {/* Content Area */}
+                    <main className="overflow-y-auto">
+                         {/* Mobile View */}
+                        <div className="md:hidden">
+                            {mobileDrillIn ? (
+                                <div className="p-6 space-y-4">
+                                    <p className="text-gray-400 text-sm">{activeSection.description}</p>
+                                    <div className="border-t border-gray-700 pt-4">{renderSectionContent(activeSectionId)}</div>
+                                </div>
+                            ) : (
+                                navigation
+                            )}
+                        </div>
+
+                        {/* Desktop View */}
+                        <div className="hidden md:block p-6 space-y-4">
+                             <h3 className="text-xl font-semibold text-gray-200">{activeSection.label}</h3>
+                             <p className="text-gray-400 text-sm">{activeSection.description}</p>
+                             <div className="border-t border-gray-700 pt-4">{renderSectionContent(activeSectionId)}</div>
+                        </div>
+                    </main>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default SettingsView;

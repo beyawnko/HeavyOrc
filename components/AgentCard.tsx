@@ -84,7 +84,7 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent }) => {
       </div>
       <div 
         id={contentId}
-        className={`overflow-hidden transition-all duration-500 ease-in-out ${isCollapsed ? 'max-h-0' : 'max-h-[500px]'}`}
+        className={`overflow-y-auto transition-all duration-500 ease-in-out ${isCollapsed ? 'max-h-0' : 'max-h-[500px]'}`}
       >
         <div className="p-4">
             <p className="text-xs text-gray-400 italic mb-3">Persona: {persona}</p>

@@ -7,12 +7,23 @@ import {
     ARBITER_HIGH_REASONING_PROMPT_MODIFIER,
     OPENAI_ARBITER_GPT5_HIGH_REASONING,
     GEMINI_PRO_MODEL,
+    OPENAI_ARBITER_MODEL,
 } from '../constants';
+import { GeminiThinkingEffort } from '../types';
+
+const GEMINI_PRO_BUDGETS: Record<Exclude<GeminiThinkingEffort, 'none'>, number> = {
+    low: 4096,
+    medium: 16384,
+    high: 32768,
+    dynamic: -1,
+};
 
 export const arbitrateStream = async (
     arbiterModel: string,
     prompt: string,
-    drafts: Draft[]
+    drafts: Draft[],
+    arbiterVerbosity: 'low' | 'medium' | 'high',
+    geminiArbiterEffort: GeminiThinkingEffort
 ): Promise<AsyncGenerator<{ text: string }>> => {
     const successfulDrafts = drafts.filter(d => d.status === 'COMPLETED');
 
@@ -26,46 +37,56 @@ export const arbitrateStream = async (
     
     if (arbiterModel.startsWith('gpt-')) {
         const openaiAI = getOpenAIClient();
-        const reasoningEffort = arbiterModel === OPENAI_ARBITER_GPT5_HIGH_REASONING ? 'high' : 'medium';
         const systemPersona = arbiterModel === OPENAI_ARBITER_GPT5_HIGH_REASONING 
             ? ARBITER_PERSONA + ARBITER_HIGH_REASONING_PROMPT_MODIFIER
             : ARBITER_PERSONA;
         
-        const fullInput = `${systemPersona}\n\n---\n\n${arbiterPrompt}`;
-        
+        const instructions = `${systemPersona}\nYour final synthesized response should have a verbosity level of: ${arbiterVerbosity}.`;
+
         try {
-            const response = await (openaiAI as any).responses.create({
-                model: "gpt-5",
-                input: fullInput,
-                reasoning: { effort: reasoningEffort },
+            const stream: any = await openaiAI.responses.create({
+                model: OPENAI_ARBITER_MODEL,
+                instructions: instructions,
+                input: arbiterPrompt,
+                stream: true,
             });
 
-            async function* singleResponseStream() {
-                const text = (response as any)?.output_text;
-                if (text) {
-                    yield { text };
+            async function* transformStream(): AsyncGenerator<{ text: string }> {
+                for await (const chunk of stream) {
+                    // Based on error analysis, the streaming chunk's text appears in `output_text`.
+                    const content = chunk.output_text || '';
+                    if (content) {
+                        yield { text: content };
+                    }
                 }
             }
-            return singleResponseStream();
+            return transformStream();
 
         } catch (error) {
-            console.error("Error calling the OpenAI 'responses' API:", error);
-            if (error instanceof OpenAI.APIError && error.status === 429) {
-                 throw new Error("You've exceeded your OpenAI API quota. Please check your plan and billing details on the OpenAI website.");
+            console.error("Error calling the OpenAI Responses API for arbiter:", error);
+            if (error instanceof OpenAI.APIError) {
+                 // Propagate the specific error from OpenAI, which includes rate limit details.
+                 throw new Error(error.message);
             }
-            if (error instanceof Error && (error.message.includes('404') || error.message.toLowerCase().includes('not a function'))) {
-                throw new Error("The 'gpt-5' model or the 'responses' API endpoint could not be found. This may be because it is not yet available or your SDK is not up to date.");
+            if (error instanceof Error) {
+                throw new Error(`An error occurred with the OpenAI Arbiter: ${error.message}`);
             }
-            throw new Error(`An error occurred while communicating with the OpenAI GPT-5 model. Please check the console for details.`);
+            throw new Error(`An unknown error occurred while communicating with the OpenAI model for arbitration.`);
         }
     }
     
     // Gemini Logic for the arbiter.
+    const budget = geminiArbiterEffort === 'none' 
+        ? -1 // Default to dynamic for Pro model if 'none' is somehow passed
+        : GEMINI_PRO_BUDGETS[geminiArbiterEffort as Exclude<GeminiThinkingEffort, 'none'>];
+    const thinkingConfig = { thinkingBudget: budget };
+
     return geminiAI.models.generateContentStream({
         model: GEMINI_PRO_MODEL, // Arbiter always uses the Pro model for Gemini
         contents: arbiterPrompt,
         config: {
             systemInstruction: ARBITER_PERSONA,
+            thinkingConfig
         }
     });
 };

@@ -1,54 +1,107 @@
 
+
 import { OpenAI } from 'openai';
 import { Draft, ExpertDispatch } from './types';
 import { geminiAI, getOpenAIClient } from '../services/llmService';
-import { GEMINI_FLASH_MODEL, OPENAI_REASONING_PROMPT_PREFIX, OPENAI_AGENT_MODEL } from '../constants';
+import { GEMINI_PRO_MODEL } from '../constants';
+import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort } from '../types';
 
-export interface DispatchConfig {
-    enableGeminiThinking: boolean;
-    enableOpenAIReasoning: boolean;
-}
+
+const GEMINI_FLASH_BUDGETS: Record<Extract<GeminiThinkingEffort, 'none' | 'low' | 'medium' | 'high' | 'dynamic'>, number> = {
+    none: 0,
+    low: 4096,
+    medium: 12288,
+    high: 24576,
+    dynamic: -1,
+};
+
+const GEMINI_PRO_BUDGETS: Record<Exclude<GeminiThinkingEffort, 'none'>, number> = {
+    low: 4096,
+    medium: 16384,
+    high: 32768,
+    dynamic: -1,
+};
 
 const runExpert = async (
     expert: ExpertDispatch,
     prompt: string,
-    config: DispatchConfig,
-    id: number
+    images: ImageState[],
+    config: AgentConfig
 ): Promise<Draft> => {
     try {
         let content = '';
-        if (expert.provider === 'gemini') {
-            const temperature = 0.5 + id * 0.08;
-            const thinkingConfig = expert.model === GEMINI_FLASH_MODEL && !config.enableGeminiThinking
-                ? { thinkingBudget: 0 }
-                : undefined;
+        if (config.provider === 'gemini') {
+            const geminiConfig = config as GeminiAgentConfig;
+            const isProModel = geminiConfig.model === GEMINI_PRO_MODEL;
+            let budget: number;
+
+            if (isProModel) {
+                if (geminiConfig.settings.effort === 'none') {
+                    console.warn(`Attempted to use 'none' effort for Gemini Pro agent ${config.id}, which is not supported. Defaulting to 'dynamic'.`);
+                    budget = -1;
+                } else {
+                    budget = GEMINI_PRO_BUDGETS[geminiConfig.settings.effort as Exclude<GeminiThinkingEffort, 'none'>];
+                }
+            } else { // Flash model
+                budget = GEMINI_FLASH_BUDGETS[geminiConfig.settings.effort];
+            }
+            
+            const thinkingConfig = { thinkingBudget: budget };
+
+            const parts: any[] = [{ text: prompt }];
+            images.forEach(img => {
+                parts.push({
+                    inlineData: {
+                        mimeType: img.file.type,
+                        data: img.base64,
+                    },
+                });
+            });
 
             const response = await geminiAI.models.generateContent({
                 model: expert.model,
-                contents: prompt,
+                contents: { parts },
                 config: {
                     systemInstruction: expert.persona,
-                    temperature: temperature,
+                    temperature: 0.5 + Math.random() * 0.2, // Add some randomness
                     thinkingConfig,
                 }
             });
             content = response.text;
         } else { // openai
+            const openaiConfig = config as OpenAIAgentConfig;
             const openaiAI = getOpenAIClient();
-            const systemPersona = config.enableOpenAIReasoning 
-                ? OPENAI_REASONING_PROMPT_PREFIX + expert.persona 
-                : expert.persona;
             
-            // Note: Using the deprecated `chat.completions` for agents as per original logic.
-            // This can be updated to `responses.create` if the agent models support it.
-            const response = await openaiAI.chat.completions.create({
-                model: OPENAI_AGENT_MODEL,
-                messages: [
-                    { role: 'system', content: systemPersona },
-                    { role: 'user', content: prompt }
-                ],
+            let instructions = expert.persona;
+            instructions += `\nYour response verbosity should be ${openaiConfig.settings.verbosity}.`;
+
+            let inputPayload: string | any[];
+
+            if (images.length > 0) {
+                const userContentParts: any[] = [{ type: 'input_text', text: prompt }];
+                images.forEach(img => {
+                    userContentParts.push({
+                        type: 'input_image',
+                        image_url: `data:${img.file.type};base64,${img.base64}`,
+                    });
+                });
+                
+                inputPayload = [{ role: 'user', content: userContentParts }];
+            } else {
+                inputPayload = prompt;
+            }
+
+            // The type for response is unknown from the provided docs, so we cast to any.
+            // Based on error analysis, the text content appears in `output_text`.
+            const completion: any = await openaiAI.responses.create({
+                model: expert.model,
+                instructions: instructions,
+                input: inputPayload,
+                reasoning: {
+                    effort: openaiConfig.settings.effort
+                }
             });
-            content = response.choices[0].message.content || 'No content received.';
+            content = completion.output_text || 'No content received.';
         }
 
         return {
@@ -58,11 +111,9 @@ const runExpert = async (
         };
 
     } catch (error) {
-        console.error(`Agent ${id} (${expert.provider} - ${expert.name}) failed:`, error);
+        console.error(`Agent ${config.id} (${expert.provider} - ${expert.name}) failed:`, error);
         let errorMessage = "An unknown error occurred";
-        if (error instanceof OpenAI.APIError && error.status === 429) {
-            errorMessage = "OpenAI API quota exceeded.";
-        } else if (error instanceof Error) {
+        if (error instanceof Error) {
             errorMessage = error.message;
         }
         return {
@@ -79,33 +130,45 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export const dispatch = async (
     dispatchedExperts: ExpertDispatch[],
     prompt: string,
-    config: DispatchConfig,
+    images: ImageState[],
+    agentConfigs: AgentConfig[],
     onDraftComplete: (draft: Draft) => void
 ): Promise<Draft[]> => {
     const OPENAI_REQUEST_DELAY_MS = 250;
 
-    const expertsWithIndex = dispatchedExperts.map((expert, index) => ({ expert, index }));
-    const geminiExperts = expertsWithIndex.filter(e => e.expert.provider === 'gemini');
-    const openAIExperts = expertsWithIndex.filter(e => e.expert.provider === 'openai');
+    const expertsWithConfigs = dispatchedExperts.map((expert, index) => ({ 
+        expert, 
+        config: agentConfigs[index] 
+    }));
 
-    const draftResults: (Draft | Promise<Draft>)[] = new Array(dispatchedExperts.length);
+    const geminiExperts = expertsWithConfigs.filter(e => e.expert.provider === 'gemini');
+    const openAIExperts = expertsWithConfigs.filter(e => e.expert.provider === 'openai');
+
+    const draftPromises: Promise<Draft>[] = [];
 
     // Start all Gemini experts in parallel
-    geminiExperts.forEach(({ expert, index }) => {
-        const promise = runExpert(expert, prompt, config, index).then(draft => {
+    geminiExperts.forEach(({ expert, config }) => {
+        const promise = runExpert(expert, prompt, images, config).then(draft => {
             onDraftComplete(draft);
             return draft;
         });
-        draftResults[index] = promise;
+        draftPromises.push(promise);
     });
 
-    // Run all OpenAI experts sequentially with a delay to avoid rate limits
-    for (const { expert, index } of openAIExperts) {
-        const draft = await runExpert(expert, prompt, config, index);
-        onDraftComplete(draft);
-        draftResults[index] = draft;
-        await delay(OPENAI_REQUEST_DELAY_MS);
-    }
+    // Chain all OpenAI experts sequentially with a delay to avoid rate limits
+    let openAIPromiseChain = Promise.resolve();
+    openAIExperts.forEach(({ expert, config }) => {
+        openAIPromiseChain = openAIPromiseChain.then(async () => {
+            const promise = runExpert(expert, prompt, images, config).then(draft => {
+                onDraftComplete(draft);
+                return draft;
+            });
+            draftPromises.push(promise);
+            await delay(OPENAI_REQUEST_DELAY_MS);
+        });
+    });
     
-    return Promise.all(draftResults);
+    await openAIPromiseChain;
+
+    return Promise.all(draftPromises);
 };
