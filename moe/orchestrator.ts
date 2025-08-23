@@ -28,6 +28,7 @@ const ARBITER_TOKEN_THRESHOLD = 28_000;
 export const runOrchestration = async (params: OrchestrationParams, callbacks: OrchestrationCallbacks) => {
     // 1. Map AgentConfigs to ExpertDispatches (routing is now done by the user)
     const dispatchedExperts: ExpertDispatch[] = params.agentConfigs.map(config => ({
+        agentId: config.id,
         id: config.expert.id,
         name: config.expert.name,
         persona: config.expert.persona,

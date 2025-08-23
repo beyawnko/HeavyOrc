@@ -1,5 +1,3 @@
-
-
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import JSZip from 'jszip';
 import { motion, Variants } from 'framer-motion';
@@ -29,7 +27,7 @@ import { experts } from './moe/experts';
 import { runOrchestration } from './moe/orchestrator';
 import { Draft, ExpertDispatch } from './moe/types';
 import AgentCard from './components/AgentCard';
-import { SparklesIcon, CogIcon, DownloadIcon, ExclamationTriangleIcon } from './components/icons';
+import { SparklesIcon, CogIcon, DownloadIcon, ExclamationTriangleIcon, XMarkIcon } from './components/icons';
 import SettingsView from './components/SettingsView';
 import { setOpenAIApiKey as storeOpenAIApiKey } from './services/llmService';
 import CollapsibleSection from './components/CollapsibleSection';
@@ -65,6 +63,28 @@ const itemVariants: Variants = {
     },
 };
 
+const Toast: React.FC<{ message: string; type: 'success' | 'error'; onClose: () => void }> = ({ message, type, onClose }) => {
+    useEffect(() => {
+        const timer = setTimeout(onClose, 5000);
+        return () => clearTimeout(timer);
+    }, [onClose]);
+
+    const bgColor = type === 'success' ? 'bg-green-800/90' : 'bg-red-800/90';
+    const borderColor = type === 'success' ? 'border-green-600' : 'border-red-600';
+
+    return (
+        <div 
+            className={`fixed bottom-5 right-5 p-4 rounded-lg shadow-2xl text-white border ${borderColor} ${bgColor} z-50 animate-fade-in-up flex items-center gap-4`}
+            style={{ animationDuration: '0.3s' }}
+        >
+            <span>{message}</span>
+            <button onClick={onClose} className="p-1 rounded-full hover:bg-black/20" aria-label="Close notification">
+                <XMarkIcon className="w-5 h-5" />
+            </button>
+        </div>
+    );
+};
+
 const createDefaultAgentConfigs = (): AgentConfig[] => {
     const defaultExperts = experts.slice(0, 4);
     if (defaultExperts.length < 4) return [];
@@ -72,45 +92,79 @@ const createDefaultAgentConfigs = (): AgentConfig[] => {
     const configs: AgentConfig[] = [];
 
     configs.push({
-        id: `${defaultExperts[0].id}-${Date.now()}`,
+        id: crypto.randomUUID(),
         expert: defaultExperts[0],
         model: GEMINI_FLASH_MODEL,
         provider: 'gemini',
         status: 'PENDING',
-        settings: { effort: 'dynamic' }
+        settings: { 
+            effort: 'dynamic', 
+            generationStrategy: 'single', 
+            confidenceSource: 'judge',
+            traceCount: 8, 
+            deepConfEta: 90,
+            tau: 0.95,
+            groupWindow: 2048,
+        }
     } as GeminiAgentConfig);
     configs.push({
-        id: `${defaultExperts[1].id}-${Date.now()}`,
+        id: crypto.randomUUID(),
         expert: defaultExperts[1],
         model: GEMINI_FLASH_MODEL,
         provider: 'gemini',
         status: 'PENDING',
-        settings: { effort: 'dynamic' }
+        settings: { 
+            effort: 'dynamic', 
+            generationStrategy: 'single', 
+            confidenceSource: 'judge',
+            traceCount: 8, 
+            deepConfEta: 90,
+            tau: 0.95,
+            groupWindow: 2048,
+        }
     } as GeminiAgentConfig);
     
     configs.push({
-        id: `${defaultExperts[2].id}-${Date.now()}`,
+        id: crypto.randomUUID(),
         expert: defaultExperts[2],
         model: OPENAI_AGENT_MODEL,
         provider: 'openai',
         status: 'PENDING',
-        settings: { effort: 'medium', verbosity: 'medium' }
+        settings: { 
+            effort: 'medium', 
+            verbosity: 'medium', 
+            generationStrategy: 'single', 
+            confidenceSource: 'judge',
+            traceCount: 8, 
+            deepConfEta: 90,
+            tau: 0.95,
+            groupWindow: 2048,
+        }
     } as OpenAIAgentConfig);
     configs.push({
-        id: `${defaultExperts[3].id}-${Date.now()}`,
+        id: crypto.randomUUID(),
         expert: defaultExperts[3],
         model: OPENAI_AGENT_MODEL,
         provider: 'openai',
         status: 'PENDING',
-        settings: { effort: 'medium', verbosity: 'medium' }
+        settings: { 
+            effort: 'medium', 
+            verbosity: 'medium', 
+            generationStrategy: 'single', 
+            confidenceSource: 'judge',
+            traceCount: 8, 
+            deepConfEta: 90,
+            tau: 0.95,
+            groupWindow: 2048,
+        }
     } as OpenAIAgentConfig);
     
     return configs;
 };
 
 
-const mapDraftToAgentState = (draft: Draft, id: number): AgentState => ({
-    id,
+const mapDraftToAgentState = (draft: Draft): AgentState => ({
+    id: draft.agentId,
     name: draft.expert.name,
     persona: draft.expert.persona,
     status: draft.status,
@@ -147,6 +201,7 @@ const App: React.FC = () => {
     const [openAIApiKey, setOpenAIApiKey] = useState<string>('');
     const [isSettingsViewOpen, setIsSettingsViewOpen] = useState<boolean>(false);
     const [queryHistory, setQueryHistory] = useState<string[]>([]);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     
     // Refs for capturing state in async callbacks
     const finalAnswerRef = useRef(finalAnswer);
@@ -154,11 +209,36 @@ const App: React.FC = () => {
     const arbiterSwitchWarningRef = useRef(arbiterSwitchWarning);
     const errorRef = useRef(error);
     const animationFrameId = useRef<number | null>(null);
+    const isRunCompletedRef = useRef(false);
+    const currentRunDataRef = useRef<Pick<RunRecord, 'prompt' | 'images' | 'agentConfigs' | 'arbiterModel' | 'openAIArbiterVerbosity' | 'geminiArbiterEffort'> | undefined>(undefined);
 
     useEffect(() => { finalAnswerRef.current = finalAnswer; }, [finalAnswer]);
     useEffect(() => { agentsRef.current = agents; }, [agents]);
     useEffect(() => { arbiterSwitchWarningRef.current = arbiterSwitchWarning; }, [arbiterSwitchWarning]);
     useEffect(() => { errorRef.current = error; }, [error]);
+
+    useEffect(() => {
+        if (!isLoading && isRunCompletedRef.current) {
+            isRunCompletedRef.current = false; // Reset for next run
+
+            const finalStatus: RunStatus = errorRef.current ? 'FAILED' : 'COMPLETED';
+
+            if (currentRunDataRef.current) {
+                const newRun: RunRecord = {
+                    id: `${Date.now()}`,
+                    timestamp: Date.now(),
+                    ...currentRunDataRef.current,
+                    finalAnswer: finalAnswerRef.current,
+                    agents: agentsRef.current,
+                    status: finalStatus,
+                    arbiterSwitchWarning: arbiterSwitchWarningRef.current,
+                };
+                setHistory(prev => [newRun, ...prev]);
+                currentRunDataRef.current = undefined; // Clear after use
+            }
+        }
+    }, [isLoading]);
+
 
     useEffect(() => {
         const savedKey = localStorage.getItem(OPENAI_API_KEY_STORAGE_KEY);
@@ -203,7 +283,8 @@ const App: React.FC = () => {
         setAgents([]);
         setArbiterSwitchWarning(null);
         
-        let runDataForHistory: Pick<RunRecord, 'prompt' | 'images' | 'agentConfigs' | 'arbiterModel' | 'openAIArbiterVerbosity' | 'geminiArbiterEffort'> = {
+        isRunCompletedRef.current = false;
+        currentRunDataRef.current = {
             prompt: finalPrompt,
             images,
             agentConfigs,
@@ -214,8 +295,8 @@ const App: React.FC = () => {
         
         try {
             const onInitialAgents = (dispatchedExperts: ExpertDispatch[]) => {
-                const initialAgents = dispatchedExperts.map((expert, i): AgentState => ({
-                    id: i,
+                const initialAgents = dispatchedExperts.map((expert): AgentState => ({
+                    id: expert.agentId,
                     name: expert.name,
                     persona: expert.persona,
                     status: 'RUNNING',
@@ -230,15 +311,15 @@ const App: React.FC = () => {
 
             const onDraftUpdate = (completedDraft: Draft) => {
                 setAgents(prev => {
-                    const agentIndex = prev.findIndex(a => a.persona === completedDraft.expert.persona);
+                    const agentIndex = prev.findIndex(a => a.id === completedDraft.agentId);
                     if (agentIndex > -1) {
-                        const updatedAgent = mapDraftToAgentState(completedDraft, agentIndex);
+                        const updatedAgent = mapDraftToAgentState(completedDraft);
                         return prev.map((a, i) => (i === agentIndex ? updatedAgent : a));
                     }
                     return prev;
                 });
                 setAgentConfigs(configs => configs.map(c => 
-                    c.expert.id === completedDraft.expert.id ? {...c, status: completedDraft.status } : c
+                    c.id === completedDraft.agentId ? {...c, status: completedDraft.status } : c
                 ));
             };
 
@@ -293,20 +374,7 @@ const App: React.FC = () => {
         } finally {
             setIsLoading(false);
             setIsArbiterRunning(false);
-            
-            const finalStatus: RunStatus = errorRef.current ? 'FAILED' : 'COMPLETED';
-
-            // Save the completed run to history
-            const newRun: RunRecord = {
-                id: `${Date.now()}`,
-                timestamp: Date.now(),
-                ...runDataForHistory,
-                finalAnswer: finalAnswerRef.current,
-                agents: agentsRef.current,
-                status: finalStatus,
-                arbiterSwitchWarning: arbiterSwitchWarningRef.current,
-            };
-            setHistory(prev => [newRun, ...prev]);
+            isRunCompletedRef.current = true;
         }
     }, [prompt, images, isLoading, agentConfigs, arbiterModel, openAIArbiterVerbosity, geminiArbiterEffort, openAIAgentCount, openAIApiKey, queryHistory, selectedRunId]);
     
@@ -344,7 +412,7 @@ const App: React.FC = () => {
 
             const newConfig = {
                 ...sourceConfig,
-                id: `${sourceConfig.expert.id}-${Date.now()}`,
+                id: crypto.randomUUID(),
                 status: 'PENDING' as const,
             };
 
@@ -432,9 +500,9 @@ const App: React.FC = () => {
             zip.file(`${baseFilename}-final-answer.md`, fileContent);
         }
 
-        successfulDrafts.forEach(agent => {
-            const fileContent = `# Prompt\n\n${dataToSave.prompt}\n\n---\n\n# Agent ${agent.id + 1} (${agent.provider}, ${agent.name})\n\n${agent.content}`;
-            const agentFilename = `${baseFilename}-agent-${agent.id + 1}-${agent.name.toLowerCase().replace(/\s+/g, '-')}.md`;
+        successfulDrafts.forEach((agent, index) => {
+            const fileContent = `# Prompt\n\n${dataToSave.prompt}\n\n---\n\n# Agent ${index + 1} (${agent.provider}, ${agent.name})\n\n${agent.content}`;
+            const agentFilename = `${baseFilename}-agent-${index + 1}-${agent.name.toLowerCase().replace(/\s+/g, '-')}.md`;
             zip.file(agentFilename, fileContent);
         });
 
@@ -491,7 +559,7 @@ const App: React.FC = () => {
             URL.revokeObjectURL(url);
         } catch (e) {
             console.error("Failed to save session:", e);
-            alert("An error occurred while trying to save the session.");
+            setToast({ message: "An error occurred while trying to save the session.", type: 'error' });
         }
     }, [prompt, agentConfigs, arbiterModel, openAIArbiterVerbosity, geminiArbiterEffort, openAIApiKey, queryHistory]);
     
@@ -507,7 +575,7 @@ const App: React.FC = () => {
                 const data = JSON.parse(jsonString) as SessionData;
 
                 if (data.version !== SESSION_DATA_VERSION) {
-                    alert(`This session file is from a different version (v${data.version}) and cannot be loaded.`);
+                    setToast({ message: `This session file is from a different version (v${data.version}) and cannot be loaded.`, type: 'error' });
                     return;
                 }
 
@@ -522,7 +590,7 @@ const App: React.FC = () => {
                         return null;
                     }
                     const baseConfig = {
-                        id: `${expert.id}-${Date.now()}`,
+                        id: crypto.randomUUID(),
                         expert,
                         model: savedConfig.model,
                         provider: savedConfig.provider,
@@ -545,17 +613,17 @@ const App: React.FC = () => {
                 setQueryHistory(data.queryHistory ?? []);
                 
                 setIsSettingsViewOpen(false);
-                alert("Session loaded successfully!");
+                setToast({ message: "Session loaded successfully!", type: 'success' });
 
             } catch (e) {
                 console.error("Failed to load session:", e);
                 const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
-                alert(`Error loading session file: ${errorMessage}`);
+                setToast({ message: `Error loading session file: ${errorMessage}`, type: 'error' });
             }
         };
 
         reader.onerror = () => {
-            alert("Failed to read the session file.");
+            setToast({ message: "Failed to read the session file.", type: 'error' });
         };
 
         reader.readAsText(file);
@@ -586,6 +654,7 @@ const App: React.FC = () => {
                 currentRunStatus={currentRunStatus}
             />
             <div className="flex-1 flex flex-col h-screen">
+                {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
                  <SettingsView
                     isOpen={isSettingsViewOpen}
                     onClose={() => setIsSettingsViewOpen(false)}
@@ -678,12 +747,12 @@ const App: React.FC = () => {
                                                     className="grid-adaptive-cols gap-4 pt-4"
                                                     variants={containerVariants}
                                                 >
-                                                    {displayData.agents.map((agent) => (
+                                                    {displayData.agents.map((agent, index) => (
                                                         <motion.div
                                                             key={agent.id}
                                                             variants={itemVariants}
                                                         >
-                                                            <AgentCard agent={agent} />
+                                                            <AgentCard agent={agent} displayId={index + 1} />
                                                         </motion.div>
                                                     ))}
                                                 </motion.div>
@@ -758,10 +827,10 @@ const ArbiterSettings: React.FC<{
     setGeminiArbiterEffort: (effort: GeminiThinkingEffort) => void;
     isLoading: boolean;
 }> = ({ arbiterModel, setArbiterModel, openAIArbiterVerbosity, setOpenAIArbiterVerbosity, geminiArbiterEffort, setGeminiArbiterEffort, isLoading }) => {
-    const arbiterModelOptions: { label: string; value: ArbiterModel; tooltip: string }[] = [
-        { label: 'Gemini 2.5 Pro', value: GEMINI_PRO_MODEL, tooltip: 'Google\'s most capable model, with a large context window and strong reasoning. Recommended for complex synthesis.' },
-        { label: 'GPT-5 (Med)', value: OPENAI_ARBITER_GPT5_MEDIUM_REASONING, tooltip: 'OpenAI\'s powerful GPT-5 model with standard reasoning. A strong, balanced choice for arbitration.' },
-        { label: 'GPT-5 (High)', value: OPENAI_ARBITER_GPT5_HIGH_REASONING, tooltip: 'GPT-5 with enhanced, step-by-step reasoning. May produce higher quality synthesis for nuanced topics at a higher latency.' }
+    const arbiterModelOptions: { label: string; value: ArbiterModel; provider: 'gemini' | 'openai'; tooltip: string }[] = [
+        { label: 'Gemini 2.5 Pro', value: GEMINI_PRO_MODEL, provider: 'gemini', tooltip: 'Google\'s most capable model, with a large context window and strong reasoning. Recommended for complex synthesis.' },
+        { label: 'GPT-5 (Med)', value: OPENAI_ARBITER_GPT5_MEDIUM_REASONING, provider: 'openai', tooltip: 'OpenAI\'s powerful GPT-5 model with standard reasoning. A strong, balanced choice for arbitration.' },
+        { label: 'GPT-5 (High)', value: OPENAI_ARBITER_GPT5_HIGH_REASONING, provider: 'openai', tooltip: 'GPT-5 with enhanced, step-by-step reasoning. May produce higher quality synthesis for nuanced topics at a higher latency.' }
     ];
     const openAIVerbosityOptions: { label: string; value: OpenAIVerbosity }[] = [
         { label: 'Low', value: 'low' },
@@ -774,6 +843,8 @@ const ArbiterSettings: React.FC<{
         { label: 'Medium', value: 'medium' },
         { label: 'Low', value: 'low' },
     ];
+    
+    const selectedModelOption = arbiterModelOptions.find(opt => opt.value === arbiterModel);
 
     return (
         <>
@@ -787,7 +858,7 @@ const ArbiterSettings: React.FC<{
                     disabled={isLoading}
                 />
             </div>
-            {arbiterModel.startsWith('gpt-') ? (
+            {selectedModelOption?.provider === 'openai' ? (
                 <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Arbiter Verbosity</label>
                     <SegmentedControl
@@ -805,7 +876,7 @@ const ArbiterSettings: React.FC<{
                         aria-label="Arbiter Thinking Effort"
                         options={geminiEffortOptions.filter(o => o.value !== 'none')}
                         value={geminiArbiterEffort}
-                        onChange={(v) => setGeminiArbiterEffort(v as GeminiThinkingEffort)}
+                        onChange={setGeminiArbiterEffort}
                         disabled={isLoading}
                     />
                 </div>

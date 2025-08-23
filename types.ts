@@ -1,5 +1,3 @@
-
-
 import { Expert } from './moe/types';
 import { 
     GEMINI_FLASH_MODEL, 
@@ -13,7 +11,7 @@ export type ApiProvider = 'gemini' | 'openai';
 export type AgentStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'QUEUED';
 
 export interface AgentState {
-  id: number;
+  id: string;
   name: string;
   persona: string;
   status: AgentStatus;
@@ -35,14 +33,27 @@ export type OpenAIModel = typeof OPENAI_AGENT_MODEL;
 export type AgentModel = GeminiModel | OpenAIModel;
 
 export type GeminiThinkingEffort = 'dynamic' | 'high' | 'medium' | 'low' | 'none';
+export type GenerationStrategy = 'single' | 'deepconf-offline' | 'deepconf-online';
 
 export interface GeminiAgentSettings {
     effort: GeminiThinkingEffort;
+    generationStrategy: GenerationStrategy;
+    confidenceSource: 'judge';
+    traceCount: number;
+    deepConfEta: 10 | 90;
+    tau: number;
+    groupWindow: number;
 }
 
 export interface OpenAIAgentSettings {
     effort: 'medium' | 'high';
     verbosity: 'low' | 'medium' | 'high';
+    generationStrategy: GenerationStrategy;
+    confidenceSource: 'judge';
+    traceCount: number;
+    deepConfEta: 10 | 90;
+    tau: number;
+    groupWindow: number;
 }
 
 export interface BaseAgentConfig {

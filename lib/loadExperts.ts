@@ -4,25 +4,27 @@ import { Expert } from '../moe/types';
  * Normalize various shapes to a consistent Expert object.
  * Accepts keys like id|key|slug|uuid and name|title|label.
  */
-function normalizeExpert(raw: any): Expert | null {
-  if (!raw || typeof raw !== 'object') return null;
+function normalizeExpert(raw: unknown): Expert | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  
+  const rawObj = raw as Record<string, unknown>;
 
   const id =
-    raw.id ??
-    raw.key ??
-    raw.slug ??
-    raw.uuid ??
-    (typeof raw.name === 'string' ? raw.name.toLowerCase().replace(/\s+/g, '-') : null) ??
+    rawObj.id ??
+    rawObj.key ??
+    rawObj.slug ??
+    rawObj.uuid ??
+    (typeof rawObj.name === 'string' ? rawObj.name.toLowerCase().replace(/\s+/g, '-') : null) ??
     null;
 
   const name =
-    raw.name ??
-    raw.title ??
-    raw.label ??
-    (typeof raw.id === 'string' ? raw.id : null) ??
+    rawObj.name ??
+    rawObj.title ??
+    rawObj.label ??
+    (typeof rawObj.id === 'string' ? rawObj.id : null) ??
     null;
     
-  const persona = raw.persona;
+  const persona = rawObj.persona;
 
   if (typeof id !== 'string' || typeof name !== 'string' || typeof persona !== 'string' || !persona) {
     return null;
@@ -45,7 +47,7 @@ export async function loadExperts(): Promise<Expert[]> {
   }
   
   const json = await response.json();
-  const arr = Array.isArray(json) ? json : (json && Array.isArray(json.experts) ? json.experts : []);
+  const arr: unknown[] = Array.isArray(json) ? json : (json && Array.isArray(json.experts) ? json.experts : []);
 
   const experts: Expert[] = [];
   for (const raw of arr) {

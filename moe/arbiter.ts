@@ -1,5 +1,6 @@
 
-import { OpenAI } from 'openai';
+
+import OpenAI from 'openai';
 import { Draft } from './types';
 import { geminiAI, getOpenAIClient } from '../services/llmService';
 import {
@@ -11,9 +12,9 @@ import {
 } from '../constants';
 import { GeminiThinkingEffort } from '../types';
 
-const GEMINI_PRO_BUDGETS: Record<Exclude<GeminiThinkingEffort, 'none'>, number> = {
-    low: 4096,
-    medium: 16384,
+const GEMINI_PRO_BUDGETS: Record<Extract<GeminiThinkingEffort, 'low' | 'medium' | 'high' | 'dynamic'>, number> = {
+    low: 8192,
+    medium: 24576,
     high: 32768,
     dynamic: -1,
 };
@@ -37,24 +38,25 @@ export const arbitrateStream = async (
     
     if (arbiterModel.startsWith('gpt-')) {
         const openaiAI = getOpenAIClient();
-        const systemPersona = arbiterModel === OPENAI_ARBITER_GPT5_HIGH_REASONING 
+        let systemPersona = arbiterModel === OPENAI_ARBITER_GPT5_HIGH_REASONING 
             ? ARBITER_PERSONA + ARBITER_HIGH_REASONING_PROMPT_MODIFIER
             : ARBITER_PERSONA;
         
-        const instructions = `${systemPersona}\nYour final synthesized response should have a verbosity level of: ${arbiterVerbosity}.`;
+        systemPersona += `\nYour final synthesized response should have a verbosity level of: ${arbiterVerbosity}.`;
 
         try {
-            const stream: any = await openaiAI.responses.create({
+            const stream = await openaiAI.chat.completions.create({
                 model: OPENAI_ARBITER_MODEL,
-                instructions: instructions,
-                input: arbiterPrompt,
+                messages: [
+                    { role: 'system', content: systemPersona },
+                    { role: 'user', content: arbiterPrompt }
+                ],
                 stream: true,
             });
 
             async function* transformStream(): AsyncGenerator<{ text: string }> {
                 for await (const chunk of stream) {
-                    // Based on error analysis, the streaming chunk's text appears in `output_text`.
-                    const content = chunk.output_text || '';
+                    const content = chunk.choices[0]?.delta?.content || '';
                     if (content) {
                         yield { text: content };
                     }
@@ -63,7 +65,7 @@ export const arbitrateStream = async (
             return transformStream();
 
         } catch (error) {
-            console.error("Error calling the OpenAI Responses API for arbiter:", error);
+            console.error("Error calling the OpenAI API for arbiter:", error);
             if (error instanceof OpenAI.APIError) {
                  // Propagate the specific error from OpenAI, which includes rate limit details.
                  throw new Error(error.message);
@@ -76,17 +78,23 @@ export const arbitrateStream = async (
     }
     
     // Gemini Logic for the arbiter.
-    const budget = geminiArbiterEffort === 'none' 
-        ? -1 // Default to dynamic for Pro model if 'none' is somehow passed
-        : GEMINI_PRO_BUDGETS[geminiArbiterEffort as Exclude<GeminiThinkingEffort, 'none'>];
-    const thinkingConfig = { thinkingBudget: budget };
+    // 'none' is not valid for Pro model arbiter. Fallback to dynamic if it's somehow passed.
+    const effortForPro = geminiArbiterEffort === 'none' ? 'dynamic' : geminiArbiterEffort;
+    const budget = GEMINI_PRO_BUDGETS[effortForPro];
 
-    return geminiAI.models.generateContentStream({
+    const stream = await geminiAI.models.generateContentStream({
         model: GEMINI_PRO_MODEL, // Arbiter always uses the Pro model for Gemini
-        contents: arbiterPrompt,
+        contents: { parts: [{ text: arbiterPrompt }] },
         config: {
             systemInstruction: ARBITER_PERSONA,
-            thinkingConfig
+            thinkingConfig: { thinkingBudget: budget },
         }
     });
+
+    async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
+        for await (const chunk of stream) {
+            yield { text: chunk.text };
+        }
+    }
+    return transformGeminiStream();
 };

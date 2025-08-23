@@ -1,11 +1,23 @@
-
-
-import { OpenAI } from 'openai';
+import OpenAI from 'openai';
+import { GenerateContentParameters, Part } from "@google/genai";
 import { Draft, ExpertDispatch } from './types';
 import { geminiAI, getOpenAIClient } from '../services/llmService';
-import { GEMINI_PRO_MODEL } from '../constants';
+import { GEMINI_PRO_MODEL, GEMINI_FLASH_MODEL, OPENAI_REASONING_PROMPT_PREFIX } from '../constants';
 import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort } from '../types';
+import { 
+    Trace, 
+    DEFAULTS, 
+    deepConfOnlineWithJudge, 
+    deepConfOfflineWithJudge, 
+    TraceProvider 
+} from '../services/deepconf';
 
+const GEMINI_PRO_BUDGETS: Record<Extract<GeminiThinkingEffort, 'low' | 'medium' | 'high' | 'dynamic'>, number> = {
+    low: 8192,
+    medium: 24576,
+    high: 32768,
+    dynamic: -1,
+};
 
 const GEMINI_FLASH_BUDGETS: Record<Extract<GeminiThinkingEffort, 'none' | 'low' | 'medium' | 'high' | 'dynamic'>, number> = {
     none: 0,
@@ -15,12 +27,169 @@ const GEMINI_FLASH_BUDGETS: Record<Extract<GeminiThinkingEffort, 'none' | 'low' 
     dynamic: -1,
 };
 
-const GEMINI_PRO_BUDGETS: Record<Exclude<GeminiThinkingEffort, 'none'>, number> = {
-    low: 4096,
-    medium: 16384,
-    high: 32768,
-    dynamic: -1,
+const runExpertGeminiSingle = async (
+    expert: ExpertDispatch,
+    prompt: string,
+    images: ImageState[],
+    config: GeminiAgentConfig
+): Promise<string> => {
+    const parts: Part[] = [{ text: prompt }];
+    images.forEach(img => {
+        parts.push({
+            inlineData: {
+                mimeType: img.file.type,
+                data: img.base64,
+            },
+        });
+    });
+
+    const generateContentParams: GenerateContentParameters = {
+        model: expert.model,
+        contents: { parts },
+        config: {
+            systemInstruction: expert.persona,
+            temperature: 0.5 + Math.random() * 0.2, // Add some randomness
+        }
+    };
+
+    // Apply thinking config for both Flash and Pro models based on the agent's settings.
+    if (config.model === GEMINI_FLASH_MODEL) {
+        const budget = GEMINI_FLASH_BUDGETS[config.settings.effort];
+        if (generateContentParams.config) generateContentParams.config.thinkingConfig = { thinkingBudget: budget };
+    } else if (config.model === GEMINI_PRO_MODEL) {
+        // 'none' is not a valid effort for Pro, so we map it to 'dynamic' as a safe default.
+        const effortForPro = config.settings.effort === 'none' 
+            ? 'dynamic' 
+            : config.settings.effort;
+        const budget = GEMINI_PRO_BUDGETS[effortForPro];
+        if (generateContentParams.config) generateContentParams.config.thinkingConfig = { thinkingBudget: budget };
+    }
+
+    const response = await geminiAI.models.generateContent(generateContentParams);
+    return response.text;
+}
+
+const runExpertGeminiDeepConf = async (
+    expert: ExpertDispatch,
+    prompt: string,
+    images: ImageState[],
+    config: GeminiAgentConfig
+): Promise<string> => {
+    const { generationStrategy, traceCount, deepConfEta, tau, groupWindow } = config.settings;
+    
+    const createProvider = (): TraceProvider => {
+        return {
+            generate: async (p, abortSignal) => { // p is the prompt string
+                // Note: abortSignal is not used by gemini generateContent, but we keep it for API consistency
+                const text = await runExpertGeminiSingle(expert, p, images, config);
+                // Gemini API doesn't give us steps/tokens, so we create a mock Trace
+                const trace: Trace = {
+                    text,
+                    steps: text.split('').map(char => ({ token: char, topK: [] })), // Mock steps
+                };
+                return trace;
+            }
+        };
+    };
+
+    const extractAnswer = (trace: Trace) => trace.text.trim();
+
+    const opts = {
+        etaPercent: deepConfEta,
+        maxBudget: traceCount,
+        warmupTraces: Math.min(traceCount, DEFAULTS.warmupTraces),
+        tau,
+        groupWindow,
+    };
+
+    if (generationStrategy === 'deepconf-online') {
+        const { content } = await deepConfOnlineWithJudge(createProvider(), prompt, extractAnswer, config.model, opts);
+        return content;
+    } else { // deepconf-offline
+        const { content } = await deepConfOfflineWithJudge(createProvider(), prompt, extractAnswer, config.model, opts);
+        return content;
+    }
+}
+
+const runExpertOpenAISingle = async (
+    expert: ExpertDispatch,
+    prompt: string,
+    images: ImageState[],
+    config: OpenAIAgentConfig
+): Promise<string> => {
+    const openaiAI = getOpenAIClient();
+    
+    let systemMessage = expert.persona;
+    systemMessage += `\nYour response verbosity should be ${config.settings.verbosity}.`;
+    if (config.settings.effort === 'high') {
+        systemMessage = OPENAI_REASONING_PROMPT_PREFIX + systemMessage;
+    }
+
+    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [{ role: 'system', content: systemMessage }];
+
+    if (images.length > 0) {
+        const userContent: OpenAI.Chat.ChatCompletionContentPart[] = [{ type: 'text', text: prompt }];
+        images.forEach(img => {
+            userContent.push({
+                type: 'image_url',
+                image_url: { url: `data:${img.file.type};base64,${img.base64}` },
+            });
+        });
+        messages.push({ role: 'user', content: userContent });
+    } else {
+        messages.push({ role: 'user', content: prompt });
+    }
+
+    const completion = await openaiAI.chat.completions.create({
+        model: expert.model,
+        messages: messages,
+    });
+    return completion.choices[0].message.content || 'No content received.';
+}
+
+const runExpertOpenAIDeepConf = async (
+    expert: ExpertDispatch,
+    prompt: string,
+    images: ImageState[],
+    config: OpenAIAgentConfig
+): Promise<string> => {
+    const { generationStrategy, traceCount, deepConfEta, tau, groupWindow } = config.settings;
+    
+    const createProvider = (): TraceProvider => {
+        return {
+            generate: async (p, abortSignal) => { // p is the prompt string
+                // Since logprobs are not available, we generate the full text and mock the trace.
+                const text = await runExpertOpenAISingle(expert, p, images, config);
+                // Mock Trace for judge-based DeepConf
+                const trace: Trace = {
+                    text,
+                    steps: text.split('').map(char => ({ token: char, topK: [] })), // Mock steps
+                };
+                return trace;
+            }
+        };
+    };
+
+    const extractAnswer = (trace: Trace) => trace.text.trim();
+    
+    const opts = {
+        etaPercent: deepConfEta,
+        maxBudget: traceCount,
+        warmupTraces: Math.min(traceCount, DEFAULTS.warmupTraces),
+        tau,
+        groupWindow,
+    };
+
+    // Use judge-based DeepConf for OpenAI, similar to Gemini, as logprobs are not available.
+    if (generationStrategy === 'deepconf-online') {
+        const { content } = await deepConfOnlineWithJudge(createProvider(), prompt, extractAnswer, config.model, opts);
+        return content;
+    } else { // deepconf-offline
+        const { content } = await deepConfOfflineWithJudge(createProvider(), prompt, extractAnswer, config.model, opts);
+        return content;
+    }
 };
+
 
 const runExpert = async (
     expert: ExpertDispatch,
@@ -30,81 +199,25 @@ const runExpert = async (
 ): Promise<Draft> => {
     try {
         let content = '';
+
         if (config.provider === 'gemini') {
             const geminiConfig = config as GeminiAgentConfig;
-            const isProModel = geminiConfig.model === GEMINI_PRO_MODEL;
-            let budget: number;
-
-            if (isProModel) {
-                if (geminiConfig.settings.effort === 'none') {
-                    console.warn(`Attempted to use 'none' effort for Gemini Pro agent ${config.id}, which is not supported. Defaulting to 'dynamic'.`);
-                    budget = -1;
-                } else {
-                    budget = GEMINI_PRO_BUDGETS[geminiConfig.settings.effort as Exclude<GeminiThinkingEffort, 'none'>];
-                }
-            } else { // Flash model
-                budget = GEMINI_FLASH_BUDGETS[geminiConfig.settings.effort];
+            if (geminiConfig.settings.generationStrategy === 'single') {
+                content = await runExpertGeminiSingle(expert, prompt, images, geminiConfig);
+            } else {
+                content = await runExpertGeminiDeepConf(expert, prompt, images, geminiConfig);
             }
-            
-            const thinkingConfig = { thinkingBudget: budget };
-
-            const parts: any[] = [{ text: prompt }];
-            images.forEach(img => {
-                parts.push({
-                    inlineData: {
-                        mimeType: img.file.type,
-                        data: img.base64,
-                    },
-                });
-            });
-
-            const response = await geminiAI.models.generateContent({
-                model: expert.model,
-                contents: { parts },
-                config: {
-                    systemInstruction: expert.persona,
-                    temperature: 0.5 + Math.random() * 0.2, // Add some randomness
-                    thinkingConfig,
-                }
-            });
-            content = response.text;
         } else { // openai
             const openaiConfig = config as OpenAIAgentConfig;
-            const openaiAI = getOpenAIClient();
-            
-            let instructions = expert.persona;
-            instructions += `\nYour response verbosity should be ${openaiConfig.settings.verbosity}.`;
-
-            let inputPayload: string | any[];
-
-            if (images.length > 0) {
-                const userContentParts: any[] = [{ type: 'input_text', text: prompt }];
-                images.forEach(img => {
-                    userContentParts.push({
-                        type: 'input_image',
-                        image_url: `data:${img.file.type};base64,${img.base64}`,
-                    });
-                });
-                
-                inputPayload = [{ role: 'user', content: userContentParts }];
+            if (openaiConfig.settings.generationStrategy === 'single') {
+                content = await runExpertOpenAISingle(expert, prompt, images, openaiConfig);
             } else {
-                inputPayload = prompt;
+                content = await runExpertOpenAIDeepConf(expert, prompt, images, openaiConfig);
             }
-
-            // The type for response is unknown from the provided docs, so we cast to any.
-            // Based on error analysis, the text content appears in `output_text`.
-            const completion: any = await openaiAI.responses.create({
-                model: expert.model,
-                instructions: instructions,
-                input: inputPayload,
-                reasoning: {
-                    effort: openaiConfig.settings.effort
-                }
-            });
-            content = completion.output_text || 'No content received.';
         }
 
         return {
+            agentId: expert.agentId,
             expert,
             content,
             status: 'COMPLETED',
@@ -115,8 +228,11 @@ const runExpert = async (
         let errorMessage = "An unknown error occurred";
         if (error instanceof Error) {
             errorMessage = error.message;
+        } else if (typeof error === 'string') {
+            errorMessage = error;
         }
         return {
+            agentId: expert.agentId,
             expert,
             content: "This agent failed to generate a response.",
             status: 'FAILED',
@@ -136,10 +252,10 @@ export const dispatch = async (
 ): Promise<Draft[]> => {
     const OPENAI_REQUEST_DELAY_MS = 250;
 
-    const expertsWithConfigs = dispatchedExperts.map((expert, index) => ({ 
+    const expertsWithConfigs = dispatchedExperts.map((expert) => ({ 
         expert, 
-        config: agentConfigs[index] 
-    }));
+        config: agentConfigs.find(c => c.id === expert.agentId)
+    })).filter((item): item is { expert: ExpertDispatch, config: AgentConfig } => item.config !== undefined);
 
     const geminiExperts = expertsWithConfigs.filter(e => e.expert.provider === 'gemini');
     const openAIExperts = expertsWithConfigs.filter(e => e.expert.provider === 'openai');
@@ -164,7 +280,9 @@ export const dispatch = async (
                 return draft;
             });
             draftPromises.push(promise);
-            await delay(OPENAI_REQUEST_DELAY_MS);
+            if (config.settings.generationStrategy === 'single') {
+                 await delay(OPENAI_REQUEST_DELAY_MS);
+            }
         });
     });
     

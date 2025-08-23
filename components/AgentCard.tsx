@@ -12,6 +12,7 @@ import {
 
 interface AgentCardProps {
   agent: AgentState;
+  displayId: number;
 }
 
 const getStatusIndicator = (status: AgentStatus): React.ReactNode => {
@@ -42,9 +43,8 @@ const getBorderColor = (status: AgentStatus): string => {
     }
 }
 
-const AgentCard: React.FC<AgentCardProps> = ({ agent }) => {
+const AgentCard: React.FC<AgentCardProps> = ({ agent, displayId }) => {
   const { persona, status, content, provider } = agent;
-  const displayId = agent.id + 1;
   const contentId = useId();
 
   const isCollapsible = status === 'COMPLETED' || status === 'FAILED';

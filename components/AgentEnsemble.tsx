@@ -20,13 +20,19 @@ const AgentEnsemble: React.FC<AgentEnsembleProps> = ({ agentConfigs, setAgentCon
 
     const handleAddAgent = (expert: Expert) => {
         const newAgent: GeminiAgentConfig = {
-            id: `${expert.id}-${Date.now()}`,
+            id: crypto.randomUUID(),
             expert: expert,
             model: 'gemini-2.5-flash',
             provider: 'gemini',
             status: 'PENDING',
             settings: {
                 effort: 'dynamic',
+                generationStrategy: 'single',
+                confidenceSource: 'judge',
+                traceCount: 8,
+                deepConfEta: 90,
+                tau: 0.95,
+                groupWindow: 2048,
             },
         };
         setAgentConfigs(prev => [...prev, newAgent]);
