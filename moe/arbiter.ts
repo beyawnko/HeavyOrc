@@ -1,7 +1,6 @@
 import OpenAI from 'openai';
 import { Draft } from './types';
 import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '../services/llmService';
-import { GenerateContentResponse } from '@google/genai';
 import { extractGeminiText } from '../lib/gemini';
 import {
     ARBITER_PERSONA,
@@ -150,7 +149,7 @@ export const arbitrateStream = async (
     const budget = GEMINI_PRO_BUDGETS[effortForPro];
 
     const geminiAI = getGeminiClient();
-    const rawResult = await geminiAI.models.generateContentStream({
+    const { stream } = await geminiAI.models.generateContentStream({
         model: GEMINI_PRO_MODEL, // Arbiter always uses the Pro model for Gemini
         contents: { parts: [{ text: arbiterPrompt }] },
         config: {
@@ -158,20 +157,6 @@ export const arbitrateStream = async (
             thinkingConfig: { thinkingBudget: budget },
         }
     });
-
-    let streamSource: unknown;
-    if (rawResult && typeof rawResult === 'object' && 'stream' in rawResult) {
-        streamSource = (rawResult as { stream: AsyncIterable<GenerateContentResponse> }).stream;
-    } else {
-        streamSource = rawResult;
-    }
-
-    let stream: AsyncIterable<GenerateContentResponse>;
-    if (streamSource && typeof streamSource === 'object' && Symbol.asyncIterator in streamSource) {
-        stream = streamSource as AsyncIterable<GenerateContentResponse>;
-    } else {
-        stream = (async function* () { /* empty */ })();
-    }
 
     async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
         for await (const chunk of stream) {
