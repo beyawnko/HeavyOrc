@@ -173,12 +173,14 @@ export const arbitrateStream = async (
         console.error("Error calling the Gemini API for arbiter:", error);
         if (error instanceof ApiError) {
             throw new Error(`Gemini API Error: ${error.message}`);
+        } else if (error instanceof Error) {
+            throw new Error(
+                `An error occurred with the Gemini Arbiter: ${error.message}`
+            );
+        } else {
+            throw new Error(
+                `An unknown error occurred while communicating with the Gemini model for arbitration.`
+            );
         }
-        if (error instanceof Error) {
-            throw new Error(`An error occurred with the Gemini Arbiter: ${error.message}`);
-        }
-        throw new Error(
-            `An unknown error occurred while communicating with the Gemini model for arbitration.`
-        );
     }
 };
