@@ -200,7 +200,9 @@ const runExpertOpenRouterSingle = async (
     const openRouterKey = getOpenRouterApiKey();
     if (!openRouterKey) throw new Error("OpenRouter API Key not set.");
 
-    const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const appUrl = typeof window !== 'undefined'
+        ? window.location.origin
+        : import.meta.env.VITE_APP_URL ?? '';
     const headers = {
         'Authorization': `Bearer ${openRouterKey}`,
         'Content-Type': 'application/json',

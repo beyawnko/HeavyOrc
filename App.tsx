@@ -712,7 +712,7 @@ const App: React.FC = () => {
                 <div className="flex-1 overflow-y-auto">
                     <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <header className="text-center py-8 relative">
-                            <img src="./assets/banner.png" alt="HeavyOrc banner" className="mx-auto mb-4 w-full max-w-2xl" />
+                            <img src="./assets/banner.svg" alt="HeavyOrc banner" className="mx-auto mb-4 w-full max-w-2xl" />
                             <h1 className="text-4xl sm:text-5xl font-bold text-gray-100 flex items-center justify-center gap-3">
                                 <ShieldCheckIcon className="w-10 h-10 text-emerald-400" />
                                 HeavyOrc
