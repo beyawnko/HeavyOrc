@@ -163,10 +163,12 @@ export const arbitrateStream = async (
         ? (rawResult as { stream: AsyncIterable<GenerateContentResponse> }).stream
         : rawResult;
 
-    const stream: AsyncIterable<GenerateContentResponse> =
-        streamSource && typeof streamSource === 'object' && Symbol.asyncIterator in streamSource
-            ? streamSource as AsyncIterable<GenerateContentResponse>
-            : (async function* () { /* empty */ })();
+    let stream: AsyncIterable<GenerateContentResponse>;
+    if (streamSource && typeof streamSource === 'object' && Symbol.asyncIterator in streamSource) {
+        stream = streamSource as AsyncIterable<GenerateContentResponse>;
+    } else {
+        stream = (async function* () { /* empty */ })();
+    }
 
     async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
         for await (const chunk of stream) {
