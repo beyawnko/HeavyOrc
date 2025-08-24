@@ -54,6 +54,18 @@ async function* openRouterStreamer(stream: ReadableStream<Uint8Array>): AsyncGen
     }
 }
 
+async function* transformLLMStream<T>(
+    stream: AsyncIterable<T>,
+    extract: (chunk: T) => string | undefined | null,
+): AsyncGenerator<{ text: string }> {
+    for await (const chunk of stream) {
+        const content = extract(chunk);
+        if (content) {
+            yield { text: content };
+        }
+    }
+}
+
 
 export const arbitrateStream = async (
     arbiterModel: string,
@@ -122,16 +134,7 @@ export const arbitrateStream = async (
                 reasoning: { effort },
                 stream: true,
             });
-
-            async function* transformStream(): AsyncGenerator<{ text: string }> {
-                for await (const chunk of stream) {
-                    const content = chunk.text || '';
-                    if (content) {
-                        yield { text: content };
-                    }
-                }
-            }
-            return transformStream();
+            return transformLLMStream(stream, (chunk: any) => chunk.text || '');
 
         } catch (error) {
             console.error("Error calling the OpenAI API for arbiter:", error);
@@ -159,16 +162,7 @@ export const arbitrateStream = async (
                 thinkingConfig: { thinkingBudget: budget },
             }
         });
-
-        async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
-            for await (const chunk of stream) {
-                const content = extractGeminiText(chunk);
-                if (content) {
-                    yield { text: content };
-                }
-            }
-        }
-        return transformGeminiStream();
+        return transformLLMStream(stream, extractGeminiText);
     } catch (error) {
         console.error("Error calling the Gemini API for arbiter:", error);
         if (error instanceof ApiError) {
