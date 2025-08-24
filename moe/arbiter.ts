@@ -158,11 +158,11 @@ export const arbitrateStream = async (
             systemInstruction: ARBITER_PERSONA,
             thinkingConfig: { thinkingBudget: budget },
         }
-    });
+    }) as AsyncIterable<{ text(): string }>;
 
     async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
         for await (const chunk of stream) {
-            yield { text: (chunk as any).text() ?? '' };
+            yield { text: chunk.text() };
         }
     }
     return transformGeminiStream();

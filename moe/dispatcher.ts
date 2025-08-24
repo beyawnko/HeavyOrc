@@ -66,8 +66,8 @@ const runExpertGeminiSingle = async (
     }
 
     const geminiAI = getGeminiClient();
-    const response = await geminiAI.models.generateContent(generateContentParams);
-    return response.text ?? '';
+    const response = await geminiAI.models.generateContent(generateContentParams) as unknown as { text(): string };
+    return response.text();
 }
 
 const runExpertGeminiDeepConf = async (

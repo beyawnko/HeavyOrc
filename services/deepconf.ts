@@ -125,9 +125,9 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
                 },
                 temperature: 0, // deterministic judging
             },
-        });
+        }) as unknown as { text(): string };
 
-        const jsonString = response.text?.trim() ?? '';
+        const jsonString = response.text().trim();
         const result = JSON.parse(jsonString);
         
         if (typeof result.score === 'number' && Array.isArray(result.reasons)) {
