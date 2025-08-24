@@ -148,7 +148,7 @@ export const arbitrateStream = async (
     const budget = GEMINI_PRO_BUDGETS[effortForPro];
 
     const geminiAI = getGeminiClient();
-    const stream = await geminiAI.models.generateContentStream({
+    const result = await geminiAI.models.generateContentStream({
         model: GEMINI_PRO_MODEL, // Arbiter always uses the Pro model for Gemini
         contents: { parts: [{ text: arbiterPrompt }] },
         config: {
@@ -157,9 +157,14 @@ export const arbitrateStream = async (
         }
     });
 
+    const stream = (result as any).stream ?? result;
+
     async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
-        for await (const chunk of stream) {
-            yield { text: chunk.text || '' };
+        for await (const chunk of stream as AsyncIterable<any>) {
+            const content = typeof chunk.text === 'function' ? chunk.text() : chunk.text;
+            if (content) {
+                yield { text: content };
+            }
         }
     }
     return transformGeminiStream();
