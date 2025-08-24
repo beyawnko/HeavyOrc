@@ -43,6 +43,19 @@ const getBorderColor = (status: AgentStatus): string => {
     }
 }
 
+const getProviderChipStyle = (provider: AgentState['provider']): string => {
+    switch (provider) {
+        case 'gemini':
+            return 'bg-purple-800 text-purple-200';
+        case 'openai':
+            return 'bg-teal-800 text-teal-200';
+        case 'openrouter':
+            return 'bg-cyan-800 text-cyan-200';
+        default:
+            return 'bg-gray-700 text-gray-200';
+    }
+};
+
 const AgentCard: React.FC<AgentCardProps> = ({ agent, displayId }) => {
   const { persona, status, content, provider } = agent;
   const contentId = useId();
@@ -58,7 +71,7 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, displayId }) => {
         <div className="flex items-center space-x-3 overflow-hidden">
           <SparklesIcon className="h-5 w-5 text-purple-400 flex-shrink-0" />
           <h3 className="font-bold text-sm text-gray-200 truncate">Agent {displayId}</h3>
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase ${provider === 'gemini' ? 'bg-purple-800 text-purple-200' : 'bg-teal-800 text-teal-200'}`}>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase ${getProviderChipStyle(provider)}`}>
               {provider}
           </span>
         </div>

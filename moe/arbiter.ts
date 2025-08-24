@@ -159,7 +159,7 @@ export const arbitrateStream = async (
 
     async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
         for await (const chunk of stream) {
-            yield { text: chunk.text };
+            yield { text: chunk.text || '' };
         }
     }
     return transformGeminiStream();

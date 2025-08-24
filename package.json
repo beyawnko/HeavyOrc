@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "echo 'No test suite defined'"
   },
   "dependencies": {
     "@google/genai": "^1.14.0",
