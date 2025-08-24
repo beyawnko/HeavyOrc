@@ -4,13 +4,14 @@ import { Draft, ExpertDispatch } from './types';
 import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '../services/llmService';
 import { GEMINI_PRO_MODEL, GEMINI_FLASH_MODEL, OPENAI_REASONING_PROMPT_PREFIX } from '../constants';
 import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort, OpenRouterAgentConfig } from '../types';
-import { 
-    Trace, 
-    DEFAULTS, 
-    deepConfOnlineWithJudge, 
-    deepConfOfflineWithJudge, 
-    TraceProvider 
+import {
+    Trace,
+    DEFAULTS,
+    deepConfOnlineWithJudge,
+    deepConfOfflineWithJudge,
+    TraceProvider
 } from '../services/deepconf';
+import { extractGeminiText } from '../lib/gemini';
 
 const GEMINI_PRO_BUDGETS: Record<Extract<GeminiThinkingEffort, 'low' | 'medium' | 'high' | 'dynamic'>, number> = {
     low: 8192,
@@ -67,8 +68,7 @@ const runExpertGeminiSingle = async (
 
     const geminiAI = getGeminiClient();
     const response = await geminiAI.models.generateContent(generateContentParams);
-    const textField = (response as { text?: string | (() => string) }).text;
-    const text = typeof textField === 'function' ? textField() : textField;
+    const text = extractGeminiText(response);
     return text || '';
 }
 

@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { Draft } from './types';
 import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '../services/llmService';
 import { GenerateContentResponse } from '@google/genai';
+import { extractGeminiText } from '../lib/gemini';
 import {
     ARBITER_PERSONA,
     ARBITER_HIGH_REASONING_PROMPT_MODIFIER,
@@ -163,8 +164,7 @@ export const arbitrateStream = async (
 
     async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
         for await (const chunk of stream) {
-            const textField = (chunk as { text?: string | (() => string) }).text;
-            const content = typeof textField === 'function' ? textField() : textField;
+            const content = extractGeminiText(chunk);
             if (content) {
                 yield { text: content };
             }

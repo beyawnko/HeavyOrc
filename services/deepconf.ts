@@ -1,12 +1,13 @@
 // services/deepconf.ts
 import { Type } from "@google/genai";
 import { getGeminiClient, getOpenAIClient } from './llmService';
-import { 
-    GEMINI_FLASH_MODEL, 
+import {
+    GEMINI_FLASH_MODEL,
     GEMINI_PRO_MODEL,
     OPENAI_JUDGE_MODEL,
     OPENAI_REASONING_PROMPT_PREFIX
 } from '../constants';
+import { extractGeminiText } from '../lib/gemini';
 
 export type TokenTopK = { token: string; logprob: number }[];
 export type Step = { token: string; topK: TokenTopK };
@@ -127,8 +128,7 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
             },
         });
 
-        const textField = (response as { text?: string | (() => string) }).text;
-        const raw = typeof textField === 'function' ? textField() : textField;
+        const raw = extractGeminiText(response);
         const jsonString = (raw || '').trim();
         if (!jsonString) {
             return { score: 0, reasons: ["Judge model returned an empty response."] };
