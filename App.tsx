@@ -30,7 +30,7 @@ import { experts } from './moe/experts';
 import { runOrchestration } from './moe/orchestrator';
 import { Draft, ExpertDispatch } from './moe/types';
 import AgentCard from './components/AgentCard';
-import { SparklesIcon, CogIcon, DownloadIcon, ExclamationTriangleIcon, XMarkIcon } from './components/icons';
+import { ShieldCheckIcon, CogIcon, DownloadIcon, ExclamationTriangleIcon, XMarkIcon } from './components/icons';
 import SettingsView from './components/SettingsView';
 import { setOpenAIApiKey as storeOpenAIApiKey, setGeminiApiKey as storeGeminiApiKey, setOpenRouterApiKey as storeOpenRouterApiKey } from './services/llmService';
 import CollapsibleSection from './components/CollapsibleSection';
@@ -712,9 +712,10 @@ const App: React.FC = () => {
                 <div className="flex-1 overflow-y-auto">
                     <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <header className="text-center py-8 relative">
+                            <img src="./assets/banner.png" alt="HeavyOrc banner" className="mx-auto mb-4 w-full max-w-2xl" />
                             <h1 className="text-4xl sm:text-5xl font-bold text-gray-100 flex items-center justify-center gap-3">
-                                <SparklesIcon className="w-10 h-10 text-indigo-400" />
-                                Gemini Heavy Orchestrator
+                                <ShieldCheckIcon className="w-10 h-10 text-emerald-400" />
+                                HeavyOrc
                             </h1>
                             <div className="absolute top-8 right-0 flex items-center gap-2">
                                 <button

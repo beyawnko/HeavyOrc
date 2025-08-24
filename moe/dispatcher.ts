@@ -203,8 +203,8 @@ const runExpertOpenRouterSingle = async (
     const headers = {
         'Authorization': `Bearer ${openRouterKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://gemini-heavy-orchestrator.web.app',
-        'X-Title': 'Gemini Heavy Orchestrator',
+        'HTTP-Referer': 'https://your-username.github.io/HeavyOrc/',
+        'X-Title': 'HeavyOrc',
     };
 
     const messages: any[] = [{ role: 'system', content: expert.persona }];

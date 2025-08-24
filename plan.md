@@ -1,6 +1,6 @@
 # MoE Refactoring Plan
 
-This document outlines the phased approach to refactor the "Gemini Heavy Orchestrator" application into a more robust, testable, and feature-rich Mixture-of-Experts (MoE) simulation.
+This document outlines the phased approach to refactor the "HeavyOrc" application into a more robust, testable, and feature-rich Mixture-of-Experts (MoE) simulation.
 
 ---
 
