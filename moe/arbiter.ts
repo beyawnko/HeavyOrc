@@ -157,7 +157,7 @@ export const arbitrateStream = async (
             throw new Error(`Gemini API Error: ${error.message}`, { cause: error });
         } else if (error instanceof Error) {
             throw new Error(
-                `An error occurred with the Gemini Arbiter: ${error.message}`,
+                `An error occurred with the Gemini Arbiter (${error.name}): ${error.message}`,
                 { cause: error }
             );
         } else {
