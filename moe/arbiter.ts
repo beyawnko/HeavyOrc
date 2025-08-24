@@ -1,14 +1,14 @@
 import OpenAI from 'openai';
 import { Draft } from './types';
-import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '../services/llmService';
+import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '@/services/llmService';
 import {
     ARBITER_PERSONA,
     ARBITER_HIGH_REASONING_PROMPT_MODIFIER,
     OPENAI_ARBITER_GPT5_HIGH_REASONING,
     GEMINI_PRO_MODEL,
     OPENAI_ARBITER_MODEL,
-} from '../constants';
-import { GeminiThinkingEffort } from '../types';
+} from '@/constants';
+import { GeminiThinkingEffort } from '@/types';
 
 const GEMINI_PRO_BUDGETS: Record<Extract<GeminiThinkingEffort, 'low' | 'medium' | 'high' | 'dynamic'>, number> = {
     low: 8192,

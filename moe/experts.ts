@@ -1,6 +1,6 @@
 
-import { loadExperts } from '../lib/loadExperts';
-import { Expert } from '../types';
+import { loadExperts } from '@/lib/loadExperts';
+import { Expert } from '@/types';
 
 let loadedExperts: Expert[];
 

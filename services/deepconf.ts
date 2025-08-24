@@ -106,7 +106,7 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
         const judgeModel = agentModel === GEMINI_PRO_MODEL ? GEMINI_PRO_MODEL : GEMINI_FLASH_MODEL;
         
         const geminiAI = getGeminiClient();
-        const response = await geminiAI.models.generateContent({
+        const apiResult = await geminiAI.models.generateContent({
             model: judgeModel,
             contents: { parts: [{ text: judgeUserTemplate(prompt, answer) }] },
             config: {
@@ -125,19 +125,19 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
                 },
                 temperature: 0, // deterministic judging
             },
-        }) as unknown as { text(): string };
+        });
 
-        const jsonString = response.text().trim();
-        const result = JSON.parse(jsonString);
-        
-        if (typeof result.score === 'number' && Array.isArray(result.reasons)) {
+        const jsonString = (apiResult as any).response?.text().trim() ?? '';
+        const parsed = JSON.parse(jsonString);
+
+        if (typeof parsed.score === 'number' && Array.isArray(parsed.reasons)) {
             return {
-                score: Math.max(0, Math.min(1, result.score)), // Clamp score between 0 and 1
-                reasons: result.reasons
+                score: Math.max(0, Math.min(1, parsed.score)), // Clamp score between 0 and 1
+                reasons: parsed.reasons
             };
         }
-        
-        console.warn("Judge model returned invalid JSON shape:", result);
+
+        console.warn("Judge model returned invalid JSON shape:", parsed);
         return { score: 0, reasons: ["Invalid JSON response from judge model."] };
 
     } catch (error) {

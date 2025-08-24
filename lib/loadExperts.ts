@@ -1,4 +1,4 @@
-import { Expert } from '../types';
+import { Expert } from '@/types';
 
 /**
  * Normalize various shapes to a consistent Expert object.

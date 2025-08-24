@@ -1,5 +1,5 @@
 import React, { useState, useId } from 'react';
-import { AgentState, AgentStatus } from '../types';
+import { AgentState, AgentStatus } from '@/types';
 import {
     LoadingSpinner,
     CheckCircleIcon,
@@ -8,7 +8,7 @@ import {
     EllipsisHorizontalIcon,
     ChevronUpIcon,
     ChevronDownIcon
-} from './icons';
+} from '@/components/icons';
 
 interface AgentCardProps {
   agent: AgentState;

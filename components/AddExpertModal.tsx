@@ -1,7 +1,7 @@
 
 import React, { useEffect } from 'react';
-import { Expert } from '../types';
-import { XMarkIcon, SparklesIcon } from './icons';
+import { Expert } from '@/types';
+import { XMarkIcon, SparklesIcon } from '@/components/icons';
 
 interface AddExpertModalProps {
     isOpen: boolean;
