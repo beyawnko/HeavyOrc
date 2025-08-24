@@ -129,7 +129,7 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
         });
 
         const raw = extractGeminiText(response);
-        const jsonString = (raw || '').trim();
+        const jsonString = raw.trim();
         if (!jsonString) {
             return { score: 0, reasons: ["Judge model returned an empty response."] };
         }
