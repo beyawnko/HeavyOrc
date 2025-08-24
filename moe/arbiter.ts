@@ -159,9 +159,12 @@ export const arbitrateStream = async (
         }
     });
 
-    const streamSource = (rawResult && typeof rawResult === 'object' && 'stream' in rawResult)
-        ? (rawResult as { stream: AsyncIterable<GenerateContentResponse> }).stream
-        : rawResult;
+    let streamSource: unknown;
+    if (rawResult && typeof rawResult === 'object' && 'stream' in rawResult) {
+        streamSource = (rawResult as { stream: AsyncIterable<GenerateContentResponse> }).stream;
+    } else {
+        streamSource = rawResult;
+    }
 
     let stream: AsyncIterable<GenerateContentResponse>;
     if (streamSource && typeof streamSource === 'object' && Symbol.asyncIterator in streamSource) {
