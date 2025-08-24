@@ -1,4 +1,4 @@
-import { Expert } from '../moe/types';
+import { Expert } from '../types';
 
 /**
  * Normalize various shapes to a consistent Expert object.

@@ -1,6 +1,5 @@
 // services/deepconf.ts
-import { GoogleGenAI, Type } from "@google/genai";
-import OpenAI from "openai";
+import { Type } from "@google/genai";
 import { getGeminiClient, getOpenAIClient } from './llmService';
 import { 
     GEMINI_FLASH_MODEL, 
@@ -128,7 +127,7 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
             },
         });
 
-        const jsonString = response.text.trim();
+        const jsonString = response.text?.trim() ?? '';
         const result = JSON.parse(jsonString);
         
         if (typeof result.score === 'number' && Array.isArray(result.reasons)) {

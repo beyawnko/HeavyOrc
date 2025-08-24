@@ -3,9 +3,8 @@
 
 import React, { useState } from 'react';
 import { experts } from '../moe/experts';
-import { AgentConfig, GeminiAgentConfig } from '../types';
+import { AgentConfig, GeminiAgentConfig, Expert } from '../types';
 import AgentConfigCard from './AgentConfigCard';
-import { Expert } from '../moe/types';
 import { PlusIcon } from './icons';
 import AddExpertModal from './AddExpertModal';
 

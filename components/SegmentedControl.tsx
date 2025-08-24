@@ -1,6 +1,4 @@
 
-import React from 'react';
-
 // Using a generic type T that extends string for the value
 export interface SegmentedControlOption<T extends string> {
   label: string;

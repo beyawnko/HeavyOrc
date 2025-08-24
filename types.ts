@@ -1,7 +1,6 @@
-import { Expert } from './moe/types';
-import { 
-    GEMINI_FLASH_MODEL, 
-    GEMINI_PRO_MODEL, 
+import {
+    GEMINI_FLASH_MODEL,
+    GEMINI_PRO_MODEL,
     OPENAI_AGENT_MODEL,
     OPENAI_ARBITER_GPT5_MEDIUM_REASONING,
     OPENAI_ARBITER_GPT5_HIGH_REASONING
@@ -9,6 +8,12 @@ import {
 
 export type ApiProvider = 'gemini' | 'openai' | 'openrouter';
 export type AgentStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'QUEUED';
+
+export interface Expert {
+  id: string;
+  name: string;
+  persona: string;
+}
 
 export interface AgentState {
   id: string;

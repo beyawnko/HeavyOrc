@@ -2,7 +2,6 @@ import React, { useCallback, useRef, useEffect } from 'react';
 import { 
     XCircleIcon,
     PlusIcon,
-    SlidersHorizontalIcon,
     MicrophoneIcon,
     SparklesIcon,
     LoadingSpinner,

@@ -1,6 +1,6 @@
 
 import React, { useEffect } from 'react';
-import { Expert } from '../moe/types';
+import { Expert } from '../types';
 import { XMarkIcon, SparklesIcon } from './icons';
 
 interface AddExpertModalProps {

@@ -35,7 +35,7 @@ Keys are optional; the UI hides providers without keys.
 1. In `vite.config.ts` set `base: '/HeavyOrc/'`.
 2. Build the site: `npm run build`
 3. Commit and push the `dist/` directory to a `gh-pages` branch.
-4. Enable GitHub Pages for that branch and visit `https://<username>.github.io/HeavyOrc/`.
+4. Enable GitHub Pages for that branch and visit `https://USERNAME.github.io/HeavyOrc/`, replacing `USERNAME` with your GitHub handle.
 
 ## DeepConf overview
 

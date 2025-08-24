@@ -3,7 +3,7 @@ import { GenerateContentParameters, Part } from "@google/genai";
 import { Draft, ExpertDispatch } from './types';
 import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '../services/llmService';
 import { GEMINI_PRO_MODEL, GEMINI_FLASH_MODEL, OPENAI_REASONING_PROMPT_PREFIX } from '../constants';
-import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort, OpenRouterAgentConfig, OpenAIAgentSettings, GeminiAgentSettings } from '../types';
+import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort, OpenRouterAgentConfig } from '../types';
 import { 
     Trace, 
     DEFAULTS, 
@@ -67,7 +67,7 @@ const runExpertGeminiSingle = async (
 
     const geminiAI = getGeminiClient();
     const response = await geminiAI.models.generateContent(generateContentParams);
-    return response.text;
+    return response.text ?? '';
 }
 
 const runExpertGeminiDeepConf = async (
@@ -80,7 +80,7 @@ const runExpertGeminiDeepConf = async (
     
     const createProvider = (): TraceProvider => {
         return {
-            generate: async (p, abortSignal) => { // p is the prompt string
+            generate: async (p, _abortSignal) => { // p is the prompt string
                 // Note: abortSignal is not used by gemini generateContent, but we keep it for API consistency
                 const text = await runExpertGeminiSingle(expert, p, images, config);
                 // Gemini API doesn't give us steps/tokens, so we create a mock Trace
@@ -158,7 +158,7 @@ const runExpertOpenAIDeepConf = async (
     
     const createProvider = (): TraceProvider => {
         return {
-            generate: async (p, abortSignal) => { // p is the prompt string
+            generate: async (p, _abortSignal) => { // p is the prompt string
                 // Since logprobs are not available, we generate the full text and mock the trace.
                 const text = await runExpertOpenAISingle(expert, p, images, config);
                 // Mock Trace for judge-based DeepConf
@@ -200,10 +200,11 @@ const runExpertOpenRouterSingle = async (
     const openRouterKey = getOpenRouterApiKey();
     if (!openRouterKey) throw new Error("OpenRouter API Key not set.");
 
+    const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
     const headers = {
         'Authorization': `Bearer ${openRouterKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://your-username.github.io/HeavyOrc/',
+        'HTTP-Referer': appUrl,
         'X-Title': 'HeavyOrc',
     };
 

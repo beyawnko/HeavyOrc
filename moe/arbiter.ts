@@ -75,10 +75,11 @@ export const arbitrateStream = async (
         const openRouterKey = getOpenRouterApiKey();
         if (!openRouterKey) throw new Error("OpenRouter API Key not set.");
         
+        const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
         const headers = {
             'Authorization': `Bearer ${openRouterKey}`,
             'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://your-username.github.io/HeavyOrc/',
+            'HTTP-Referer': appUrl,
             'X-Title': 'HeavyOrc',
         };
         const messages = [
@@ -159,7 +160,7 @@ export const arbitrateStream = async (
 
     async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
         for await (const chunk of stream) {
-            yield { text: chunk.text };
+            yield { text: chunk.text ?? '' };
         }
     }
     return transformGeminiStream();
