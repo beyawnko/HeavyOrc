@@ -127,7 +127,9 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
             },
         });
 
-        const jsonString = (response.text || '').trim();
+        const textField = (response as { text?: string | (() => string) }).text;
+        const raw = typeof textField === 'function' ? textField() : textField;
+        const jsonString = (raw || '').trim();
         if (!jsonString) {
             return { score: 0, reasons: ["Judge model returned an empty response."] };
         }
