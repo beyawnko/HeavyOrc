@@ -134,7 +134,7 @@ export const arbitrateStream = async (
                 reasoning: { effort },
                 stream: true,
             });
-            return transformLLMStream(stream, (chunk: any) => chunk.text || '');
+            return transformLLMStream(stream, (chunk: { text?: string }) => chunk.text || '');
 
         } catch (error) {
             console.error("Error calling the OpenAI API for arbiter:", error);
@@ -166,14 +166,16 @@ export const arbitrateStream = async (
     } catch (error) {
         console.error("Error calling the Gemini API for arbiter:", error);
         if (error instanceof ApiError) {
-            throw new Error(`Gemini API Error: ${error.message}`);
+            throw new Error(`Gemini API Error: ${error.message}`, { cause: error });
         } else if (error instanceof Error) {
             throw new Error(
-                `An error occurred with the Gemini Arbiter: ${error.message}`
+                `An error occurred with the Gemini Arbiter: ${error.message}`,
+                { cause: error }
             );
         } else {
             throw new Error(
-                `An unknown error occurred while communicating with the Gemini model for arbitration.`
+                `An unknown error occurred while communicating with the Gemini model for arbitration.`,
+                { cause: error }
             );
         }
     }
