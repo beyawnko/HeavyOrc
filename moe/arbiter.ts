@@ -3,6 +3,7 @@ import { ApiError } from '@google/genai';
 import { Draft } from './types';
 import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '../services/llmService';
 import { extractGeminiText } from '../lib/gemini';
+import { transformLLMStream } from '../lib/stream';
 import {
     ARBITER_PERSONA,
     ARBITER_HIGH_REASONING_PROMPT_MODIFIER,
@@ -53,19 +54,6 @@ async function* openRouterStreamer(stream: ReadableStream<Uint8Array>): AsyncGen
         reader.releaseLock();
     }
 }
-
-async function* transformLLMStream<T>(
-    stream: AsyncIterable<T>,
-    extract: (chunk: T) => string | undefined | null,
-): AsyncGenerator<{ text: string }> {
-    for await (const chunk of stream) {
-        const content = extract(chunk);
-        if (content) {
-            yield { text: content };
-        }
-    }
-}
-
 
 export const arbitrateStream = async (
     arbiterModel: string,
