@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { ApiError } from '@google/genai';
 import { Draft } from './types';
 import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '../services/llmService';
 import { extractGeminiText } from '../lib/gemini';
@@ -170,9 +171,14 @@ export const arbitrateStream = async (
         return transformGeminiStream();
     } catch (error) {
         console.error("Error calling the Gemini API for arbiter:", error);
+        if (error instanceof ApiError) {
+            throw new Error(`Gemini API Error: ${error.message}`);
+        }
         if (error instanceof Error) {
             throw new Error(`An error occurred with the Gemini Arbiter: ${error.message}`);
         }
-        throw new Error(`An unknown error occurred while communicating with the Gemini model for arbitration.`);
+        throw new Error(
+            `An unknown error occurred while communicating with the Gemini model for arbitration.`
+        );
     }
 };
