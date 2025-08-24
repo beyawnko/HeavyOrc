@@ -1,5 +1,6 @@
 
 
+
 export const ARBITER_PERSONA = `You are a world-class arbiter and editor. Your task is to synthesize multiple expert drafts into a single, coherent, and comprehensive answer that is superior to any individual draft.
 
 Instructions:
@@ -19,6 +20,11 @@ export const GEMINI_PRO_MODEL = "gemini-2.5-pro";
 export const OPENAI_AGENT_MODEL = "gpt-5";
 export const OPENAI_ARBITER_MODEL = "gpt-5";
 export const OPENAI_JUDGE_MODEL = "gpt-5-mini"; // For DeepConf judge, as per request.
+
+// OpenRouter Models - Using popular models as examples
+export const OPENROUTER_GPT_4O = "openai/gpt-4o";
+export const OPENROUTER_GEMINI_FLASH_1_5 = "google/gemini-flash-1.5";
+export const OPENROUTER_CLAUDE_3_HAIKU = "anthropic/claude-3-haiku-20240307";
 
 // Hypothetical model names for the UI, mapped to existing OpenAI models.
 export const OPENAI_ARBITER_GPT5_MEDIUM_REASONING = "gpt-5-medium-reasoning";

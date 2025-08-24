@@ -7,6 +7,7 @@ import {
     AgentConfig, 
     GeminiAgentConfig, 
     OpenAIAgentConfig,
+    OpenRouterAgentConfig,
     ArbiterModel,
     OpenAIVerbosity,
     SessionData,
@@ -22,6 +23,8 @@ import {
     OPENAI_ARBITER_GPT5_HIGH_REASONING,
     GEMINI_FLASH_MODEL,
     OPENAI_AGENT_MODEL,
+    OPENROUTER_GPT_4O,
+    OPENROUTER_CLAUDE_3_HAIKU,
 } from './constants';
 import { experts } from './moe/experts';
 import { runOrchestration } from './moe/orchestrator';
@@ -29,7 +32,7 @@ import { Draft, ExpertDispatch } from './moe/types';
 import AgentCard from './components/AgentCard';
 import { SparklesIcon, CogIcon, DownloadIcon, ExclamationTriangleIcon, XMarkIcon } from './components/icons';
 import SettingsView from './components/SettingsView';
-import { setOpenAIApiKey as storeOpenAIApiKey } from './services/llmService';
+import { setOpenAIApiKey as storeOpenAIApiKey, setGeminiApiKey as storeGeminiApiKey, setOpenRouterApiKey as storeOpenRouterApiKey } from './services/llmService';
 import CollapsibleSection from './components/CollapsibleSection';
 import AgentEnsemble from './components/AgentEnsemble';
 import PromptInput from './components/PromptInput';
@@ -38,6 +41,8 @@ import HistorySidebar from './components/HistorySidebar';
 import SegmentedControl from './components/SegmentedControl';
 
 const OPENAI_API_KEY_STORAGE_KEY = 'openai_api_key';
+const GEMINI_API_KEY_STORAGE_KEY = 'gemini_api_key';
+const OPENROUTER_API_KEY_STORAGE_KEY = 'openrouter_api_key';
 const MAX_HISTORY_LENGTH = 20;
 
 const containerVariants: Variants = {
@@ -127,20 +132,18 @@ const createDefaultAgentConfigs = (): AgentConfig[] => {
     configs.push({
         id: crypto.randomUUID(),
         expert: defaultExperts[2],
-        model: OPENAI_AGENT_MODEL,
-        provider: 'openai',
+        model: OPENROUTER_GPT_4O,
+        provider: 'openrouter',
         status: 'PENDING',
-        settings: { 
-            effort: 'medium', 
-            verbosity: 'medium', 
-            generationStrategy: 'single', 
-            confidenceSource: 'judge',
-            traceCount: 8, 
-            deepConfEta: 90,
-            tau: 0.95,
-            groupWindow: 2048,
+        settings: {
+            temperature: 0.7,
+            topP: 1,
+            topK: 50,
+            frequencyPenalty: 0,
+            presencePenalty: 0,
+            repetitionPenalty: 1,
         }
-    } as OpenAIAgentConfig);
+    } as OpenRouterAgentConfig);
     configs.push({
         id: crypto.randomUUID(),
         expert: defaultExperts[3],
@@ -199,6 +202,8 @@ const App: React.FC = () => {
 
     // UI state
     const [openAIApiKey, setOpenAIApiKey] = useState<string>('');
+    const [geminiApiKey, setGeminiApiKey] = useState<string>('');
+    const [openRouterApiKey, setOpenRouterApiKey] = useState<string>('');
     const [isSettingsViewOpen, setIsSettingsViewOpen] = useState<boolean>(false);
     const [queryHistory, setQueryHistory] = useState<string[]>([]);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -241,20 +246,43 @@ const App: React.FC = () => {
 
 
     useEffect(() => {
-        const savedKey = localStorage.getItem(OPENAI_API_KEY_STORAGE_KEY);
-        if (savedKey) {
-            setOpenAIApiKey(savedKey);
-            storeOpenAIApiKey(savedKey);
+        const savedOpenAIKey = localStorage.getItem(OPENAI_API_KEY_STORAGE_KEY);
+        if (savedOpenAIKey) {
+            setOpenAIApiKey(savedOpenAIKey);
+            storeOpenAIApiKey(savedOpenAIKey);
+        }
+        const savedGeminiKey = localStorage.getItem(GEMINI_API_KEY_STORAGE_KEY);
+        if (savedGeminiKey) {
+            setGeminiApiKey(savedGeminiKey);
+            storeGeminiApiKey(savedGeminiKey);
+        }
+        const savedOpenRouterKey = localStorage.getItem(OPENROUTER_API_KEY_STORAGE_KEY);
+        if (savedOpenRouterKey) {
+            setOpenRouterApiKey(savedOpenRouterKey);
+            storeOpenRouterApiKey(savedOpenRouterKey);
         }
     }, []);
 
-    const handleSaveApiKey = useCallback((newKey: string) => {
+    const handleSaveOpenAIApiKey = useCallback((newKey: string) => {
         setOpenAIApiKey(newKey);
         storeOpenAIApiKey(newKey);
         localStorage.setItem(OPENAI_API_KEY_STORAGE_KEY, newKey);
     }, []);
 
+    const handleSaveGeminiApiKey = useCallback((newKey: string) => {
+        setGeminiApiKey(newKey);
+        storeGeminiApiKey(newKey);
+        localStorage.setItem(GEMINI_API_KEY_STORAGE_KEY, newKey);
+    }, []);
+
+    const handleSaveOpenRouterApiKey = useCallback((newKey: string) => {
+        setOpenRouterApiKey(newKey);
+        storeOpenRouterApiKey(newKey);
+        localStorage.setItem(OPENROUTER_API_KEY_STORAGE_KEY, newKey);
+    }, []);
+
     const openAIAgentCount = useMemo(() => agentConfigs.filter(c => c.provider === 'openai').length, [agentConfigs]);
+    const openRouterAgentCount = useMemo(() => agentConfigs.filter(c => c.provider === 'openrouter').length, [agentConfigs]);
     
     const handleRun = useCallback(async () => {
         // Switch to "live" view if we were viewing history
@@ -272,6 +300,12 @@ const App: React.FC = () => {
 
         if (openAIAgentCount > 0 && !openAIApiKey) {
             setError("Please set your OpenAI API key in the settings to use OpenAI models.");
+            setIsSettingsViewOpen(true);
+            return;
+        }
+
+        if (openRouterAgentCount > 0 && !openRouterApiKey) {
+            setError("Please set your OpenRouter API key in the settings to use OpenRouter models.");
             setIsSettingsViewOpen(true);
             return;
         }
@@ -376,7 +410,7 @@ const App: React.FC = () => {
             setIsArbiterRunning(false);
             isRunCompletedRef.current = true;
         }
-    }, [prompt, images, isLoading, agentConfigs, arbiterModel, openAIArbiterVerbosity, geminiArbiterEffort, openAIAgentCount, openAIApiKey, queryHistory, selectedRunId]);
+    }, [prompt, images, isLoading, agentConfigs, arbiterModel, openAIArbiterVerbosity, geminiArbiterEffort, openAIAgentCount, openAIApiKey, openRouterAgentCount, openRouterApiKey, queryHistory, selectedRunId]);
     
     const handleReset = useCallback(() => {
         setPrompt('');
@@ -541,6 +575,8 @@ const App: React.FC = () => {
                 openAIArbiterVerbosity,
                 geminiArbiterEffort,
                 openAIApiKey,
+                geminiApiKey,
+                openRouterApiKey,
                 queryHistory,
             };
 
@@ -561,7 +597,7 @@ const App: React.FC = () => {
             console.error("Failed to save session:", e);
             setToast({ message: "An error occurred while trying to save the session.", type: 'error' });
         }
-    }, [prompt, agentConfigs, arbiterModel, openAIArbiterVerbosity, geminiArbiterEffort, openAIApiKey, queryHistory]);
+    }, [prompt, agentConfigs, arbiterModel, openAIArbiterVerbosity, geminiArbiterEffort, openAIApiKey, geminiApiKey, openRouterApiKey, queryHistory]);
     
     const handleLoadSession = useCallback((file: File) => {
         const reader = new FileReader();
@@ -598,6 +634,8 @@ const App: React.FC = () => {
                     };
                     if (savedConfig.provider === 'gemini') {
                         return { ...baseConfig, provider: 'gemini', settings: savedConfig.settings } as GeminiAgentConfig;
+                    } else if (savedConfig.provider === 'openrouter') {
+                        return { ...baseConfig, provider: 'openrouter', settings: savedConfig.settings } as OpenRouterAgentConfig;
                     } else {
                         return { ...baseConfig, provider: 'openai', settings: savedConfig.settings } as OpenAIAgentConfig;
                     }
@@ -609,7 +647,9 @@ const App: React.FC = () => {
                 setArbiterModel(data.arbiterModel ?? GEMINI_PRO_MODEL);
                 setOpenAIArbiterVerbosity(data.openAIArbiterVerbosity ?? 'medium');
                 setGeminiArbiterEffort(data.geminiArbiterEffort ?? 'dynamic');
-                handleSaveApiKey(data.openAIApiKey ?? '');
+                handleSaveOpenAIApiKey(data.openAIApiKey ?? '');
+                handleSaveGeminiApiKey(data.geminiApiKey ?? '');
+                handleSaveOpenRouterApiKey(data.openRouterApiKey ?? '');
                 setQueryHistory(data.queryHistory ?? []);
                 
                 setIsSettingsViewOpen(false);
@@ -627,7 +667,7 @@ const App: React.FC = () => {
         };
 
         reader.readAsText(file);
-    }, [handleSaveApiKey, handleNewRun]);
+    }, [handleSaveOpenAIApiKey, handleSaveGeminiApiKey, handleSaveOpenRouterApiKey, handleNewRun]);
 
     const handleSelectQuery = useCallback((query: string) => {
         setPrompt(query);
@@ -658,8 +698,12 @@ const App: React.FC = () => {
                  <SettingsView
                     isOpen={isSettingsViewOpen}
                     onClose={() => setIsSettingsViewOpen(false)}
-                    onSaveApiKey={handleSaveApiKey}
-                    currentApiKey={openAIApiKey}
+                    onSaveOpenAIApiKey={handleSaveOpenAIApiKey}
+                    currentOpenAIApiKey={openAIApiKey}
+                    onSaveGeminiApiKey={handleSaveGeminiApiKey}
+                    currentGeminiApiKey={geminiApiKey}
+                    onSaveOpenRouterApiKey={handleSaveOpenRouterApiKey}
+                    currentOpenRouterApiKey={openRouterApiKey}
                     onSaveSession={handleSaveSession}
                     onLoadSession={handleLoadSession}
                     queryHistory={queryHistory}
@@ -699,9 +743,9 @@ const App: React.FC = () => {
                         <main className="max-w-4xl mx-auto space-y-8 pb-40">
                             {error && !displayData.isHistoryView && <div className="p-3 bg-red-900/50 text-red-300 border border-red-700 rounded-lg text-sm text-center">{error}</div>}
 
-                            {openAIAgentCount > 0 && !openAIApiKey && (
+                            {(openAIAgentCount > 0 && !openAIApiKey) || (openRouterAgentCount > 0 && !openRouterApiKey) && (
                                 <p className="text-xs text-yellow-400 text-center p-2 bg-yellow-900/40 rounded-md border border-yellow-800">
-                                    OpenAI API key is required. 
+                                    An API key is required for one or more of your agents. 
                                     <button onClick={() => setIsSettingsViewOpen(true)} className="ml-1 underline font-semibold hover:text-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded">
                                         Set API Key
                                     </button>
@@ -827,10 +871,12 @@ const ArbiterSettings: React.FC<{
     setGeminiArbiterEffort: (effort: GeminiThinkingEffort) => void;
     isLoading: boolean;
 }> = ({ arbiterModel, setArbiterModel, openAIArbiterVerbosity, setOpenAIArbiterVerbosity, geminiArbiterEffort, setGeminiArbiterEffort, isLoading }) => {
-    const arbiterModelOptions: { label: string; value: ArbiterModel; provider: 'gemini' | 'openai'; tooltip: string }[] = [
+    const arbiterModelOptions: { label: string; value: ArbiterModel; provider: 'gemini' | 'openai' | 'openrouter'; tooltip: string }[] = [
         { label: 'Gemini 2.5 Pro', value: GEMINI_PRO_MODEL, provider: 'gemini', tooltip: 'Google\'s most capable model, with a large context window and strong reasoning. Recommended for complex synthesis.' },
         { label: 'GPT-5 (Med)', value: OPENAI_ARBITER_GPT5_MEDIUM_REASONING, provider: 'openai', tooltip: 'OpenAI\'s powerful GPT-5 model with standard reasoning. A strong, balanced choice for arbitration.' },
-        { label: 'GPT-5 (High)', value: OPENAI_ARBITER_GPT5_HIGH_REASONING, provider: 'openai', tooltip: 'GPT-5 with enhanced, step-by-step reasoning. May produce higher quality synthesis for nuanced topics at a higher latency.' }
+        { label: 'GPT-5 (High)', value: OPENAI_ARBITER_GPT5_HIGH_REASONING, provider: 'openai', tooltip: 'GPT-5 with enhanced, step-by-step reasoning. May produce higher quality synthesis for nuanced topics at a higher latency.' },
+        { label: 'OR GPT-4o', value: OPENROUTER_GPT_4O, provider: 'openrouter', tooltip: 'GPT-4o via OpenRouter. Excellent general-purpose model with strong vision capabilities.' },
+        { label: 'OR Claude Haiku', value: OPENROUTER_CLAUDE_3_HAIKU, provider: 'openrouter', tooltip: 'Anthropic\'s fastest model via OpenRouter. Ideal for quick, responsive arbitration.' },
     ];
     const openAIVerbosityOptions: { label: string; value: OpenAIVerbosity }[] = [
         { label: 'Low', value: 'low' },
@@ -869,7 +915,7 @@ const ArbiterSettings: React.FC<{
                         disabled={isLoading}
                     />
                 </div>
-            ) : (
+            ) : selectedModelOption?.provider === 'gemini' ? (
                  <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Thinking Effort</label>
                     <SegmentedControl
@@ -880,7 +926,7 @@ const ArbiterSettings: React.FC<{
                         disabled={isLoading}
                     />
                 </div>
-            )}
+            ) : null}
         </>
     );
 };

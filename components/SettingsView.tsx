@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
     DownloadIcon, 
@@ -26,7 +27,7 @@ const sections: Section[] = [
         id: 'api-keys', 
         label: 'API Keys', 
         icon: KeyIcon,
-        description: "Manage your OpenAI API key. It's stored in your browser and never sent to our servers." 
+        description: "Manage your API keys. They're stored in your browser and never sent to our servers." 
     },
     { 
         id: 'session', 
@@ -47,8 +48,12 @@ const sections: Section[] = [
 interface SettingsViewProps {
     isOpen: boolean;
     onClose: () => void;
-    onSaveApiKey: (apiKey: string) => void;
-    currentApiKey: string;
+    onSaveOpenAIApiKey: (apiKey: string) => void;
+    currentOpenAIApiKey: string;
+    onSaveGeminiApiKey: (apiKey: string) => void;
+    currentGeminiApiKey: string;
+    onSaveOpenRouterApiKey: (apiKey: string) => void;
+    currentOpenRouterApiKey: string;
     onSaveSession: () => void;
     onLoadSession: (file: File) => void;
     queryHistory: string[];
@@ -57,36 +62,98 @@ interface SettingsViewProps {
 
 // --- SECTION CONTENT COMPONENTS ---
 
-const ApiKeySection: React.FC<Pick<SettingsViewProps, 'currentApiKey' | 'onSaveApiKey'>> = ({ currentApiKey, onSaveApiKey }) => {
-    const [apiKey, setApiKey] = useState(currentApiKey);
+const ApiKeySection: React.FC<Pick<SettingsViewProps, 'currentOpenAIApiKey' | 'onSaveOpenAIApiKey' | 'currentGeminiApiKey' | 'onSaveGeminiApiKey' | 'currentOpenRouterApiKey' | 'onSaveOpenRouterApiKey'>> = ({ 
+    currentOpenAIApiKey, 
+    onSaveOpenAIApiKey,
+    currentGeminiApiKey,
+    onSaveGeminiApiKey,
+    currentOpenRouterApiKey,
+    onSaveOpenRouterApiKey
+}) => {
+    const [openAIKey, setOpenAIKey] = useState(currentOpenAIApiKey);
+    const [geminiKey, setGeminiKey] = useState(currentGeminiApiKey);
+    const [openRouterKey, setOpenRouterKey] = useState(currentOpenRouterApiKey);
 
-    useEffect(() => {
-        setApiKey(currentApiKey);
-    }, [currentApiKey]);
+    useEffect(() => { setOpenAIKey(currentOpenAIApiKey); }, [currentOpenAIApiKey]);
+    useEffect(() => { setGeminiKey(currentGeminiApiKey); }, [currentGeminiApiKey]);
+    useEffect(() => { setOpenRouterKey(currentOpenRouterApiKey); }, [currentOpenRouterApiKey]);
 
-    const handleSave = () => onSaveApiKey(apiKey);
+    const handleSaveOpenAI = () => onSaveOpenAIApiKey(openAIKey);
+    const handleSaveGemini = () => onSaveGeminiApiKey(geminiKey);
+    const handleSaveOpenRouter = () => onSaveOpenRouterApiKey(openRouterKey);
 
     return (
-        <div>
-            <label htmlFor="openai-api-key" className="block text-sm font-medium text-gray-300 mb-2">
-                OpenAI API Key
-            </label>
-            <div className="flex gap-2">
-                <input
-                    id="openai-api-key"
-                    type="password"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="sk-..."
-                    className="flex-grow p-2 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                />
-                <button
-                    onClick={handleSave}
-                    type="button"
-                    className="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-500 disabled:bg-gray-600 transition-colors"
-                >
-                    Save Key
-                </button>
+        <div className="space-y-6">
+            <div>
+                <label htmlFor="openai-api-key" className="block text-sm font-medium text-gray-300 mb-2">
+                    OpenAI API Key
+                </label>
+                <div className="flex gap-2">
+                    <input
+                        id="openai-api-key"
+                        type="password"
+                        value={openAIKey}
+                        onChange={(e) => setOpenAIKey(e.target.value)}
+                        placeholder="sk-..."
+                        className="flex-grow p-2 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                    />
+                    <button
+                        onClick={handleSaveOpenAI}
+                        type="button"
+                        className="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-500 disabled:bg-gray-600 transition-colors"
+                    >
+                        Save
+                    </button>
+                </div>
+            </div>
+            
+            <div>
+                <label htmlFor="gemini-api-key" className="block text-sm font-medium text-gray-300 mb-2">
+                    Google Gemini API Key
+                </label>
+                <div className="flex gap-2">
+                    <input
+                        id="gemini-api-key"
+                        type="password"
+                        value={geminiKey}
+                        onChange={(e) => setGeminiKey(e.target.value)}
+                        placeholder="AIza..."
+                        className="flex-grow p-2 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                    />
+                    <button
+                        onClick={handleSaveGemini}
+                        type="button"
+                        className="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-500 disabled:bg-gray-600 transition-colors"
+                    >
+                        Save
+                    </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                    If left blank, the application will attempt to use the pre-configured environment variable.
+                </p>
+            </div>
+
+            <div>
+                <label htmlFor="openrouter-api-key" className="block text-sm font-medium text-gray-300 mb-2">
+                    OpenRouter API Key
+                </label>
+                <div className="flex gap-2">
+                    <input
+                        id="openrouter-api-key"
+                        type="password"
+                        value={openRouterKey}
+                        onChange={(e) => setOpenRouterKey(e.target.value)}
+                        placeholder="sk-or-..."
+                        className="flex-grow p-2 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                    />
+                    <button
+                        onClick={handleSaveOpenRouter}
+                        type="button"
+                        className="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-500 disabled:bg-gray-600 transition-colors"
+                    >
+                        Save
+                    </button>
+                </div>
             </div>
         </div>
     );

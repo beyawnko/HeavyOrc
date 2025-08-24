@@ -1,5 +1,6 @@
 
 
+
 import { dispatch } from './dispatcher';
 import { arbitrateStream } from './arbiter';
 import { Draft, ExpertDispatch } from './types';
@@ -45,7 +46,10 @@ export const runOrchestration = async (params: OrchestrationParams, callbacks: O
     let switchedArbiter = false;
 
     const successfulDrafts = drafts.filter(d => d.status === 'COMPLETED');
-    if (successfulDrafts.length > 0 && finalArbiterModel.startsWith('gpt-')) {
+    const isGptModel = finalArbiterModel.startsWith('gpt-');
+    const isOpenRouterModel = finalArbiterModel.includes('/');
+
+    if (successfulDrafts.length > 0 && (isGptModel || isOpenRouterModel)) {
         const arbiterPrompt = `The original user question is:\n"${params.prompt}"\n\nHere are ${successfulDrafts.length} candidate answers from different expert agents. Please synthesize them into the best possible single answer.\n\n${successfulDrafts
             .map((d, i) => `### Draft from Agent ${i + 1} (Provider: ${d.expert.provider}, Persona: ${d.expert.name})\n${d.content}`)
             .join("\n\n---\n\n")}`;

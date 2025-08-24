@@ -1,6 +1,6 @@
 import React from 'react';
-import { AgentConfig, AgentModel, GeminiAgentConfig, GeminiAgentSettings, OpenAIAgentConfig, OpenAIAgentSettings, AgentStatus, GeminiModel, OpenAIModel, GeminiThinkingEffort, GenerationStrategy } from '../types';
-import { GEMINI_FLASH_MODEL, GEMINI_PRO_MODEL, OPENAI_AGENT_MODEL } from '../constants';
+import { AgentConfig, AgentModel, GeminiAgentConfig, GeminiAgentSettings, OpenAIAgentConfig, OpenAIAgentSettings, AgentStatus, GeminiModel, OpenAIModel, GeminiThinkingEffort, GenerationStrategy, OpenRouterAgentConfig, OpenRouterAgentSettings, OpenRouterModel } from '../types';
+import { GEMINI_FLASH_MODEL, GEMINI_PRO_MODEL, OPENAI_AGENT_MODEL, OPENROUTER_CLAUDE_3_HAIKU, OPENROUTER_GEMINI_FLASH_1_5, OPENROUTER_GPT_4O } from '../constants';
 import { XCircleIcon, LoadingSpinner, CheckCircleIcon, DocumentDuplicateIcon } from './icons';
 
 interface AgentConfigCardProps {
@@ -46,6 +46,7 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
     const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newModelValue = e.target.value as AgentModel;
         const isSwitchingToGemini = newModelValue.startsWith('gemini');
+        const isSwitchingToOpenRouter = newModelValue.includes('/');
 
         if (isSwitchingToGemini) {
             const newModel = newModelValue as GeminiModel;
@@ -62,8 +63,21 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                 },
             };
             onUpdate(config.id, newConfig);
-        } 
-        else { // Switching to OpenAI
+        } else if (isSwitchingToOpenRouter) {
+            const newModel = newModelValue as OpenRouterModel;
+            const newConfig: OpenRouterAgentConfig = {
+                id: config.id, expert: config.expert, status: config.status, provider: 'openrouter', model: newModel,
+                settings: {
+                    temperature: 0.7,
+                    topP: 1,
+                    topK: 50,
+                    frequencyPenalty: 0,
+                    presencePenalty: 0,
+                    repetitionPenalty: 1,
+                }
+            };
+            onUpdate(config.id, newConfig);
+        } else { // Switching to OpenAI
             const newModel = newModelValue as OpenAIModel;
             const newConfig: OpenAIAgentConfig = {
                  id: config.id, expert: config.expert, status: config.status, provider: 'openai', model: newModel,
@@ -81,7 +95,7 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
         }
     };
 
-    const handleSettingChange = (update: Partial<GeminiAgentSettings | OpenAIAgentSettings>) => {
+    const handleSettingChange = (update: Partial<GeminiAgentSettings | OpenAIAgentSettings | OpenRouterAgentSettings>) => {
         const newConfig = {
             ...config,
             settings: {
@@ -140,9 +154,18 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                         disabled={disabled}
                         className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
                     >
-                        <option value={GEMINI_PRO_MODEL}>Gemini 2.5 Pro</option>
-                        <option value={GEMINI_FLASH_MODEL}>Gemini 2.5 Flash</option>
-                        <option value={OPENAI_AGENT_MODEL}>OpenAI GPT-5</option>
+                        <optgroup label="Google">
+                            <option value={GEMINI_PRO_MODEL}>Gemini 2.5 Pro</option>
+                            <option value={GEMINI_FLASH_MODEL}>Gemini 2.5 Flash</option>
+                        </optgroup>
+                        <optgroup label="OpenAI">
+                             <option value={OPENAI_AGENT_MODEL}>OpenAI GPT-5</option>
+                        </optgroup>
+                        <optgroup label="OpenRouter">
+                            <option value={OPENROUTER_GPT_4O}>OpenAI GPT-4o</option>
+                            <option value={OPENROUTER_GEMINI_FLASH_1_5}>Gemini Flash 1.5</option>
+                            <option value={OPENROUTER_CLAUDE_3_HAIKU}>Claude 3 Haiku</option>
+                        </optgroup>
                     </select>
                 </div>
 
@@ -150,11 +173,11 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                      <label htmlFor={`strategy-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Generation Strategy</label>
                     <select
                         id={`strategy-${config.id}`}
-                        value={config.settings.generationStrategy}
+                        value={config.provider === 'openrouter' ? 'single' : (config as GeminiAgentConfig | OpenAIAgentConfig).settings.generationStrategy}
                         onChange={(e) => handleSettingChange({ generationStrategy: e.target.value as GenerationStrategy })}
-                        disabled={disabled}
+                        disabled={disabled || config.provider === 'openrouter'}
                         className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 disabled:opacity-70"
-                        title="Select the generation strategy. For Gemini and OpenAI, this uses an LLM verifier as token-level confidence is not available."
+                        title={config.provider === 'openrouter' ? "DeepConf is not currently supported for OpenRouter agents." : "Select the generation strategy."}
                     >
                         <option value="single">Single Draft</option>
                         <option value="deepconf-offline">DeepConf Offline</option>
@@ -162,7 +185,7 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                     </select>
                 </div>
                 
-                {config.settings.generationStrategy !== 'single' &&
+                {config.provider !== 'openrouter' && config.settings.generationStrategy !== 'single' &&
                     <>
                         <div>
                             <label htmlFor={`traces-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Trace Count</label>
@@ -251,7 +274,7 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                             <option value="none" disabled={config.model === GEMINI_PRO_MODEL}>None (No Thinking)</option>
                         </select>
                     </div>
-                ) : (
+                ) : config.provider === 'openai' ? (
                     <div className="col-span-2 grid grid-cols-2 gap-3">
                         <div>
                             <label htmlFor={`openai-effort-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Reasoning</label>
@@ -283,6 +306,25 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                             </select>
                         </div>
                     </div>
+                ) : ( // OpenRouter Settings
+                     <div className="col-span-2 grid grid-cols-2 gap-3">
+                        <div>
+                             <label htmlFor={`or-temp-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Temperature</label>
+                             <input type="number" id={`or-temp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).temperature} onChange={e => handleSettingChange({ temperature: parseFloat(e.target.value) })} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"/>
+                        </div>
+                        <div>
+                             <label htmlFor={`or-topk-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Top K</label>
+                             <input type="number" id={`or-topk-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topK} onChange={e => handleSettingChange({ topK: parseInt(e.target.value, 10) })} disabled={disabled} min="1" step="1" className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"/>
+                        </div>
+                         <div>
+                             <label htmlFor={`or-topp-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Top P</label>
+                             <input type="number" id={`or-topp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topP} onChange={e => handleSettingChange({ topP: parseFloat(e.target.value) })} disabled={disabled} min="0" max="1" step="0.05" className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"/>
+                        </div>
+                         <div>
+                             <label htmlFor={`or-repp-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Repetition Penalty</label>
+                             <input type="number" id={`or-repp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).repetitionPenalty} onChange={e => handleSettingChange({ repetitionPenalty: parseFloat(e.target.value) })} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"/>
+                        </div>
+                     </div>
                 )}
             </div>
         </div>

@@ -7,7 +7,7 @@ import {
     OPENAI_ARBITER_GPT5_HIGH_REASONING
 } from './constants';
 
-export type ApiProvider = 'gemini' | 'openai';
+export type ApiProvider = 'gemini' | 'openai' | 'openrouter';
 export type AgentStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'QUEUED';
 
 export interface AgentState {
@@ -30,7 +30,8 @@ export interface ImageState {
 // New types for direct manipulation UI
 export type GeminiModel = typeof GEMINI_FLASH_MODEL | typeof GEMINI_PRO_MODEL;
 export type OpenAIModel = typeof OPENAI_AGENT_MODEL;
-export type AgentModel = GeminiModel | OpenAIModel;
+export type OpenRouterModel = string; // e.g., "openai/gpt-4o"
+export type AgentModel = GeminiModel | OpenAIModel | OpenRouterModel;
 
 export type GeminiThinkingEffort = 'dynamic' | 'high' | 'medium' | 'low' | 'none';
 export type GenerationStrategy = 'single' | 'deepconf-offline' | 'deepconf-online';
@@ -56,6 +57,17 @@ export interface OpenAIAgentSettings {
     groupWindow: number;
 }
 
+export interface OpenRouterAgentSettings {
+    temperature: number;
+    topP: number;
+    topK: number;
+    frequencyPenalty: number;
+    presencePenalty: number;
+    repetitionPenalty: number;
+    maxTokens?: number;
+}
+
+
 export interface BaseAgentConfig {
     id: string; // unique instance id
     expert: Expert;
@@ -76,17 +88,23 @@ export interface OpenAIAgentConfig extends BaseAgentConfig {
     settings: OpenAIAgentSettings;
 }
 
-export type AgentConfig = GeminiAgentConfig | OpenAIAgentConfig;
+export interface OpenRouterAgentConfig extends BaseAgentConfig {
+    provider: 'openrouter';
+    model: OpenRouterModel;
+    settings: OpenRouterAgentSettings;
+}
+
+export type AgentConfig = GeminiAgentConfig | OpenAIAgentConfig | OpenRouterAgentConfig;
 
 // Types for session management
-export type ArbiterModel = typeof GEMINI_PRO_MODEL | typeof OPENAI_ARBITER_GPT5_MEDIUM_REASONING | typeof OPENAI_ARBITER_GPT5_HIGH_REASONING;
+export type ArbiterModel = typeof GEMINI_PRO_MODEL | typeof OPENAI_ARBITER_GPT5_MEDIUM_REASONING | typeof OPENAI_ARBITER_GPT5_HIGH_REASONING | string;
 export type OpenAIVerbosity = 'low' | 'medium' | 'high';
 
 export interface SavedAgentConfig {
     expertId: string;
     model: AgentModel;
     provider: ApiProvider;
-    settings: GeminiAgentSettings | OpenAIAgentSettings;
+    settings: GeminiAgentSettings | OpenAIAgentSettings | OpenRouterAgentSettings;
 }
 
 export const SESSION_DATA_VERSION = 1;
@@ -99,6 +117,8 @@ export interface SessionData {
     openAIArbiterVerbosity: OpenAIVerbosity;
     geminiArbiterEffort: GeminiThinkingEffort;
     openAIApiKey: string;
+    geminiApiKey: string;
+    openRouterApiKey: string;
     queryHistory: string[];
 }
 

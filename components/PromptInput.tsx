@@ -10,6 +10,7 @@ import {
 import { ImageState } from '../types';
 
 const MAX_IMAGES = 5;
+const MAX_TEXTAREA_HEIGHT = 200; // Max height in pixels before scrolling
 
 interface PromptInputProps {
     prompt: string;
@@ -103,9 +104,19 @@ const PromptInput: React.FC<PromptInputProps> = ({
     
     useEffect(() => {
         if (textareaRef.current) {
+            // Reset height to calculate the new scroll height
             textareaRef.current.style.height = 'auto';
             const scrollHeight = textareaRef.current.scrollHeight;
-            textareaRef.current.style.height = `${scrollHeight}px`;
+
+            if (scrollHeight > MAX_TEXTAREA_HEIGHT) {
+                // If content is too tall, set to max height and enable scrolling
+                textareaRef.current.style.height = `${MAX_TEXTAREA_HEIGHT}px`;
+                textareaRef.current.style.overflowY = 'auto';
+            } else {
+                // Otherwise, fit height to content and hide scrollbar
+                textareaRef.current.style.height = `${scrollHeight}px`;
+                textareaRef.current.style.overflowY = 'hidden';
+            }
         }
     }, [prompt]);
 
@@ -172,7 +183,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
                     onChange={(e) => onPromptChange(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Ask me anything, or add up to 5 images..."
-                    className="w-full flex-grow bg-transparent text-gray-200 placeholder-gray-500 text-base resize-none focus:outline-none overflow-y-hidden p-2 min-h-[44px]"
+                    className="w-full flex-grow bg-transparent text-gray-200 placeholder-gray-500 text-base resize-none focus:outline-none p-2 min-h-[44px]"
                     rows={1}
                     disabled={disabled || isLoading}
                 />

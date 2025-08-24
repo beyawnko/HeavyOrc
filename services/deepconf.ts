@@ -1,7 +1,7 @@
 // services/deepconf.ts
 import { GoogleGenAI, Type } from "@google/genai";
 import OpenAI from "openai";
-import { geminiAI, getOpenAIClient } from './llmService';
+import { getGeminiClient, getOpenAIClient } from './llmService';
 import { 
     GEMINI_FLASH_MODEL, 
     GEMINI_PRO_MODEL,
@@ -55,8 +55,8 @@ export interface JudgeResult {
 }
 
 export const judgeAnswer = async (prompt: string, answer: string, agentModel: string): Promise<JudgeResult> => {
-    // OpenAI Judge Logic
-    if (agentModel.startsWith('gpt-')) {
+    // OpenAI & OpenRouter Judge Logic
+    if (agentModel.startsWith('gpt-') || agentModel.includes('/')) {
         try {
             const openaiAI = getOpenAIClient();
             // Per user request, use a specific judge model (gpt-5-mini) with high reasoning for OpenAI agents.
@@ -105,7 +105,8 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
     try {
         // If the agent model is Pro, use the Pro model for judging for consistency. Otherwise, use the fast Flash model.
         const judgeModel = agentModel === GEMINI_PRO_MODEL ? GEMINI_PRO_MODEL : GEMINI_FLASH_MODEL;
-
+        
+        const geminiAI = getGeminiClient();
         const response = await geminiAI.models.generateContent({
             model: judgeModel,
             contents: { parts: [{ text: judgeUserTemplate(prompt, answer) }] },

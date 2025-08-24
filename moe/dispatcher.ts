@@ -1,9 +1,9 @@
 import OpenAI from 'openai';
 import { GenerateContentParameters, Part } from "@google/genai";
 import { Draft, ExpertDispatch } from './types';
-import { geminiAI, getOpenAIClient } from '../services/llmService';
+import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '../services/llmService';
 import { GEMINI_PRO_MODEL, GEMINI_FLASH_MODEL, OPENAI_REASONING_PROMPT_PREFIX } from '../constants';
-import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort } from '../types';
+import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort, OpenRouterAgentConfig, OpenAIAgentSettings, GeminiAgentSettings } from '../types';
 import { 
     Trace, 
     DEFAULTS, 
@@ -65,6 +65,7 @@ const runExpertGeminiSingle = async (
         if (generateContentParams.config) generateContentParams.config.thinkingConfig = { thinkingBudget: budget };
     }
 
+    const geminiAI = getGeminiClient();
     const response = await geminiAI.models.generateContent(generateContentParams);
     return response.text;
 }
@@ -190,6 +191,57 @@ const runExpertOpenAIDeepConf = async (
     }
 };
 
+const runExpertOpenRouterSingle = async (
+    expert: ExpertDispatch,
+    prompt: string,
+    images: ImageState[],
+    config: OpenRouterAgentConfig
+): Promise<string> => {
+    const openRouterKey = getOpenRouterApiKey();
+    if (!openRouterKey) throw new Error("OpenRouter API Key not set.");
+
+    const headers = {
+        'Authorization': `Bearer ${openRouterKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://gemini-heavy-orchestrator.web.app',
+        'X-Title': 'Gemini Heavy Orchestrator',
+    };
+
+    const messages: any[] = [{ role: 'system', content: expert.persona }];
+     if (images.length > 0) {
+        const userContent: any[] = [{ type: 'text', text: prompt }];
+        images.forEach(img => {
+            userContent.push({
+                type: 'image_url',
+                image_url: { url: `data:${img.file.type};base64,${img.base64}` },
+            });
+        });
+        messages.push({ role: 'user', content: userContent });
+    } else {
+        messages.push({ role: 'user', content: prompt });
+    }
+
+    const body = {
+        model: expert.model,
+        messages,
+        ...config.settings
+    };
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`OpenRouter API Error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content || 'No content received.';
+};
+
 
 const runExpert = async (
     expert: ExpertDispatch,
@@ -207,13 +259,17 @@ const runExpert = async (
             } else {
                 content = await runExpertGeminiDeepConf(expert, prompt, images, geminiConfig);
             }
-        } else { // openai
+        } else if (config.provider === 'openai') {
             const openaiConfig = config as OpenAIAgentConfig;
             if (openaiConfig.settings.generationStrategy === 'single') {
                 content = await runExpertOpenAISingle(expert, prompt, images, openaiConfig);
             } else {
                 content = await runExpertOpenAIDeepConf(expert, prompt, images, openaiConfig);
             }
+        } else { // openrouter
+             const openRouterConfig = config as OpenRouterAgentConfig;
+             // DeepConf is not implemented for OpenRouter in this example, falls back to single
+             content = await runExpertOpenRouterSingle(expert, prompt, images, openRouterConfig);
         }
 
         return {
@@ -257,13 +313,21 @@ export const dispatch = async (
         config: agentConfigs.find(c => c.id === expert.agentId)
     })).filter((item): item is { expert: ExpertDispatch, config: AgentConfig } => item.config !== undefined);
 
-    const geminiExperts = expertsWithConfigs.filter(e => e.expert.provider === 'gemini');
-    const openAIExperts = expertsWithConfigs.filter(e => e.expert.provider === 'openai');
+    const geminiExperts = expertsWithConfigs.filter(
+        (e): e is { expert: ExpertDispatch; config: GeminiAgentConfig } => e.config.provider === 'gemini'
+    );
+    const openAIExperts = expertsWithConfigs.filter(
+        (e): e is { expert: ExpertDispatch; config: OpenAIAgentConfig } => e.config.provider === 'openai'
+    );
+    const openRouterExperts = expertsWithConfigs.filter(
+        (e): e is { expert: ExpertDispatch; config: OpenRouterAgentConfig } => e.config.provider === 'openrouter'
+    );
 
     const draftPromises: Promise<Draft>[] = [];
 
-    // Start all Gemini experts in parallel
-    geminiExperts.forEach(({ expert, config }) => {
+    // Start all Gemini and OpenRouter experts in parallel
+    const parallelExperts = [...geminiExperts, ...openRouterExperts];
+    parallelExperts.forEach(({ expert, config }) => {
         const promise = runExpert(expert, prompt, images, config).then(draft => {
             onDraftComplete(draft);
             return draft;
