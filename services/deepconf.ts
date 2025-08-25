@@ -143,14 +143,20 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
             return { score: 0, reasons: [`Failed to parse JSON response from judge model: ${message}`] };
         }
 
-        if (
-            parsed &&
-            typeof (parsed as any).score === 'number' &&
-            Array.isArray((parsed as any).reasons)
-        ) {
+        const isJudgePayload = (obj: unknown): obj is { score: number; reasons: string[] } => {
+            if (typeof obj !== 'object' || obj === null) return false;
+            const record = obj as Record<string, unknown>;
+            return (
+                typeof record.score === 'number' &&
+                Array.isArray(record.reasons) &&
+                record.reasons.every(r => typeof r === 'string')
+            );
+        };
+
+        if (isJudgePayload(parsed)) {
             return {
-                score: Math.max(0, Math.min(1, (parsed as any).score)), // Clamp score between 0 and 1
-                reasons: (parsed as any).reasons
+                score: Math.max(0, Math.min(1, parsed.score)), // Clamp score between 0 and 1
+                reasons: parsed.reasons
             };
         }
 
