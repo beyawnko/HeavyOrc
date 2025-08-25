@@ -83,7 +83,7 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
             
             if (typeof result.score === 'number' && Array.isArray(result.reasons)) {
                 return {
-                    score: Math.max(0, Math.min(1, result.score)), // Clamp score
+                score: Math.max(0, Math.min(1, result.score)), // Clamp score between 0 and 1
                     reasons: result.reasons
                 };
             }
