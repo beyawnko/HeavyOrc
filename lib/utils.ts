@@ -1,7 +1,7 @@
 export const getAppUrl = (): string =>
-  typeof window !== 'undefined'
+  typeof window !== 'undefined' && window.location
     ? window.location.origin
-    : import.meta.env.VITE_APP_URL ?? '';
+    : import.meta.env.VITE_APP_URL ?? 'http://localhost';
 
 export const getGeminiResponseText = (response: unknown): string => {
   if (!response) return '';

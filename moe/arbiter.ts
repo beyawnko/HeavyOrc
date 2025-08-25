@@ -53,7 +53,6 @@ async function* openRouterStreamer(stream: ReadableStream<Uint8Array>): AsyncGen
     }
 }
 
-
 export const arbitrateStream = async (
     arbiterModel: string,
     prompt: string,

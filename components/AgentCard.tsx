@@ -56,6 +56,19 @@ const getProviderChipStyle = (provider: AgentState['provider']): string => {
     }
 };
 
+const getProviderChipStyle = (provider: AgentState['provider']): string => {
+    switch (provider) {
+        case 'gemini':
+            return 'bg-purple-800 text-purple-200';
+        case 'openai':
+            return 'bg-teal-800 text-teal-200';
+        case 'openrouter':
+            return 'bg-cyan-800 text-cyan-200';
+        default:
+            return 'bg-gray-700 text-gray-200';
+    }
+};
+
 const AgentCard: React.FC<AgentCardProps> = ({ agent, displayId }) => {
   const { persona, status, content, provider } = agent;
   const contentId = useId();

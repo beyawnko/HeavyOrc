@@ -2,8 +2,8 @@
 import { Type } from "@google/genai";
 import { getGeminiClient, getOpenAIClient } from './llmService';
 import { getGeminiResponseText } from '@/lib/utils';
-import { 
-    GEMINI_FLASH_MODEL, 
+import {
+    GEMINI_FLASH_MODEL,
     GEMINI_PRO_MODEL,
     OPENAI_JUDGE_MODEL,
     OPENAI_REASONING_PROMPT_PREFIX
