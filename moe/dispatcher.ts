@@ -86,7 +86,7 @@ const runExpertGeminiDeepConf = async (
     
     const createProvider = (): TraceProvider => {
         return {
-            generate: async (p, abortSignal) => {
+            generate: async (p, abortSignal) => { // p is the prompt string
                 const text = await runExpertGeminiSingle(expert, p, images, config, abortSignal);
                 // Gemini API doesn't give us steps/tokens, so we create a mock Trace
                 const trace: Trace = {
@@ -164,7 +164,7 @@ const runExpertOpenAIDeepConf = async (
     
     const createProvider = (): TraceProvider => {
         return {
-            generate: async (p, abortSignal) => {
+            generate: async (p, abortSignal) => { // p is the prompt string
                 // Since logprobs are not available, we generate the full text and mock the trace.
                 const text = await runExpertOpenAISingle(expert, p, images, config, abortSignal);
                 // Mock Trace for judge-based DeepConf
