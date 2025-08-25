@@ -14,15 +14,14 @@ export const callWithGeminiRetry = async <T>(
     retries = 2,
     baseDelayMs = 1000,
 ): Promise<T> => {
-    for (let attempt = 0; attempt < retries; attempt++) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
         try {
             return await fn();
         } catch (error) {
-            if (!isGeminiRateLimitError(error)) {
+            if (!isGeminiRateLimitError(error) || attempt === retries) {
                 throw error;
             }
             await sleep(baseDelayMs * Math.pow(2, attempt));
         }
     }
-    return fn();
 };
