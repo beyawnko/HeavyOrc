@@ -134,12 +134,23 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
             return { score: 0, reasons: ["Empty response from judge model."] };
         }
 
-        const parsed = JSON.parse(jsonString);
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(jsonString);
+        } catch (error) {
+            console.error("Failed to parse JSON from Gemini judge:", error);
+            const message = error instanceof Error ? error.message : String(error);
+            return { score: 0, reasons: [`Failed to parse JSON response from judge model: ${message}`] };
+        }
 
-        if (typeof parsed.score === 'number' && Array.isArray(parsed.reasons)) {
+        if (
+            parsed &&
+            typeof (parsed as any).score === 'number' &&
+            Array.isArray((parsed as any).reasons)
+        ) {
             return {
-                score: Math.max(0, Math.min(1, parsed.score)), // Clamp score between 0 and 1
-                reasons: parsed.reasons
+                score: Math.max(0, Math.min(1, (parsed as any).score)), // Clamp score between 0 and 1
+                reasons: (parsed as any).reasons
             };
         }
 
