@@ -1,5 +1,5 @@
 {
-  "name": "Gemini Heavy Orchestrator",
-  "description": "An advanced web application that demonstrates a 'Mixture-of-Experts' orchestration pattern using the Gemini API. It spawns multiple AI agents in parallel to generate draft responses, then uses a final arbiter agent to synthesize the best possible answer from the drafts, streaming the result back to the user.",
+  "name": "HeavyOrc",
+  "description": "A multi-provider Mixture-of-Experts orchestrator for LLMs. It spawns parallel AI agents and uses a final arbiter to synthesize the best answer, streaming results back to the user.",
   "requestFramePermissions": []
 }

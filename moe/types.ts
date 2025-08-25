@@ -1,11 +1,5 @@
 
-import { ApiProvider, AgentStatus } from '../types';
-
-export interface Expert {
-  id: string;
-  name: string;
-  persona: string;
-}
+import { ApiProvider, AgentStatus, Expert } from '@/types';
 
 export interface ExpertDispatch extends Expert {
   agentId: string;

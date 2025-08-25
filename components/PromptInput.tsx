@@ -1,12 +1,12 @@
 import React, { useCallback, useRef, useEffect } from 'react';
-import { 
+import {
     XCircleIcon,
     PlusIcon,
     MicrophoneIcon,
     SparklesIcon,
     LoadingSpinner,
-} from './icons';
-import { ImageState } from '../types';
+} from '@/components/icons';
+import { ImageState } from '@/types';
 
 const MAX_IMAGES = 5;
 const MAX_TEXTAREA_HEIGHT = 200; // Max height in pixels before scrolling

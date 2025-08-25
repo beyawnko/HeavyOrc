@@ -1,27 +1,74 @@
-# Gemini Heavy Orchestrator
+# HeavyOrc
 
-![Gemini Heavy Orchestrator Banner](./assets/banner.png)
+![HeavyOrc banner](./assets/banner.svg)
 
-An advanced web application that demonstrates a 'Mixture-of-Experts' orchestration pattern using the Gemini API. It spawns multiple AI agents in parallel to generate draft responses, then uses a final arbiter agent to synthesize the best possible answer from the drafts, streaming the result back to the user.
+HeavyOrc is a web application that demonstrates a Mixture-of-Experts orchestration pattern for large language models. It dispatches prompts to multiple "expert" agents across different providers and synthesises their drafts into a final answer in real time.
 
 ## Features
 
-*   **Multi-Agent Orchestration**: Spawns a configurable number of "expert" AI agents.
-*   **Response Synthesis**: Uses a final "arbiter" agent to combine the best parts of all drafts.
-*   **Streaming UI**: Streams the final, synthesized answer back to the user in real-time.
-*   **Progress Visualization**: A live progress bar shows the status of the agent and arbiter phases.
-*   **Responsive Gallery View**: Displays the final answer and all contributing drafts in an animated, easy-to-read gallery.
+- **Multi-provider support**: Gemini, OpenAI and OpenRouter backends.
+- **Mixture-of-Experts orchestration**: run parallel experts and merge their outputs with an arbiter.
+- **DeepConf**: confidence-driven generation modes (offline, online and judge-assisted).
+- **Streaming UI**: live progress bar and gallery of expert drafts.
+- **Session tools**: save and reload conversations or export all drafts as a ZIP.
 
-## Prerequisites
+## Providers & API keys
 
-*   **A modern web browser.**
-*   **Google Gemini API Key**: You need an API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+Copy `.env.example` to `.env` and supply the keys for any providers you plan to use:
 
-## Getting Started
+```env
+GEMINI_API_KEY=your_gemini_key
+OPENAI_API_KEY=your_openai_key
+OPENROUTER_API_KEY=your_openrouter_key
+VITE_APP_URL=https://your-domain.example
+```
 
-1.  **Set up your API Key:**
-    *   The application requires your Google Gemini API key to be available as an environment variable named `API_KEY`.
-    *   Please consult the documentation for your specific development environment on how to configure secrets or environment variables.
+Keys are optional; the UI hides providers without keys. `VITE_APP_URL` supplies a referer for server-side deployments.
 
-2.  **Run the application:**
-    *   Once the `API_KEY` is configured, the application should run directly. No local installation or build steps are required.
+## Development
+
+1. Install dependencies: `npm install`
+2. Configure your `.env` file as above.
+3. Start the dev server: `npm run dev`
+4. Build for production: `npm run build`
+5. Preview the build locally: `npm run preview`
+
+## GitHub Pages deployment
+
+1. In `vite.config.ts` set `base: '/HeavyOrc/'`.
+2. Add a GitHub Actions workflow to build and deploy automatically:
+
+   ```yaml
+   # .github/workflows/deploy.yml
+   name: Deploy
+   on:
+     push:
+       branches: [ main ]
+   jobs:
+     build:
+       runs-on: ubuntu-latest
+       steps:
+         - uses: actions/checkout@v4
+         - uses: actions/setup-node@v4
+           with:
+             node-version: 18
+         - run: npm ci && npm run build
+         - uses: peaceiris/actions-gh-pages@v3
+           with:
+             github_token: ${{ secrets.GITHUB_TOKEN }}
+             publish_dir: ./dist
+   ```
+
+3. Enable GitHub Pages for the `gh-pages` branch created by the workflow and visit `https://USERNAME.github.io/HeavyOrc/`, replacing `USERNAME` with your GitHub handle.
+
+## DeepConf overview
+
+`services/deepconf.ts` provides several confidence-driven strategies:
+
+- **Offline**: generate many traces then pick the best by consensus.
+- **Online**: stream traces until confidence exceeds a threshold.
+- **Judge modes**: use an LLM judge to score traces before voting.
+
+These modes work with any supported provider.
+
+
