@@ -106,7 +106,7 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
         const judgeModel = agentModel === GEMINI_PRO_MODEL ? GEMINI_PRO_MODEL : GEMINI_FLASH_MODEL;
         
         const geminiAI = getGeminiClient();
-        const apiResult = await geminiAI.models.generateContent({
+        const response = await geminiAI.models.generateContent({
             model: judgeModel,
             contents: { parts: [{ text: judgeUserTemplate(prompt, answer) }] },
             config: {
@@ -127,7 +127,7 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
             },
         });
 
-        const jsonString = (apiResult as any).response?.text().trim() ?? '';
+        const jsonString = response.text?.trim() ?? '';
         const parsed = JSON.parse(jsonString);
 
         if (typeof parsed.score === 'number' && Array.isArray(parsed.reasons)) {

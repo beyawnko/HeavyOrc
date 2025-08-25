@@ -117,7 +117,7 @@ export const arbitrateStream = async (
         const effort = arbiterModel === OPENAI_ARBITER_GPT5_HIGH_REASONING ? 'high' : 'medium';
 
         try {
-            const stream = await (openaiAI as any).responses.create({
+            const stream = await openaiAI.responses.create({
                 model: OPENAI_ARBITER_MODEL,
                 input: inputPrompt,
                 reasoning: { effort },
@@ -126,9 +126,8 @@ export const arbitrateStream = async (
 
             async function* transformStream(): AsyncGenerator<{ text: string }> {
                 for await (const chunk of stream) {
-                    const content = chunk.text || '';
-                    if (content) {
-                        yield { text: content };
+                    if (chunk.type === 'response.output_text.delta') {
+                        yield { text: chunk.delta };
                     }
                 }
             }
@@ -158,11 +157,11 @@ export const arbitrateStream = async (
             systemInstruction: ARBITER_PERSONA,
             thinkingConfig: { thinkingBudget: budget },
         }
-    }) as AsyncIterable<{ text(): string }>;
+    });
 
     async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
         for await (const chunk of stream) {
-            yield { text: chunk.text() };
+            yield { text: chunk.text ?? '' };
         }
     }
     return transformGeminiStream();
