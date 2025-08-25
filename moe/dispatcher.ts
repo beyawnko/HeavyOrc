@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { GenerateContentParameters, Part } from "@google/genai";
 import { Draft, ExpertDispatch } from './types';
 import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '@/services/llmService';
+import { getAppUrl, getGeminiResponseText } from '@/lib/utils';
 import { GEMINI_PRO_MODEL, GEMINI_FLASH_MODEL, OPENAI_REASONING_PROMPT_PREFIX } from '@/constants';
 import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort, OpenRouterAgentConfig } from '@/types';
 import {
@@ -72,11 +73,7 @@ const runExpertGeminiSingle = async (
 
     const geminiAI = getGeminiClient();
     const response = await geminiAI.models.generateContent(generateContentParams);
-    // The SDK may expose the result via a `text` getter or `text()` method.
-    const textProp = Reflect.get(response, 'text') as unknown;
-    return typeof textProp === 'function'
-        ? textProp.call(response) ?? ''
-        : (textProp as string | undefined) ?? '';
+    return getGeminiResponseText(response);
 }
 
 const runExpertGeminiDeepConf = async (
@@ -209,13 +206,10 @@ const runExpertOpenRouterSingle = async (
     const openRouterKey = getOpenRouterApiKey();
     if (!openRouterKey) throw new Error("OpenRouter API Key not set.");
 
-    const appUrl = typeof window !== 'undefined'
-        ? window.location.origin
-        : import.meta.env.VITE_APP_URL ?? '';
     const headers = {
         'Authorization': `Bearer ${openRouterKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': appUrl,
+        'HTTP-Referer': getAppUrl(),
         'X-Title': 'HeavyOrc',
     };
 

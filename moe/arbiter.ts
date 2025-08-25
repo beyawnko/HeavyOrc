@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { Draft } from './types';
 import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '@/services/llmService';
+import { getAppUrl, getGeminiResponseText } from '@/lib/utils';
 import {
     ARBITER_PERSONA,
     ARBITER_HIGH_REASONING_PROMPT_MODIFIER,
@@ -75,13 +76,10 @@ export const arbitrateStream = async (
         const openRouterKey = getOpenRouterApiKey();
         if (!openRouterKey) throw new Error("OpenRouter API Key not set.");
         
-        const appUrl = typeof window !== 'undefined'
-            ? window.location.origin
-            : import.meta.env.VITE_APP_URL ?? '';
         const headers = {
             'Authorization': `Bearer ${openRouterKey}`,
             'Content-Type': 'application/json',
-            'HTTP-Referer': appUrl,
+            'HTTP-Referer': getAppUrl(),
             'X-Title': 'HeavyOrc',
         };
         const messages = [
@@ -161,12 +159,7 @@ export const arbitrateStream = async (
 
     async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
         for await (const chunk of stream) {
-            // Handle both old `text` getter and new `text()` helper from the SDK.
-            const textProp = Reflect.get(chunk, 'text') as unknown;
-            const text = typeof textProp === 'function'
-                ? textProp.call(chunk)
-                : (textProp as string | undefined);
-            yield { text: text ?? '' };
+            yield { text: getGeminiResponseText(chunk) };
         }
     }
     return transformGeminiStream();

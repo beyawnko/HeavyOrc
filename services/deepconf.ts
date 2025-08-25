@@ -1,6 +1,7 @@
 // services/deepconf.ts
 import { Type } from "@google/genai";
 import { getGeminiClient, getOpenAIClient } from './llmService';
+import { getGeminiResponseText } from '@/lib/utils';
 import { 
     GEMINI_FLASH_MODEL, 
     GEMINI_PRO_MODEL,
@@ -127,11 +128,7 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
             },
         });
 
-        // The SDK may return a `text` getter or `text()` method; support both.
-        const textProp = Reflect.get(response, 'text') as unknown;
-        const jsonString = typeof textProp === 'function'
-            ? textProp.call(response)?.trim() ?? ''
-            : (textProp as string | undefined)?.trim() ?? '';
+        const jsonString = getGeminiResponseText(response).trim();
         if (!jsonString) {
             console.warn("Judge model returned empty response");
             return { score: 0, reasons: ["Empty response from judge model."] };
