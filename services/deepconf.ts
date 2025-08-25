@@ -128,6 +128,11 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
         });
 
         const jsonString = response.text?.trim() ?? '';
+        if (!jsonString) {
+            console.warn("Judge model returned empty response");
+            return { score: 0, reasons: ["Empty response from judge model."] };
+        }
+
         const parsed = JSON.parse(jsonString);
 
         if (typeof parsed.score === 'number' && Array.isArray(parsed.reasons)) {

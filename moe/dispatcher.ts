@@ -116,7 +116,8 @@ const runExpertOpenAISingle = async (
     expert: ExpertDispatch,
     prompt: string,
     images: ImageState[],
-    config: OpenAIAgentConfig
+    config: OpenAIAgentConfig,
+    abortSignal?: AbortSignal
 ): Promise<string> => {
     const openaiAI = getOpenAIClient();
     
@@ -144,7 +145,7 @@ const runExpertOpenAISingle = async (
     const completion = await openaiAI.chat.completions.create({
         model: expert.model,
         messages: messages,
-    });
+    }, { signal: abortSignal });
     return completion.choices[0].message.content || 'No content received.';
 }
 
@@ -158,9 +159,9 @@ const runExpertOpenAIDeepConf = async (
     
     const createProvider = (): TraceProvider => {
         return {
-            generate: async (p, _abortSignal) => { // p is the prompt string
+            generate: async (p, abortSignal) => { // p is the prompt string
                 // Since logprobs are not available, we generate the full text and mock the trace.
-                const text = await runExpertOpenAISingle(expert, p, images, config);
+                const text = await runExpertOpenAISingle(expert, p, images, config, abortSignal);
                 // Mock Trace for judge-based DeepConf
                 const trace: Trace = {
                     text,

@@ -36,9 +36,30 @@ Keys are optional; the UI hides providers without keys. `VITE_APP_URL` supplies 
 ## GitHub Pages deployment
 
 1. In `vite.config.ts` set `base: '/HeavyOrc/'`.
-2. Build the site: `npm run build`
-3. Commit and push the `dist/` directory to a `gh-pages` branch.
-4. Enable GitHub Pages for that branch and visit `https://USERNAME.github.io/HeavyOrc/`, replacing `USERNAME` with your GitHub handle.
+2. Add a GitHub Actions workflow to build and deploy automatically:
+
+   ```yaml
+   # .github/workflows/deploy.yml
+   name: Deploy
+   on:
+     push:
+       branches: [ main ]
+   jobs:
+     build:
+       runs-on: ubuntu-latest
+       steps:
+         - uses: actions/checkout@v4
+         - uses: actions/setup-node@v4
+           with:
+             node-version: 18
+         - run: npm ci && npm run build
+         - uses: peaceiris/actions-gh-pages@v3
+           with:
+             github_token: ${{ secrets.GITHUB_TOKEN }}
+             publish_dir: ./dist
+   ```
+
+3. Enable GitHub Pages for the `gh-pages` branch created by the workflow and visit `https://USERNAME.github.io/HeavyOrc/`, replacing `USERNAME` with your GitHub handle.
 
 ## DeepConf overview
 
