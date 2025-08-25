@@ -10,6 +10,7 @@ import {
     OPENAI_ARBITER_MODEL,
 } from '@/constants';
 import { GeminiThinkingEffort } from '@/types';
+import { callWithGeminiRetry, isGeminiRateLimitError, GEMINI_QUOTA_MESSAGE } from '@/services/geminiUtils';
 
 const GEMINI_PRO_BUDGETS: Record<Extract<GeminiThinkingEffort, 'low' | 'medium' | 'high' | 'dynamic'>, number> = {
     low: 8192,
@@ -147,19 +148,32 @@ export const arbitrateStream = async (
     const budget = GEMINI_PRO_BUDGETS[effortForPro];
 
     const geminiAI = getGeminiClient();
-    const stream = await geminiAI.models.generateContentStream({
-        model: GEMINI_PRO_MODEL, // Arbiter always uses the Pro model for Gemini
-        contents: { parts: [{ text: arbiterPrompt }] },
-        config: {
-            systemInstruction: ARBITER_PERSONA,
-            thinkingConfig: { thinkingBudget: budget },
-        }
-    });
+    try {
+        const stream = await callWithGeminiRetry(() =>
+            geminiAI.models.generateContentStream({
+                model: GEMINI_PRO_MODEL, // Arbiter always uses the Pro model for Gemini
+                contents: { parts: [{ text: arbiterPrompt }] },
+                config: {
+                    systemInstruction: ARBITER_PERSONA,
+                    thinkingConfig: { thinkingBudget: budget },
+                }
+            })
+        );
 
-    async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
-        for await (const chunk of stream) {
-            yield { text: getGeminiResponseText(chunk) };
+        async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
+            for await (const chunk of stream) {
+                yield { text: getGeminiResponseText(chunk) };
+            }
         }
+        return transformGeminiStream();
+    } catch (error) {
+        console.error("Error calling the Gemini API for arbiter:", error);
+        if (isGeminiRateLimitError(error)) {
+            throw new Error(GEMINI_QUOTA_MESSAGE);
+        }
+        if (error instanceof Error) {
+            throw new Error(`An error occurred with the Gemini Arbiter: ${error.message}`);
+        }
+        throw new Error(`An unknown error occurred while communicating with the Gemini model for arbitration.`);
     }
-    return transformGeminiStream();
 };

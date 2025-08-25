@@ -3,6 +3,7 @@ import { GenerateContentParameters, Part } from "@google/genai";
 import { Draft, ExpertDispatch } from './types';
 import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '@/services/llmService';
 import { getAppUrl, getGeminiResponseText } from '@/lib/utils';
+import { callWithGeminiRetry, isGeminiRateLimitError, GEMINI_QUOTA_MESSAGE } from '@/services/geminiUtils';
 import { GEMINI_PRO_MODEL, GEMINI_FLASH_MODEL, OPENAI_REASONING_PROMPT_PREFIX } from '@/constants';
 import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort, OpenRouterAgentConfig } from '@/types';
 import {
@@ -72,8 +73,15 @@ const runExpertGeminiSingle = async (
     }
 
     const geminiAI = getGeminiClient();
-    const response = await geminiAI.models.generateContent(generateContentParams);
-    return getGeminiResponseText(response);
+    try {
+        const response = await callWithGeminiRetry(() => geminiAI.models.generateContent(generateContentParams));
+        return getGeminiResponseText(response);
+    } catch (error) {
+        if (isGeminiRateLimitError(error)) {
+            throw new Error(GEMINI_QUOTA_MESSAGE);
+        }
+        throw error;
+    }
 }
 
 const runExpertGeminiDeepConf = async (
