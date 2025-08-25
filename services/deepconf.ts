@@ -155,7 +155,7 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
 
         if (isJudgePayload(parsed)) {
             return {
-                score: Math.max(0, Math.min(1, parsed.score)),
+                score: Math.max(0, Math.min(1, parsed.score)), // Clamp score between 0 and 1
                 reasons: parsed.reasons
             };
         }
