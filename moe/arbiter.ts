@@ -161,7 +161,12 @@ export const arbitrateStream = async (
 
     async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
         for await (const chunk of stream) {
-            yield { text: chunk.text ?? '' };
+            // Handle both old `text` getter and new `text()` helper from the SDK.
+            const textProp = Reflect.get(chunk, 'text') as unknown;
+            const text = typeof textProp === 'function'
+                ? textProp.call(chunk)
+                : (textProp as string | undefined);
+            yield { text: text ?? '' };
         }
     }
     return transformGeminiStream();

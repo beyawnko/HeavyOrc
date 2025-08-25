@@ -127,7 +127,11 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
             },
         });
 
-        const jsonString = response.text?.trim() ?? '';
+        // The SDK may return a `text` getter or `text()` method; support both.
+        const textProp = Reflect.get(response, 'text') as unknown;
+        const jsonString = typeof textProp === 'function'
+            ? textProp.call(response)?.trim() ?? ''
+            : (textProp as string | undefined)?.trim() ?? '';
         if (!jsonString) {
             console.warn("Judge model returned empty response");
             return { score: 0, reasons: ["Empty response from judge model."] };

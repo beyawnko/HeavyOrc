@@ -72,7 +72,11 @@ const runExpertGeminiSingle = async (
 
     const geminiAI = getGeminiClient();
     const response = await geminiAI.models.generateContent(generateContentParams);
-    return response.text ?? '';
+    // The SDK may expose the result via a `text` getter or `text()` method.
+    const textProp = Reflect.get(response, 'text') as unknown;
+    return typeof textProp === 'function'
+        ? textProp.call(response) ?? ''
+        : (textProp as string | undefined) ?? '';
 }
 
 const runExpertGeminiDeepConf = async (
