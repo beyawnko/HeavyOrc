@@ -111,3 +111,6 @@ This document outlines the phased approach to refactor the "HeavyOrc" applicatio
 8.	**PR-8: Simulator & Integration Tests** (Phase 6)
 9.	**PR-9: UX debug panel** (Phase 7)
 10.	**PR-10: Final Docs & Guardrails** (Phase 8)
+### Follow-up
+
+- Implement a Vitest-based testing setup and replace the placeholder `npm test` script with real unit tests.

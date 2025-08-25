@@ -31,7 +31,8 @@ const runExpertGeminiSingle = async (
     expert: ExpertDispatch,
     prompt: string,
     images: ImageState[],
-    config: GeminiAgentConfig
+    config: GeminiAgentConfig,
+    abortSignal?: AbortSignal
 ): Promise<string> => {
     const parts: Part[] = [{ text: prompt }];
     images.forEach(img => {
@@ -65,6 +66,10 @@ const runExpertGeminiSingle = async (
         if (generateContentParams.config) generateContentParams.config.thinkingConfig = { thinkingBudget: budget };
     }
 
+    if (abortSignal && generateContentParams.config) {
+        generateContentParams.config.abortSignal = abortSignal;
+    }
+
     const geminiAI = getGeminiClient();
     const response = await geminiAI.models.generateContent(generateContentParams);
     return response.text ?? '';
@@ -80,9 +85,8 @@ const runExpertGeminiDeepConf = async (
     
     const createProvider = (): TraceProvider => {
         return {
-            generate: async (p, _abortSignal) => { // p is the prompt string
-                // Note: abortSignal is not used by gemini generateContent, but we keep it for API consistency
-                const text = await runExpertGeminiSingle(expert, p, images, config);
+            generate: async (p, abortSignal) => { // p is the prompt string
+                const text = await runExpertGeminiSingle(expert, p, images, config, abortSignal);
                 // Gemini API doesn't give us steps/tokens, so we create a mock Trace
                 const trace: Trace = {
                     text,
