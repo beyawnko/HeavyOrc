@@ -39,7 +39,7 @@ function normalizeExpert(raw: unknown): Expert | null {
  * @returns {Promise<Array<Expert>>}
  */
 export async function loadExperts(): Promise<Expert[]> {
-  const url = './config/experts.json';
+  const url = `${import.meta.env.BASE_URL}config/experts.json`;
   const response = await fetch(url);
   
   if (!response.ok) {
