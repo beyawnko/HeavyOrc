@@ -1,17 +1,15 @@
 import OpenAI from 'openai';
-import { ApiError } from '@google/genai';
 import { Draft } from './types';
-import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '../services/llmService';
-import { extractGeminiText } from '../lib/gemini';
-import { transformLLMStream } from '../lib/stream';
+import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '@/services/llmService';
+import { getAppUrl, getGeminiResponseText } from '@/lib/utils';
 import {
     ARBITER_PERSONA,
     ARBITER_HIGH_REASONING_PROMPT_MODIFIER,
     OPENAI_ARBITER_GPT5_HIGH_REASONING,
     GEMINI_PRO_MODEL,
     OPENAI_ARBITER_MODEL,
-} from '../constants';
-import { GeminiThinkingEffort } from '../types';
+} from '@/constants';
+import { GeminiThinkingEffort } from '@/types';
 
 const GEMINI_PRO_BUDGETS: Record<Extract<GeminiThinkingEffort, 'low' | 'medium' | 'high' | 'dynamic'>, number> = {
     low: 8192,
@@ -80,8 +78,8 @@ export const arbitrateStream = async (
         const headers = {
             'Authorization': `Bearer ${openRouterKey}`,
             'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://gemini-heavy-orchestrator.web.app',
-            'X-Title': 'Gemini Heavy Orchestrator',
+            'HTTP-Referer': getAppUrl(),
+            'X-Title': 'HeavyOrc',
         };
         const messages = [
             { role: 'system', content: ARBITER_PERSONA },
@@ -116,13 +114,21 @@ export const arbitrateStream = async (
         const effort = arbiterModel === OPENAI_ARBITER_GPT5_HIGH_REASONING ? 'high' : 'medium';
 
         try {
-            const stream = await (openaiAI as any).responses.create({
+            const stream = await openaiAI.responses.create({
                 model: OPENAI_ARBITER_MODEL,
                 input: inputPrompt,
                 reasoning: { effort },
                 stream: true,
             });
-            return transformLLMStream(stream, (chunk: { text?: string }) => chunk.text || '');
+
+            async function* transformStream(): AsyncGenerator<{ text: string }> {
+                for await (const chunk of stream) {
+                    if (chunk.type === 'response.output_text.delta') {
+                        yield { text: chunk.delta };
+                    }
+                }
+            }
+            return transformStream();
 
         } catch (error) {
             console.error("Error calling the OpenAI API for arbiter:", error);
@@ -141,30 +147,19 @@ export const arbitrateStream = async (
     const budget = GEMINI_PRO_BUDGETS[effortForPro];
 
     const geminiAI = getGeminiClient();
-    try {
-        const { stream } = await geminiAI.models.generateContentStream({
-            model: GEMINI_PRO_MODEL, // Arbiter always uses the Pro model for Gemini
-            contents: { parts: [{ text: arbiterPrompt }] },
-            config: {
-                systemInstruction: ARBITER_PERSONA,
-                thinkingConfig: { thinkingBudget: budget },
-            }
-        });
-        return transformLLMStream(stream, extractGeminiText);
-    } catch (error) {
-        console.error("Error calling the Gemini API for arbiter:", error);
-        if (error instanceof ApiError) {
-            throw new Error(`Gemini API Error: ${error.message}`, { cause: error });
-        } else if (error instanceof Error) {
-            throw new Error(
-                `An error occurred with the Gemini Arbiter (${error.name}): ${error.message}`,
-                { cause: error }
-            );
-        } else {
-            throw new Error(
-                `An unknown error occurred while communicating with the Gemini model for arbitration.`,
-                { cause: error }
-            );
+    const stream = await geminiAI.models.generateContentStream({
+        model: GEMINI_PRO_MODEL, // Arbiter always uses the Pro model for Gemini
+        contents: { parts: [{ text: arbiterPrompt }] },
+        config: {
+            systemInstruction: ARBITER_PERSONA,
+            thinkingConfig: { thinkingBudget: budget },
+        }
+    });
+
+    async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
+        for await (const chunk of stream) {
+            yield { text: getGeminiResponseText(chunk) };
         }
     }
+    return transformGeminiStream();
 };

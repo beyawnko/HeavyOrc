@@ -1,5 +1,5 @@
 {
-  "name": "gemini-heavy-orchestrator",
+  "name": "heavyorc",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -10,7 +10,7 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@google/genai": "^1.14.0",
+    "@google/genai": "^1.15.0",
     "framer-motion": "^11.3.12",
     "jszip": "^3.10.1",
     "openai": "^4.52.7",
