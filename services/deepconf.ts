@@ -1,13 +1,13 @@
 // services/deepconf.ts
 import { Type } from "@google/genai";
 import { getGeminiClient, getOpenAIClient } from './llmService';
+import { getGeminiResponseText } from '@/lib/utils';
 import {
     GEMINI_FLASH_MODEL,
     GEMINI_PRO_MODEL,
     OPENAI_JUDGE_MODEL,
     OPENAI_REASONING_PROMPT_PREFIX
 } from '../constants';
-import { extractGeminiText } from '../lib/gemini';
 
 export type TokenTopK = { token: string; logprob: number }[];
 export type Step = { token: string; topK: TokenTopK };
@@ -83,7 +83,7 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
             
             if (typeof result.score === 'number' && Array.isArray(result.reasons)) {
                 return {
-                    score: Math.max(0, Math.min(1, result.score)), // Clamp score
+                score: Math.max(0, Math.min(1, result.score)), // Clamp score between 0 and 1
                     reasons: result.reasons
                 };
             }
@@ -128,21 +128,39 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
             },
         });
 
-        const raw = extractGeminiText(response);
-        const jsonString = raw.trim();
+        const jsonString = getGeminiResponseText(response).trim();
         if (!jsonString) {
-            return { score: 0, reasons: ["Judge model returned an empty response."] };
+            console.warn("Judge model returned empty response");
+            return { score: 0, reasons: ["Empty response from judge model."] };
         }
-        const result = JSON.parse(jsonString);
-        
-        if (typeof result.score === 'number' && Array.isArray(result.reasons)) {
+
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(jsonString);
+        } catch (error) {
+            console.error("Failed to parse JSON from Gemini judge:", error);
+            const message = error instanceof Error ? error.message : String(error);
+            return { score: 0, reasons: [`Failed to parse JSON response from judge model: ${message}`] };
+        }
+
+        const isJudgePayload = (obj: unknown): obj is { score: number; reasons: string[] } => {
+            if (typeof obj !== 'object' || obj === null) return false;
+            const record = obj as Record<string, unknown>;
+            return (
+                typeof record.score === 'number' &&
+                Array.isArray(record.reasons) &&
+                record.reasons.every(r => typeof r === 'string')
+            );
+        };
+
+        if (isJudgePayload(parsed)) {
             return {
-                score: Math.max(0, Math.min(1, result.score)), // Clamp score between 0 and 1
-                reasons: result.reasons
+                score: Math.max(0, Math.min(1, parsed.score)), // Clamp score between 0 and 1
+                reasons: parsed.reasons
             };
         }
-        
-        console.warn("Judge model returned invalid JSON shape:", result);
+
+        console.warn("Judge model returned invalid JSON shape:", parsed);
         return { score: 0, reasons: ["Invalid JSON response from judge model."] };
 
     } catch (error) {
