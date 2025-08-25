@@ -1,4 +1,4 @@
-import { cpSync } from 'node:fs';
+import { cpSync, rmSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -7,6 +7,7 @@ const srcDir = resolve(__dirname, '..', '.github', 'assets');
 const destDir = resolve(__dirname, '..', 'public', 'assets');
 
 try {
+  rmSync(destDir, { recursive: true, force: true });
   cpSync(srcDir, destDir, { recursive: true });
   console.log(`Synced documentation assets from ${srcDir} to ${destDir}`);
 } catch (err) {
