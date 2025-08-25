@@ -1,14 +1,15 @@
 import OpenAI from 'openai';
 import { Draft } from './types';
-import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '../services/llmService';
+import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '@/services/llmService';
+import { getAppUrl, getGeminiResponseText } from '@/lib/utils';
 import {
     ARBITER_PERSONA,
     ARBITER_HIGH_REASONING_PROMPT_MODIFIER,
     OPENAI_ARBITER_GPT5_HIGH_REASONING,
     GEMINI_PRO_MODEL,
     OPENAI_ARBITER_MODEL,
-} from '../constants';
-import { GeminiThinkingEffort } from '../types';
+} from '@/constants';
+import { GeminiThinkingEffort } from '@/types';
 
 const GEMINI_PRO_BUDGETS: Record<Extract<GeminiThinkingEffort, 'low' | 'medium' | 'high' | 'dynamic'>, number> = {
     low: 8192,
@@ -78,8 +79,8 @@ export const arbitrateStream = async (
         const headers = {
             'Authorization': `Bearer ${openRouterKey}`,
             'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://gemini-heavy-orchestrator.web.app',
-            'X-Title': 'Gemini Heavy Orchestrator',
+            'HTTP-Referer': getAppUrl(),
+            'X-Title': 'HeavyOrc',
         };
         const messages = [
             { role: 'system', content: ARBITER_PERSONA },
@@ -114,7 +115,7 @@ export const arbitrateStream = async (
         const effort = arbiterModel === OPENAI_ARBITER_GPT5_HIGH_REASONING ? 'high' : 'medium';
 
         try {
-            const stream = await (openaiAI as any).responses.create({
+            const stream = await openaiAI.responses.create({
                 model: OPENAI_ARBITER_MODEL,
                 input: inputPrompt,
                 reasoning: { effort },
@@ -123,9 +124,8 @@ export const arbitrateStream = async (
 
             async function* transformStream(): AsyncGenerator<{ text: string }> {
                 for await (const chunk of stream) {
-                    const content = chunk.text || '';
-                    if (content) {
-                        yield { text: content };
+                    if (chunk.type === 'response.output_text.delta') {
+                        yield { text: chunk.delta };
                     }
                 }
             }
@@ -159,7 +159,7 @@ export const arbitrateStream = async (
 
     async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
         for await (const chunk of stream) {
-            yield { text: chunk.text };
+            yield { text: getGeminiResponseText(chunk) };
         }
     }
     return transformGeminiStream();

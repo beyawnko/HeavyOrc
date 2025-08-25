@@ -1,16 +1,17 @@
 import OpenAI from 'openai';
 import { GenerateContentParameters, Part } from "@google/genai";
 import { Draft, ExpertDispatch } from './types';
-import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '../services/llmService';
-import { GEMINI_PRO_MODEL, GEMINI_FLASH_MODEL, OPENAI_REASONING_PROMPT_PREFIX } from '../constants';
-import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort, OpenRouterAgentConfig, OpenAIAgentSettings, GeminiAgentSettings } from '../types';
-import { 
-    Trace, 
-    DEFAULTS, 
-    deepConfOnlineWithJudge, 
-    deepConfOfflineWithJudge, 
-    TraceProvider 
-} from '../services/deepconf';
+import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '@/services/llmService';
+import { getAppUrl, getGeminiResponseText } from '@/lib/utils';
+import { GEMINI_PRO_MODEL, GEMINI_FLASH_MODEL, OPENAI_REASONING_PROMPT_PREFIX } from '@/constants';
+import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort, OpenRouterAgentConfig } from '@/types';
+import {
+    Trace,
+    DEFAULTS,
+    deepConfOnlineWithJudge,
+    deepConfOfflineWithJudge,
+    TraceProvider
+} from '@/services/deepconf';
 
 const GEMINI_PRO_BUDGETS: Record<Extract<GeminiThinkingEffort, 'low' | 'medium' | 'high' | 'dynamic'>, number> = {
     low: 8192,
@@ -31,7 +32,8 @@ const runExpertGeminiSingle = async (
     expert: ExpertDispatch,
     prompt: string,
     images: ImageState[],
-    config: GeminiAgentConfig
+    config: GeminiAgentConfig,
+    abortSignal?: AbortSignal
 ): Promise<string> => {
     const parts: Part[] = [{ text: prompt }];
     images.forEach(img => {
@@ -65,9 +67,13 @@ const runExpertGeminiSingle = async (
         if (generateContentParams.config) generateContentParams.config.thinkingConfig = { thinkingBudget: budget };
     }
 
+    if (abortSignal && generateContentParams.config) {
+        generateContentParams.config.abortSignal = abortSignal;
+    }
+
     const geminiAI = getGeminiClient();
     const response = await geminiAI.models.generateContent(generateContentParams);
-    return response.text;
+    return getGeminiResponseText(response);
 }
 
 const runExpertGeminiDeepConf = async (
@@ -81,8 +87,7 @@ const runExpertGeminiDeepConf = async (
     const createProvider = (): TraceProvider => {
         return {
             generate: async (p, abortSignal) => { // p is the prompt string
-                // Note: abortSignal is not used by gemini generateContent, but we keep it for API consistency
-                const text = await runExpertGeminiSingle(expert, p, images, config);
+                const text = await runExpertGeminiSingle(expert, p, images, config, abortSignal);
                 // Gemini API doesn't give us steps/tokens, so we create a mock Trace
                 const trace: Trace = {
                     text,
@@ -116,7 +121,8 @@ const runExpertOpenAISingle = async (
     expert: ExpertDispatch,
     prompt: string,
     images: ImageState[],
-    config: OpenAIAgentConfig
+    config: OpenAIAgentConfig,
+    abortSignal?: AbortSignal
 ): Promise<string> => {
     const openaiAI = getOpenAIClient();
     
@@ -144,7 +150,7 @@ const runExpertOpenAISingle = async (
     const completion = await openaiAI.chat.completions.create({
         model: expert.model,
         messages: messages,
-    });
+    }, { signal: abortSignal });
     return completion.choices[0].message.content || 'No content received.';
 }
 
@@ -160,7 +166,7 @@ const runExpertOpenAIDeepConf = async (
         return {
             generate: async (p, abortSignal) => { // p is the prompt string
                 // Since logprobs are not available, we generate the full text and mock the trace.
-                const text = await runExpertOpenAISingle(expert, p, images, config);
+                const text = await runExpertOpenAISingle(expert, p, images, config, abortSignal);
                 // Mock Trace for judge-based DeepConf
                 const trace: Trace = {
                     text,
@@ -203,8 +209,8 @@ const runExpertOpenRouterSingle = async (
     const headers = {
         'Authorization': `Bearer ${openRouterKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://gemini-heavy-orchestrator.web.app',
-        'X-Title': 'Gemini Heavy Orchestrator',
+        'HTTP-Referer': getAppUrl(),
+        'X-Title': 'HeavyOrc',
     };
 
     const messages: any[] = [{ role: 'system', content: expert.persona }];

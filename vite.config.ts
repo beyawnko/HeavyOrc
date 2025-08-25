@@ -10,4 +10,7 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./', import.meta.url)),
     },
   },
+  build: {
+    target: 'es2022',
+  },
 });

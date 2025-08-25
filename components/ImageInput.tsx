@@ -1,7 +1,7 @@
 
 import React, { useCallback, useRef } from 'react';
-import { UploadIcon, XCircleIcon } from './icons';
-import { ImageState } from '../types';
+import { UploadIcon, XCircleIcon } from '@/components/icons';
+import { ImageState } from '@/types';
 
 interface ImageInputProps {
     image: ImageState | null;

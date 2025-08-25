@@ -1,7 +1,7 @@
 import React from 'react';
-import { AgentConfig, AgentModel, GeminiAgentConfig, GeminiAgentSettings, OpenAIAgentConfig, OpenAIAgentSettings, AgentStatus, GeminiModel, OpenAIModel, GeminiThinkingEffort, GenerationStrategy, OpenRouterAgentConfig, OpenRouterAgentSettings, OpenRouterModel } from '../types';
-import { GEMINI_FLASH_MODEL, GEMINI_PRO_MODEL, OPENAI_AGENT_MODEL, OPENROUTER_CLAUDE_3_HAIKU, OPENROUTER_GEMINI_FLASH_1_5, OPENROUTER_GPT_4O } from '../constants';
-import { XCircleIcon, LoadingSpinner, CheckCircleIcon, DocumentDuplicateIcon } from './icons';
+import { AgentConfig, AgentModel, GeminiAgentConfig, GeminiAgentSettings, OpenAIAgentConfig, OpenAIAgentSettings, AgentStatus, GeminiModel, OpenAIModel, GeminiThinkingEffort, GenerationStrategy, OpenRouterAgentConfig, OpenRouterAgentSettings, OpenRouterModel } from '@/types';
+import { GEMINI_FLASH_MODEL, GEMINI_PRO_MODEL, OPENAI_AGENT_MODEL, OPENROUTER_CLAUDE_3_HAIKU, OPENROUTER_GEMINI_FLASH_1_5, OPENROUTER_GPT_4O } from '@/constants';
+import { XCircleIcon, LoadingSpinner, CheckCircleIcon, DocumentDuplicateIcon } from '@/components/icons';
 
 interface AgentConfigCardProps {
   config: AgentConfig;

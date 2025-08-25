@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { RunRecord, RunStatus } from '../types';
-import { ChevronLeftIcon, ChevronRightIcon, PlusIcon, CheckCircleIcon, XCircleIcon } from './icons';
+import { RunRecord, RunStatus } from '@/types';
+import { ChevronLeftIcon, ChevronRightIcon, PlusIcon, CheckCircleIcon, XCircleIcon } from '@/components/icons';
 
 type CurrentRunStatus = 'IDLE' | RunStatus;
 

@@ -16,7 +16,7 @@ import {
     RunRecord,
     GeminiThinkingEffort,
     RunStatus
-} from './types';
+} from '@/types';
 import { 
     GEMINI_PRO_MODEL, 
     OPENAI_ARBITER_GPT5_MEDIUM_REASONING,
@@ -25,20 +25,20 @@ import {
     OPENAI_AGENT_MODEL,
     OPENROUTER_GPT_4O,
     OPENROUTER_CLAUDE_3_HAIKU,
-} from './constants';
-import { experts } from './moe/experts';
-import { runOrchestration } from './moe/orchestrator';
-import { Draft, ExpertDispatch } from './moe/types';
-import AgentCard from './components/AgentCard';
-import { SparklesIcon, CogIcon, DownloadIcon, ExclamationTriangleIcon, XMarkIcon } from './components/icons';
-import SettingsView from './components/SettingsView';
-import { setOpenAIApiKey as storeOpenAIApiKey, setGeminiApiKey as storeGeminiApiKey, setOpenRouterApiKey as storeOpenRouterApiKey } from './services/llmService';
-import CollapsibleSection from './components/CollapsibleSection';
-import AgentEnsemble from './components/AgentEnsemble';
-import PromptInput from './components/PromptInput';
-import FinalAnswerCard from './components/FinalAnswerCard';
-import HistorySidebar from './components/HistorySidebar';
-import SegmentedControl from './components/SegmentedControl';
+} from '@/constants';
+import { experts } from '@/moe/experts';
+import { runOrchestration } from '@/moe/orchestrator';
+import { Draft, ExpertDispatch } from '@/moe/types';
+import AgentCard from '@/components/AgentCard';
+import { ShieldCheckIcon, CogIcon, DownloadIcon, ExclamationTriangleIcon, XMarkIcon } from '@/components/icons';
+import SettingsView from '@/components/SettingsView';
+import { setOpenAIApiKey as storeOpenAIApiKey, setGeminiApiKey as storeGeminiApiKey, setOpenRouterApiKey as storeOpenRouterApiKey } from '@/services/llmService';
+import CollapsibleSection from '@/components/CollapsibleSection';
+import AgentEnsemble from '@/components/AgentEnsemble';
+import PromptInput from '@/components/PromptInput';
+import FinalAnswerCard from '@/components/FinalAnswerCard';
+import HistorySidebar from '@/components/HistorySidebar';
+import SegmentedControl from '@/components/SegmentedControl';
 
 const OPENAI_API_KEY_STORAGE_KEY = 'openai_api_key';
 const GEMINI_API_KEY_STORAGE_KEY = 'gemini_api_key';
@@ -712,9 +712,10 @@ const App: React.FC = () => {
                 <div className="flex-1 overflow-y-auto">
                     <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <header className="text-center py-8 relative">
+                            <img src="./assets/banner.svg" alt="HeavyOrc banner" className="mx-auto mb-4 w-full max-w-2xl" />
                             <h1 className="text-4xl sm:text-5xl font-bold text-gray-100 flex items-center justify-center gap-3">
-                                <SparklesIcon className="w-10 h-10 text-indigo-400" />
-                                Gemini Heavy Orchestrator
+                                <ShieldCheckIcon className="w-10 h-10 text-emerald-400" />
+                                HeavyOrc
                             </h1>
                             <div className="absolute top-8 right-0 flex items-center gap-2">
                                 <button

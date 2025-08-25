@@ -2,12 +2,11 @@
 
 
 import React, { useState } from 'react';
-import { experts } from '../moe/experts';
-import { AgentConfig, GeminiAgentConfig } from '../types';
-import AgentConfigCard from './AgentConfigCard';
-import { Expert } from '../moe/types';
-import { PlusIcon } from './icons';
-import AddExpertModal from './AddExpertModal';
+import { experts } from '@/moe/experts';
+import { AgentConfig, GeminiAgentConfig, Expert } from '@/types';
+import AgentConfigCard from '@/components/AgentConfigCard';
+import { PlusIcon } from '@/components/icons';
+import AddExpertModal from '@/components/AddExpertModal';
 
 interface AgentEnsembleProps {
     agentConfigs: AgentConfig[];

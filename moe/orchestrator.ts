@@ -4,8 +4,8 @@
 import { dispatch } from './dispatcher';
 import { arbitrateStream } from './arbiter';
 import { Draft, ExpertDispatch } from './types';
-import { GEMINI_PRO_MODEL } from '../constants';
-import { AgentConfig, GeminiThinkingEffort, ImageState } from '../types';
+import { GEMINI_PRO_MODEL } from '@/constants';
+import { AgentConfig, GeminiThinkingEffort, ImageState } from '@/types';
 
 export interface OrchestrationParams {
     prompt: string;
