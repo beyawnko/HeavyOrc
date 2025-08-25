@@ -1,6 +1,6 @@
 # HeavyOrc
 
-![HeavyOrc banner](./assets/banner.svg)
+![HeavyOrc banner](./.github/assets/banner.svg)
 
 HeavyOrc is a web application that demonstrates a Mixture-of-Experts orchestration pattern for large language models. It dispatches prompts to multiple "expert" agents across different providers and synthesises their drafts into a final answer in real time.
 
