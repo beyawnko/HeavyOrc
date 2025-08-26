@@ -227,6 +227,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
     const { isOpen, onClose, queryHistory } = props;
     const [activeSectionId, setActiveSectionId] = useState<SectionId>('api-keys');
     const [mobileDrillIn, setMobileDrillIn] = useState<boolean>(false);
+    const dialogRef = useRef<HTMLDivElement>(null);
     
     const activeSection = sections.find(s => s.id === activeSectionId) ?? sections[0];
 
@@ -242,6 +243,40 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
         }
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, onClose]);
+
+    useEffect(() => {
+        if (isOpen) {
+            const firstFocusable = dialogRef.current?.querySelector<HTMLElement>(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            (firstFocusable ?? dialogRef.current)?.focus();
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const trap = (e: KeyboardEvent) => {
+            if (e.key !== 'Tab' || !dialogRef.current) return;
+            const focusables = Array.from(
+                dialogRef.current.querySelectorAll<HTMLElement>(
+                    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                )
+            ).filter(el => !el.hasAttribute('disabled'));
+            if (focusables.length === 0) return;
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        };
+        const node = dialogRef.current;
+        node?.addEventListener('keydown', trap);
+        return () => node?.removeEventListener('keydown', trap);
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -277,7 +312,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                         }`}
                         aria-current={isActive ? 'page' : undefined}
                     >
-                        <Icon className="w-5 h-5 flex-shrink-0" />
+                        <Icon className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
                         <span>{section.label}</span>
                     </button>
                 );
@@ -295,6 +330,8 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
             aria-labelledby="settings-title"
         >
             <div
+                ref={dialogRef}
+                tabIndex={-1}
                 className="bg-[var(--surface-2)] rounded-xl shadow-2xl border border-[var(--line)] w-full max-w-4xl h-full max-h-[700px] flex flex-col"
                 onClick={e => e.stopPropagation()}
             >
@@ -302,7 +339,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 <header className="flex items-center justify-between p-4 border-b border-[var(--line)] flex-shrink-0">
                     <div className="flex items-center gap-3">
                          <button onClick={handleMobileBack} className="p-1 rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-active)] md:hidden" aria-label="Back to settings sections" style={{ visibility: mobileDrillIn ? 'visible': 'hidden' }}>
-                            <ChevronLeftIcon className="w-6 h-6" />
+                            <ChevronLeftIcon className="w-6 h-6" aria-hidden="true" />
                         </button>
                         <h2 id="settings-title" className="text-lg font-bold text-[var(--text)]">
                              <span className="md:hidden">{mobileDrillIn ? activeSection.label : "Settings"}</span>
@@ -310,7 +347,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                         </h2>
                     </div>
                      <button onClick={onClose} type="button" className="p-1 rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-active)] hover:text-[var(--text)]" aria-label="Close settings">
-                        <XMarkIcon className="w-6 h-6" />
+                        <XMarkIcon className="w-6 h-6" aria-hidden="true" />
                     </button>
                 </header>
                 

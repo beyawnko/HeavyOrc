@@ -29,6 +29,7 @@ const SegmentedControl = <T extends string>({ options, value, onChange, disabled
           role="radio"
           aria-checked={value === option.value}
           disabled={disabled}
+          aria-disabled={disabled}
           title={option.tooltip}
           className={`relative flex-1 px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-1)] z-10
             ${index === 0 ? 'rounded-l-md' : ''}

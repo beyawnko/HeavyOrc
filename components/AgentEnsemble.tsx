@@ -65,7 +65,7 @@ const AgentEnsemble: React.FC<AgentEnsembleProps> = ({ agentConfigs, setAgentCon
                         disabled={disabled}
                         className="flex items-center justify-center gap-2 px-3 py-1 bg-[var(--accent)] text-[#0D1411] text-sm font-semibold rounded-lg shadow-md hover:brightness-110 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <PlusIcon className="w-4 h-4" />
+                        <PlusIcon className="w-4 h-4" aria-hidden="true" />
                         Add Expert
                     </button>
                 )}

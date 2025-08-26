@@ -311,19 +311,31 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                      <div className="col-span-2 grid grid-cols-2 gap-3">
                         <div>
                          <label htmlFor={`or-temp-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Temperature</label>
-                             <input type="number" id={`or-temp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).temperature} onChange={e => handleSettingChange({ temperature: parseFloat(e.target.value) })} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
+                             <input type="number" id={`or-temp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).temperature} onChange={e => {
+                                 const value = parseFloat(e.target.value);
+                                 if (!Number.isNaN(value)) handleSettingChange({ temperature: value });
+                             }} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
                         </div>
                         <div>
                              <label htmlFor={`or-topk-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Top K</label>
-                             <input type="number" id={`or-topk-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topK} onChange={e => handleSettingChange({ topK: parseInt(e.target.value, 10) })} disabled={disabled} min="1" step="1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
+                             <input type="number" id={`or-topk-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topK} onChange={e => {
+                                 const value = parseInt(e.target.value, 10);
+                                 if (!Number.isNaN(value)) handleSettingChange({ topK: value });
+                             }} disabled={disabled} min="1" step="1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
                         </div>
                          <div>
                              <label htmlFor={`or-topp-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Top P</label>
-                             <input type="number" id={`or-topp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topP} onChange={e => handleSettingChange({ topP: parseFloat(e.target.value) })} disabled={disabled} min="0" max="1" step="0.05" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
+                             <input type="number" id={`or-topp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topP} onChange={e => {
+                                 const value = parseFloat(e.target.value);
+                                 if (!Number.isNaN(value)) handleSettingChange({ topP: value });
+                             }} disabled={disabled} min="0" max="1" step="0.05" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
                         </div>
                          <div>
                              <label htmlFor={`or-repp-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Repetition Penalty</label>
-                             <input type="number" id={`or-repp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).repetitionPenalty} onChange={e => handleSettingChange({ repetitionPenalty: parseFloat(e.target.value) })} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
+                             <input type="number" id={`or-repp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).repetitionPenalty} onChange={e => {
+                                 const value = parseFloat(e.target.value);
+                                 if (!Number.isNaN(value)) handleSettingChange({ repetitionPenalty: value });
+                             }} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
                         </div>
                      </div>
                 )}

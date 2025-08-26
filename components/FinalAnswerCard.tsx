@@ -70,7 +70,7 @@ const FinalAnswerCard: React.FC<FinalAnswerCardProps> = ({ answer, title = "Arbi
         {/* Header */}
         <div className="p-4 border-b border-[var(--line)] flex items-center justify-between gap-3 flex-shrink-0">
             <div className="flex items-center gap-3">
-                <SparklesIcon className="w-6 h-6 text-[var(--accent)]"/>
+                <SparklesIcon className="w-6 h-6 text-[var(--accent)]" aria-hidden="true"/>
                 <h2 className="text-xl font-bold text-[var(--text)]">{title}</h2>
             </div>
         </div>

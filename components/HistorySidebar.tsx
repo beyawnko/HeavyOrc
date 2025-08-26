@@ -65,7 +65,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, selectedRunId,
                     className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-active)] rounded-lg transition-colors"
                     title={isOpen ? "Collapse Sidebar" : "Expand Sidebar"}
                 >
-                    {isOpen ? <ChevronLeftIcon className="w-6 h-6" /> : <ChevronRightIcon className="w-6 h-6" />}
+                    {isOpen ? <ChevronLeftIcon className="w-6 h-6" aria-hidden="true" /> : <ChevronRightIcon className="w-6 h-6" aria-hidden="true" />}
                 </button>
             </div>
 
@@ -76,7 +76,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, selectedRunId,
                         !selectedRunId ? 'bg-[var(--accent)] text-[#0D1411] hover:brightness-110' : 'bg-[var(--surface-1)] hover:bg-[var(--surface-active)] text-[var(--text)]'
                     }`}
                 >
-                    <PlusIcon className="w-5 h-5" />
+                    <PlusIcon className="w-5 h-5" aria-hidden="true" />
                     {isOpen && <span>New Run</span>}
                 </button>
             </div>

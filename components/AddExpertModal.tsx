@@ -45,8 +45,8 @@ const AddExpertModal: React.FC<AddExpertModalProps> = ({ isOpen, onClose, onAddE
                     <h2 id="add-expert-title" className="text-lg font-bold text-[var(--text)]">
                         Add an Expert to the Ensemble
                     </h2>
-                     <button onClick={onClose} type="button" className="p-1 rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-active)] hover:text-[var(--text)]" aria-label="Close modal">
-                        <XMarkIcon className="w-6 h-6" />
+                    <button onClick={onClose} type="button" className="p-1 rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-active)] hover:text-[var(--text)]" aria-label="Close modal">
+                        <XMarkIcon className="w-6 h-6" aria-hidden="true" />
                     </button>
                 </header>
                 
@@ -59,7 +59,7 @@ const AddExpertModal: React.FC<AddExpertModalProps> = ({ isOpen, onClose, onAddE
                                 className="w-full h-full text-left p-4 bg-[var(--surface-2)] rounded-lg border border-[var(--line)] hover:bg-[var(--surface-active)] hover:border-[var(--accent)] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--accent)] flex flex-col"
                             >
                                 <div className="flex items-center gap-2 mb-2">
-                                    <SparklesIcon className="w-5 h-5 text-[var(--accent)] flex-shrink-0" />
+                                    <SparklesIcon className="w-5 h-5 text-[var(--accent)] flex-shrink-0" aria-hidden="true" />
                                     <h3 className="font-bold text-[var(--text)]">{expert.name}</h3>
                                 </div>
                                 <p className="text-sm text-[var(--text-muted)] flex-grow">

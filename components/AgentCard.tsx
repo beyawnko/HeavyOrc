@@ -70,7 +70,7 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, displayId, isCollapsed, on
     <div className={`bg-[var(--surface-2)] border ${borderColor} rounded-lg shadow-lg transition-all duration-300 flex flex-col`}>
       <div className="p-4 border-b border-[var(--line)] flex justify-between items-center gap-2">
         <div className="flex items-center space-x-3 overflow-hidden">
-          <SparklesIcon className="h-5 w-5 text-[var(--accent)] flex-shrink-0" />
+          <SparklesIcon className="h-5 w-5 text-[var(--accent)] flex-shrink-0" aria-hidden="true" />
           <h3 className="font-bold text-sm text-[var(--text)] truncate">Agent {displayId}</h3>
           <span className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase ${getProviderChipStyle(provider)}`}>
               {provider}
@@ -87,9 +87,9 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, displayId, isCollapsed, on
                     title={isCollapsed ? 'Expand' : 'Collapse'}
                 >
                     {isCollapsed ? (
-                        <ChevronDownIcon className="h-5 w-5" />
+                        <ChevronDownIcon className="h-5 w-5" aria-hidden="true" />
                     ) : (
-                        <ChevronUpIcon className="h-5 w-5" />
+                        <ChevronUpIcon className="h-5 w-5" aria-hidden="true" />
                     )}
                     <span className="sr-only">{isCollapsed ? 'Expand card' : 'Collapse card'}</span>
                 </button>

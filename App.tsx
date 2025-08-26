@@ -461,33 +461,44 @@ const App: React.FC = () => {
         });
     }, []);
 
+    const latestHandleRun = useRef(handleRun);
+    const agentsRef = useRef(agents);
+
+    useEffect(() => {
+        latestHandleRun.current = handleRun;
+    }, [handleRun]);
+
+    useEffect(() => {
+        agentsRef.current = agents;
+    }, [agents]);
+
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
             const target = e.target as HTMLElement;
             const tag = target.tagName;
             const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
 
-            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'enter') {
                 e.preventDefault();
-                handleRun();
-            } else if (!isTyping && (e.key === 'a' || e.key === 'A')) {
+                latestHandleRun.current();
+            } else if (!isTyping && !(e.metaKey || e.ctrlKey || e.altKey) && e.key.toLowerCase() === 'a') {
                 e.preventDefault();
                 openAddExpertRef.current?.();
-            } else if (!isTyping && e.key === '/') {
+            } else if (!isTyping && !(e.metaKey || e.ctrlKey || e.altKey) && e.key === '/') {
                 e.preventDefault();
                 promptInputRef.current?.focus();
-            } else if (!isTyping && e.key >= '1' && e.key <= '9') {
+            } else if (!isTyping && !(e.metaKey || e.ctrlKey || e.altKey) && e.key >= '1' && e.key <= '9') {
                 const index = parseInt(e.key, 10) - 1;
-                setCollapsedMap(prev => {
-                    const agent = agents[index];
-                    if (!agent) return prev;
-                    return { ...prev, [agent.id]: !prev[agent.id] };
-                });
+                const agent = agentsRef.current[index];
+                if (!agent) return;
+                const isCollapsible = agent.status === 'COMPLETED' || agent.status === 'FAILED';
+                if (!isCollapsible) return;
+                setCollapsedMap(prev => ({ ...prev, [agent.id]: !prev[agent.id] }));
             }
         };
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
-    }, [handleRun, agents]);
+    }, []);
 
     const progressData = useMemo(() => {
         if (!isLoading) {
