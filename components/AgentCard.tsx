@@ -1,5 +1,6 @@
 import React, { useId } from 'react';
 import { AgentState, AgentStatus } from '@/types';
+import { getExpertColor } from '@/lib/colors';
 import {
     LoadingSpinner,
     CheckCircleIcon,
@@ -65,12 +66,13 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, displayId, isCollapsed, on
   const isCollapsible = status === 'COMPLETED' || status === 'FAILED';
 
   const borderColor = getBorderColor(status);
+  const expertColor = getExpertColor(displayId);
 
   return (
     <div className={`bg-[var(--surface-2)] border ${borderColor} rounded-lg shadow-lg transition-all duration-300 flex flex-col`}>
       <div className="p-4 border-b border-[var(--line)] flex justify-between items-center gap-2">
         <div className="flex items-center space-x-3 overflow-hidden">
-          <SparklesIcon className="h-5 w-5 text-[var(--accent)] flex-shrink-0" aria-hidden="true" />
+          <SparklesIcon className="h-5 w-5 flex-shrink-0" style={{ color: expertColor }} aria-hidden="true" />
           <h3 className="font-bold text-sm text-[var(--text)] truncate">Agent {displayId}</h3>
           <span className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase ${getProviderChipStyle(provider)}`}>
               {provider}

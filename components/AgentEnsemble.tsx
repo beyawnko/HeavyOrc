@@ -72,7 +72,7 @@ const AgentEnsemble: React.FC<AgentEnsembleProps> = ({ agentConfigs, setAgentCon
             </div>
             
             <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
-                {agentConfigs.map(config => (
+                {agentConfigs.map((config, idx) => (
                     <AgentConfigCard
                         key={config.id}
                         config={config}
@@ -80,6 +80,7 @@ const AgentEnsemble: React.FC<AgentEnsembleProps> = ({ agentConfigs, setAgentCon
                         onRemove={handleRemoveAgent}
                         onDuplicate={onDuplicateAgent}
                         disabled={disabled}
+                        displayId={idx + 1}
                     />
                 ))}
             </div>

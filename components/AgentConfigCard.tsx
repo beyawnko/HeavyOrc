@@ -2,6 +2,7 @@ import React from 'react';
 import { AgentConfig, AgentModel, GeminiAgentConfig, GeminiAgentSettings, OpenAIAgentConfig, OpenAIAgentSettings, AgentStatus, GeminiModel, OpenAIModel, GeminiThinkingEffort, GenerationStrategy, OpenRouterAgentConfig, OpenRouterAgentSettings, OpenRouterModel } from '@/types';
 import { GEMINI_FLASH_MODEL, GEMINI_PRO_MODEL, OPENAI_AGENT_MODEL, OPENAI_GPT5_MINI_MODEL, OPENROUTER_CLAUDE_3_HAIKU, OPENROUTER_GEMINI_FLASH_1_5, OPENROUTER_GPT_4O } from '@/constants';
 import { XCircleIcon, LoadingSpinner, CheckCircleIcon, DocumentDuplicateIcon } from '@/components/icons';
+import { getExpertColor } from '@/lib/colors';
 
 interface AgentConfigCardProps {
   config: AgentConfig;
@@ -9,6 +10,7 @@ interface AgentConfigCardProps {
   onRemove: (id:string) => void;
   onDuplicate: (id: string) => void;
   disabled: boolean;
+  displayId: number;
 }
 
 const getStatusIndicator = (status: AgentStatus): React.ReactNode => {
@@ -41,7 +43,7 @@ const getBorderColor = (status: AgentStatus): string => {
     }
 }
 
-const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onRemove, onDuplicate, disabled }) => {
+const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onRemove, onDuplicate, disabled, displayId }) => {
     
     const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newModelValue = e.target.value as AgentModel;
@@ -107,12 +109,13 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
     };
     
     const borderColor = getBorderColor(config.status);
+    const expertColor = getExpertColor(displayId);
 
     return (
         <div className={`relative group bg-[var(--surface-2)] p-4 rounded-lg border transition-all duration-300 ${borderColor}`}>
             <div className="flex justify-between items-start">
                 <div>
-                    <h4 className="font-bold text-[var(--text)]">{config.expert.name}</h4>
+                    <h4 className="font-bold" style={{ color: expertColor }}>{config.expert.name}</h4>
                     <p className="text-xs text-[var(--text-muted)] italic mt-1 pr-8">Persona: {config.expert.persona}</p>
                 </div>
                 <div className="flex-shrink-0">
