@@ -74,17 +74,19 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error'; onClose: () 
         return () => clearTimeout(timer);
     }, [onClose]);
 
-    const bgColor = type === 'success' ? 'bg-green-800/90' : 'bg-red-800/90';
-    const borderColor = type === 'success' ? 'border-green-600' : 'border-red-600';
+    const colorClasses =
+        type === 'success'
+            ? 'bg-[var(--success)] border-[var(--success)] text-[var(--success)]'
+            : 'bg-[var(--danger)] border-[var(--danger)] text-[var(--danger)]';
 
     return (
-        <div 
-            className={`fixed bottom-5 right-5 p-4 rounded-lg shadow-2xl text-white border ${borderColor} ${bgColor} z-50 animate-fade-in-up flex items-center gap-4`}
+        <div
+            className={`fixed bottom-5 right-5 p-4 rounded-lg shadow-2xl bg-opacity-20 border z-50 animate-fade-in-up flex items-center gap-4 ${colorClasses}`}
             style={{ animationDuration: '0.3s' }}
         >
             <span>{message}</span>
-            <button onClick={onClose} className="p-1 rounded-full hover:bg-black/20" aria-label="Close notification">
-                <XMarkIcon className="w-5 h-5" />
+            <button onClick={onClose} className="p-1 rounded-full hover:bg-[var(--surface-active)]" aria-label="Close notification">
+                <XMarkIcon className="w-5 h-5" aria-hidden="true" />
             </button>
         </div>
     );
