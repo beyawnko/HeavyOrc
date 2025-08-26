@@ -354,7 +354,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 {/* --- Main Content --- */}
                 <div className="flex-grow grid md:grid-cols-[240px_1fr] grid-cols-1 min-h-0">
                     {/* Sidebar (Desktop) */}
-                    <aside className="hidden md:block border-r border-[var(--line)] opacity-50 overflow-y-auto">
+                    <aside className="hidden md:block border-r border-[var(--line)]/50 overflow-y-auto">
                         {navigation}
                     </aside>
 
