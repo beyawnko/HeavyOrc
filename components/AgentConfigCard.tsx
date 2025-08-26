@@ -43,6 +43,38 @@ const getBorderColor = (status: AgentStatus): string => {
     }
 }
 
+interface NumericInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> {
+    value: number;
+    onCommit: (value: number) => void;
+    parser?: (value: string) => number;
+}
+
+const NumericInput: React.FC<NumericInputProps> = ({ value, onCommit, parser = parseFloat, ...rest }) => {
+    const [inputValue, setInputValue] = React.useState<string>(String(value));
+
+    React.useEffect(() => {
+        setInputValue(String(value));
+    }, [value]);
+
+    const commit = () => {
+        const parsed = parser(inputValue);
+        if (!Number.isNaN(parsed)) {
+            onCommit(parsed);
+        } else {
+            setInputValue(String(value));
+        }
+    };
+
+    return (
+        <input
+            {...rest}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onBlur={commit}
+        />
+    );
+};
+
 const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onRemove, onDuplicate, disabled, displayId }) => {
     
     const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -193,14 +225,12 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                     <>
                         <div>
                             <label htmlFor={`traces-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Trace Count</label>
-                            <input
+                            <NumericInput
                                 type="number"
                                 id={`traces-${config.id}`}
                                 value={config.settings.traceCount}
-                                onChange={(e) => {
-                                    const value = parseInt(e.target.value, 10);
-                                    if (!Number.isNaN(value)) handleSettingChange({ traceCount: value });
-                                }}
+                                onCommit={(value) => handleSettingChange({ traceCount: value })}
+                                parser={(v) => parseInt(v, 10)}
                                 disabled={disabled}
                                 min="2" max="32" step="1"
                                 className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"
@@ -235,14 +265,12 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                         </div>
                         <div>
                             <label htmlFor={`tau-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Consensus (Tau)</label>
-                            <input
+                            <NumericInput
                                 type="number"
                                 id={`tau-${config.id}`}
                                 value={config.settings.tau}
-                                onChange={(e) => {
-                                    const value = parseFloat(e.target.value);
-                                    if (!Number.isNaN(value)) handleSettingChange({ tau: value });
-                                }}
+                                onCommit={(value) => handleSettingChange({ tau: value })}
+                                parser={(v) => parseFloat(v)}
                                 disabled={disabled}
                                 min="0.5" max="1.0" step="0.01"
                                 className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"
@@ -251,14 +279,12 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                         </div>
                         <div>
                             <label htmlFor={`groupWindow-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Group Window</label>
-                            <input
+                            <NumericInput
                                 type="number"
                                 id={`groupWindow-${config.id}`}
                                 value={config.settings.groupWindow}
-                                onChange={(e) => {
-                                    const value = parseInt(e.target.value, 10);
-                                    if (!Number.isNaN(value)) handleSettingChange({ groupWindow: value });
-                                }}
+                                onCommit={(value) => handleSettingChange({ groupWindow: value })}
+                                parser={(v) => parseInt(v, 10)}
                                 disabled={disabled}
                                 min="8" max="4096" step="8"
                                 className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"
@@ -323,33 +349,21 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                      <div className="col-span-2 grid grid-cols-2 gap-3">
                         <div>
                          <label htmlFor={`or-temp-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Temperature</label>
-                             <input type="number" id={`or-temp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).temperature} onChange={e => {
-                                 const value = parseFloat(e.target.value);
-                                 if (!Number.isNaN(value)) handleSettingChange({ temperature: value });
-                             }} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
+                             <NumericInput type="number" id={`or-temp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).temperature} onCommit={(value) => handleSettingChange({ temperature: value })} parser={(v) => parseFloat(v)} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
                         </div>
                         <div>
                              <label htmlFor={`or-topk-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Top K</label>
-                             <input type="number" id={`or-topk-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topK} onChange={e => {
-                                 const value = parseInt(e.target.value, 10);
-                                 if (!Number.isNaN(value)) handleSettingChange({ topK: value });
-                             }} disabled={disabled} min="1" step="1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
+                             <NumericInput type="number" id={`or-topk-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topK} onCommit={(value) => handleSettingChange({ topK: value })} parser={(v) => parseInt(v, 10)} disabled={disabled} min="1" step="1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
                         </div>
                          <div>
                              <label htmlFor={`or-topp-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Top P</label>
-                             <input type="number" id={`or-topp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topP} onChange={e => {
-                                 const value = parseFloat(e.target.value);
-                                 if (!Number.isNaN(value)) handleSettingChange({ topP: value });
-                             }} disabled={disabled} min="0" max="1" step="0.05" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
+                             <NumericInput type="number" id={`or-topp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topP} onCommit={(value) => handleSettingChange({ topP: value })} parser={(v) => parseFloat(v)} disabled={disabled} min="0" max="1" step="0.05" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
                         </div>
                          <div>
                              <label htmlFor={`or-repp-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Repetition Penalty</label>
-                             <input type="number" id={`or-repp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).repetitionPenalty} onChange={e => {
-                                 const value = parseFloat(e.target.value);
-                                 if (!Number.isNaN(value)) handleSettingChange({ repetitionPenalty: value });
-                             }} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
+                             <NumericInput type="number" id={`or-repp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).repetitionPenalty} onCommit={(value) => handleSettingChange({ repetitionPenalty: value })} parser={(v) => parseFloat(v)} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
                         </div>
-                     </div>
+                    </div>
                 )}
             </div>
         </div>
