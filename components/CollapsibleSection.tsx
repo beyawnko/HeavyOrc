@@ -18,23 +18,23 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ title, children
   };
 
   return (
-    <div className={`border border-gray-700 rounded-lg transition-opacity ${isDisabled ? 'opacity-50' : ''}`}>
+    <div className={`border border-[var(--line)] rounded-lg transition-opacity ${isDisabled ? 'opacity-50' : ''}`}>
       <button
         type="button"
         onClick={toggleOpen}
         disabled={isDisabled}
-        className="w-full flex justify-between items-center p-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800 rounded-t-lg"
+        className="w-full flex justify-between items-center p-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-1)] rounded-t-lg"
         aria-expanded={isOpen}
       >
-        <h4 className="text-base font-medium text-gray-200">{title}</h4>
+        <h4 className="text-base font-medium text-[var(--text)]">{title}</h4>
         {isOpen ? (
-          <ChevronUpIcon className="w-5 h-5 text-gray-400" />
+          <ChevronUpIcon className="w-5 h-5 text-[var(--text-muted)]" />
         ) : (
-          <ChevronDownIcon className="w-5 h-5 text-gray-400" />
+          <ChevronDownIcon className="w-5 h-5 text-[var(--text-muted)]" />
         )}
       </button>
       <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[1000px]' : 'max-h-0'}`}>
-        <div className="p-4 border-t border-gray-700">
+        <div className="p-4 border-t border-[var(--line)]">
             {children}
         </div>
       </div>

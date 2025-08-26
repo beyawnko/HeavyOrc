@@ -19,7 +19,7 @@ const SegmentedControl = <T extends string>({ options, value, onChange, disabled
     <div
       role="radiogroup"
       aria-label={ariaLabel}
-      className={`flex w-full p-1 bg-gray-900 border border-gray-600 rounded-lg ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
+      className={`flex w-full p-1 bg-[var(--surface-1)] border border-[var(--line)] rounded-lg ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
     >
       {options.map((option, index) => (
         <button
@@ -30,15 +30,15 @@ const SegmentedControl = <T extends string>({ options, value, onChange, disabled
           aria-checked={value === option.value}
           disabled={disabled}
           title={option.tooltip}
-          className={`relative flex-1 px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 z-10
+          className={`relative flex-1 px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-1)] z-10
             ${index === 0 ? 'rounded-l-md' : ''}
             ${index === options.length - 1 ? 'rounded-r-md' : ''}
-            ${value === option.value ? 'text-white' : 'text-gray-300 hover:bg-gray-700/50'}
+            ${value === option.value ? 'text-[#0D1411]' : 'text-[var(--text)] hover:bg-[var(--surface-active)]'}
             ${disabled ? 'cursor-not-allowed' : ''}
           `}
         >
           {value === option.value && (
-             <span className="absolute inset-0 bg-indigo-600 rounded-md -z-10 motion-safe:transition-transform" />
+             <span className="absolute inset-0 bg-[var(--accent)] rounded-md -z-10 motion-safe:transition-transform" />
           )}
           <span className="relative">{option.label}</span>
         </button>

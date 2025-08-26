@@ -1,7 +1,7 @@
 
 
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { experts } from '@/moe/experts';
 import { AgentConfig, GeminiAgentConfig, Expert } from '@/types';
 import AgentConfigCard from '@/components/AgentConfigCard';
@@ -13,10 +13,17 @@ interface AgentEnsembleProps {
     setAgentConfigs: React.Dispatch<React.SetStateAction<AgentConfig[]>>;
     onDuplicateAgent: (id: string) => void;
     disabled: boolean;
+    registerOpenModal?: (open: () => void) => void;
 }
 
-const AgentEnsemble: React.FC<AgentEnsembleProps> = ({ agentConfigs, setAgentConfigs, onDuplicateAgent, disabled }) => {
+const AgentEnsemble: React.FC<AgentEnsembleProps> = ({ agentConfigs, setAgentConfigs, onDuplicateAgent, disabled, registerOpenModal }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    useEffect(() => {
+        if (registerOpenModal) {
+            registerOpenModal(() => setIsModalOpen(true));
+        }
+    }, [registerOpenModal]);
 
     const handleAddAgent = (expert: Expert) => {
         const newAgent: GeminiAgentConfig = {
@@ -51,12 +58,12 @@ const AgentEnsemble: React.FC<AgentEnsembleProps> = ({ agentConfigs, setAgentCon
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-                <h3 className="text-base font-medium text-gray-200">Agent Ensemble</h3>
+                <h3 className="text-base font-medium text-[var(--text)]">Agent Ensemble</h3>
                 {availableExperts.length > 0 && (
                     <button
                         onClick={() => setIsModalOpen(true)}
                         disabled={disabled}
-                        className="flex items-center justify-center gap-2 px-3 py-1 bg-gray-700/80 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center justify-center gap-2 px-3 py-1 bg-[var(--accent)] text-[#0D1411] text-sm font-semibold rounded-lg shadow-md hover:brightness-110 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <PlusIcon className="w-4 h-4" />
                         Add Expert

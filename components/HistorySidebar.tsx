@@ -31,20 +31,20 @@ const StatusIndicator: React.FC<{ status: RunStatus }> = ({ status }) => {
     switch (status) {
         case 'IN_PROGRESS':
             return (
-                <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" title="In Progress">
+                <div className="w-2.5 h-2.5 rounded-full bg-[var(--accent-2)] animate-pulse" title="In Progress">
                     <span className="sr-only">In Progress</span>
                 </div>
             );
         case 'COMPLETED':
             return (
                 <div title="Completed">
-                    <CheckCircleIcon className="w-4 h-4 text-green-500" />
+                    <CheckCircleIcon className="w-4 h-4 text-[var(--success)]" />
                 </div>
             );
         case 'FAILED':
             return (
                 <div title="Failed">
-                    <XCircleIcon className="w-4 h-4 text-red-500" />
+                    <XCircleIcon className="w-4 h-4 text-[var(--danger)]" />
                 </div>
             );
         default:
@@ -57,12 +57,12 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, selectedRunId,
     const [isOpen, setIsOpen] = useState(true);
 
     return (
-        <aside className={`bg-gray-800/50 border-r border-gray-700 flex flex-col transition-all duration-300 ease-in-out ${isOpen ? 'w-64' : 'w-16'}`}>
-            <div className="flex-shrink-0 p-2 flex items-center justify-between border-b border-gray-700">
+        <aside className={`bg-[var(--surface-2)] border-r border-[var(--line)] flex flex-col transition-all duration-300 ease-in-out ${isOpen ? 'w-64' : 'w-16'}`}>
+            <div className="flex-shrink-0 p-2 flex items-center justify-between border-b border-[var(--line)]">
                 {isOpen && <h2 className="text-lg font-semibold ml-2">History</h2>}
                 <button
                     onClick={() => setIsOpen(!isOpen)}
-                    className="p-2 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-lg transition-colors"
+                    className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-active)] rounded-lg transition-colors"
                     title={isOpen ? "Collapse Sidebar" : "Expand Sidebar"}
                 >
                     {isOpen ? <ChevronLeftIcon className="w-6 h-6" /> : <ChevronRightIcon className="w-6 h-6" />}
@@ -73,7 +73,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, selectedRunId,
                 <button
                     onClick={onNewRun}
                     className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
-                        !selectedRunId ? 'bg-indigo-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-200'
+                        !selectedRunId ? 'bg-[var(--accent)] text-[#0D1411] hover:brightness-110' : 'bg-[var(--surface-1)] hover:bg-[var(--surface-active)] text-[var(--text)]'
                     }`}
                 >
                     <PlusIcon className="w-5 h-5" />
@@ -88,7 +88,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, selectedRunId,
                             <button
                                 onClick={() => onNewRun()} // Resets to live view
                                 className={`w-full text-left flex items-center gap-3 p-2 rounded-md transition-colors ${
-                                    !selectedRunId ? 'bg-gray-700' : 'hover:bg-gray-700/50'
+                                    !selectedRunId ? 'bg-[var(--surface-1)]' : 'hover:bg-[var(--surface-active)]'
                                 }`}
                                 title="View current run"
                             >
@@ -97,8 +97,8 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, selectedRunId,
                                 </div>
                                 {isOpen && (
                                     <div className="overflow-hidden">
-                                        <p className="text-sm font-medium text-gray-300 truncate">Current Run</p>
-                                        <p className="text-xs text-gray-500 capitalize">{currentRunStatus.replace('_', ' ').toLowerCase()}</p>
+                                        <p className="text-sm font-medium text-[var(--text)] truncate">Current Run</p>
+                                        <p className="text-xs text-[var(--text-muted)] capitalize">{currentRunStatus.replace('_', ' ').toLowerCase()}</p>
                                     </div>
                                 )}
                             </button>
@@ -109,7 +109,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, selectedRunId,
                             <button
                                 onClick={() => onSelectRun(run.id)}
                                 className={`w-full text-left flex items-center gap-3 p-2 rounded-md transition-colors ${
-                                    selectedRunId === run.id ? 'bg-gray-700' : 'hover:bg-gray-700/50'
+                                    selectedRunId === run.id ? 'bg-[var(--surface-1)]' : 'hover:bg-[var(--surface-active)]'
                                 }`}
                                 title={run.prompt}
                             >
@@ -118,8 +118,8 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, selectedRunId,
                                </div>
                                 {isOpen && (
                                     <div className="overflow-hidden">
-                                        <p className="text-sm font-medium text-gray-300 truncate">{run.prompt || "Image-based prompt"}</p>
-                                        <p className="text-xs text-gray-500">{formatTimestamp(run.timestamp)}</p>
+                                        <p className="text-sm font-medium text-[var(--text)] truncate">{run.prompt || "Image-based prompt"}</p>
+                                        <p className="text-xs text-[var(--text-muted)]">{formatTimestamp(run.timestamp)}</p>
                                     </div>
                                 )}
                             </button>

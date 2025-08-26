@@ -1,6 +1,6 @@
 import React from 'react';
 import { AgentConfig, AgentModel, GeminiAgentConfig, GeminiAgentSettings, OpenAIAgentConfig, OpenAIAgentSettings, AgentStatus, GeminiModel, OpenAIModel, GeminiThinkingEffort, GenerationStrategy, OpenRouterAgentConfig, OpenRouterAgentSettings, OpenRouterModel } from '@/types';
-import { GEMINI_FLASH_MODEL, GEMINI_PRO_MODEL, OPENAI_AGENT_MODEL, OPENROUTER_CLAUDE_3_HAIKU, OPENROUTER_GEMINI_FLASH_1_5, OPENROUTER_GPT_4O } from '@/constants';
+import { GEMINI_FLASH_MODEL, GEMINI_PRO_MODEL, OPENAI_AGENT_MODEL, OPENAI_GPT5_MINI_MODEL, OPENROUTER_CLAUDE_3_HAIKU, OPENROUTER_GEMINI_FLASH_1_5, OPENROUTER_GPT_4O } from '@/constants';
 import { XCircleIcon, LoadingSpinner, CheckCircleIcon, DocumentDuplicateIcon } from '@/components/icons';
 
 interface AgentConfigCardProps {
@@ -14,11 +14,11 @@ interface AgentConfigCardProps {
 const getStatusIndicator = (status: AgentStatus): React.ReactNode => {
     switch (status) {
         case 'RUNNING':
-            return <LoadingSpinner className="h-5 w-5 text-blue-400 animate-spin" />;
+            return <LoadingSpinner className="h-5 w-5 text-[var(--accent-2)] animate-spin" />;
         case 'COMPLETED':
-            return <CheckCircleIcon className="h-5 w-5 text-green-400" />;
+            return <CheckCircleIcon className="h-5 w-5 text-[var(--success)]" />;
         case 'FAILED':
-            return <XCircleIcon className="h-5 w-5 text-red-400" />;
+            return <XCircleIcon className="h-5 w-5 text-[var(--danger)]" />;
         case 'PENDING':
         case 'QUEUED':
         default:
@@ -29,15 +29,15 @@ const getStatusIndicator = (status: AgentStatus): React.ReactNode => {
 const getBorderColor = (status: AgentStatus): string => {
     switch(status) {
         case 'RUNNING':
-            return 'border-blue-500/80 ring-2 ring-blue-500/50';
+            return 'border-[var(--accent-2)] ring-2 ring-[var(--accent-2)] ring-opacity-50';
         case 'COMPLETED':
-            return 'border-green-500/80';
+            return 'border-[var(--success)]';
         case 'FAILED':
-            return 'border-red-500/80';
+            return 'border-[var(--danger)]';
         case 'PENDING':
         case 'QUEUED':
         default:
-            return 'border-gray-600';
+            return 'border-[var(--line)]';
     }
 }
 
@@ -109,11 +109,11 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
     const borderColor = getBorderColor(config.status);
 
     return (
-        <div className={`relative group bg-gray-800/50 p-4 rounded-lg border transition-all duration-300 ${borderColor}`}>
+        <div className={`relative group bg-[var(--surface-2)] p-4 rounded-lg border transition-all duration-300 ${borderColor}`}>
             <div className="flex justify-between items-start">
                 <div>
-                    <h4 className="font-bold text-gray-200">{config.expert.name}</h4>
-                    <p className="text-xs text-gray-400 italic mt-1 pr-8">Persona: {config.expert.persona}</p>
+                    <h4 className="font-bold text-[var(--text)]">{config.expert.name}</h4>
+                    <p className="text-xs text-[var(--text-muted)] italic mt-1 pr-8">Persona: {config.expert.persona}</p>
                 </div>
                 <div className="flex-shrink-0">
                     {getStatusIndicator(config.status)}
@@ -126,7 +126,7 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                 <button 
                     onClick={() => onDuplicate(config.id)} 
                     disabled={disabled} 
-                    className="p-1 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-1 text-[var(--text-muted)] hover:text-[var(--text)] disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Duplicate Agent"
                 >
                     <DocumentDuplicateIcon className="w-5 h-5" />
@@ -135,7 +135,7 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                 <button 
                     onClick={() => onRemove(config.id)} 
                     disabled={disabled} 
-                    className="p-1 text-gray-400 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-1 text-[var(--text-muted)] hover:text-[var(--danger)] disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Remove Agent"
                 >
                     <XCircleIcon className="w-5 h-5" />
@@ -146,13 +146,13 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
 
             <div className="mt-4 grid grid-cols-2 gap-3">
                 <div>
-                    <label htmlFor={`model-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Model</label>
+                    <label htmlFor={`model-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Model</label>
                     <select
                         id={`model-${config.id}`}
                         value={config.model}
                         onChange={handleModelChange}
                         disabled={disabled}
-                        className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                        className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"
                     >
                         <optgroup label="Google">
                             <option value={GEMINI_PRO_MODEL}>Gemini 2.5 Pro</option>
@@ -160,6 +160,7 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                         </optgroup>
                         <optgroup label="OpenAI">
                              <option value={OPENAI_AGENT_MODEL}>OpenAI GPT-5</option>
+                             <option value={OPENAI_GPT5_MINI_MODEL}>OpenAI GPT-5 Mini</option>
                         </optgroup>
                         <optgroup label="OpenRouter">
                             <option value={OPENROUTER_GPT_4O}>OpenAI GPT-4o</option>
@@ -170,13 +171,13 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                 </div>
 
                 <div>
-                     <label htmlFor={`strategy-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Generation Strategy</label>
+                     <label htmlFor={`strategy-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Generation Strategy</label>
                     <select
                         id={`strategy-${config.id}`}
                         value={config.provider === 'openrouter' ? 'single' : (config as GeminiAgentConfig | OpenAIAgentConfig).settings.generationStrategy}
                         onChange={(e) => handleSettingChange({ generationStrategy: e.target.value as GenerationStrategy })}
                         disabled={disabled || config.provider === 'openrouter'}
-                        className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 disabled:opacity-70"
+                        className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)] disabled:opacity-70"
                         title={config.provider === 'openrouter' ? "DeepConf is not currently supported for OpenRouter agents." : "Select the generation strategy."}
                     >
                         <option value="single">Single Draft</option>
@@ -188,7 +189,7 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                 {config.provider !== 'openrouter' && config.settings.generationStrategy !== 'single' &&
                     <>
                         <div>
-                            <label htmlFor={`traces-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Trace Count</label>
+                            <label htmlFor={`traces-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Trace Count</label>
                             <input
                                 type="number"
                                 id={`traces-${config.id}`}
@@ -196,18 +197,18 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                                 onChange={(e) => handleSettingChange({ traceCount: parseInt(e.target.value, 10) })}
                                 disabled={disabled}
                                 min="2" max="32" step="1"
-                                className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"
                                 title="Number of parallel responses to generate for DeepConf."
                             />
                         </div>
                         <div>
-                            <label htmlFor={`eta-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Confidence (Eta)</label>
+                            <label htmlFor={`eta-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Confidence (Eta)</label>
                             <select
                                 id={`eta-${config.id}`}
                                 value={config.settings.deepConfEta}
                                 onChange={(e) => handleSettingChange({ deepConfEta: parseInt(e.target.value, 10) as (10 | 90) })}
                                 disabled={disabled}
-                                className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"
                                 title="Confidence threshold. 90% is conservative (keeps more), 10% is aggressive (keeps few high-confidence traces)."
                             >
                                 <option value="90">90% (Conservative)</option>
@@ -215,19 +216,19 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                             </select>
                         </div>
                         <div className="col-span-2">
-                             <label htmlFor={`confidence-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Confidence Source</label>
+                             <label htmlFor={`confidence-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Confidence Source</label>
                             <select
                                 id={`confidence-${config.id}`}
                                 value={config.settings.confidenceSource}
                                 disabled={true}
-                                className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 disabled:opacity-70 disabled:cursor-not-allowed"
+                                className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)] disabled:opacity-70 disabled:cursor-not-allowed"
                                 title="Only 'Judge' is available. The underlying models (Gemini and GPT-5) do not support streaming logprobs required for token-based confidence."
                             >
                                 <option value="judge">Judge Verifier</option>
                             </select>
                         </div>
                         <div>
-                            <label htmlFor={`tau-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Consensus (Tau)</label>
+                            <label htmlFor={`tau-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Consensus (Tau)</label>
                             <input
                                 type="number"
                                 id={`tau-${config.id}`}
@@ -235,12 +236,12 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                                 onChange={(e) => handleSettingChange({ tau: parseFloat(e.target.value) })}
                                 disabled={disabled}
                                 min="0.5" max="1.0" step="0.01"
-                                className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"
                                 title="Consensus threshold for online mode. Stops when the top answer's vote share exceeds this value (e.g., 0.95)."
                             />
                         </div>
                         <div>
-                            <label htmlFor={`groupWindow-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Group Window</label>
+                            <label htmlFor={`groupWindow-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Group Window</label>
                             <input
                                 type="number"
                                 id={`groupWindow-${config.id}`}
@@ -248,7 +249,7 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                                 onChange={(e) => handleSettingChange({ groupWindow: parseInt(e.target.value, 10) })}
                                 disabled={disabled}
                                 min="8" max="4096" step="8"
-                                className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"
                                 title="Sliding window size (in tokens) for calculating group confidence."
                             />
                         </div>
@@ -258,13 +259,13 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
 
                 {config.provider === 'gemini' ? (
                     <div className="col-span-2">
-                        <label htmlFor={`gemini-effort-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Thinking Effort</label>
+                        <label htmlFor={`gemini-effort-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Thinking Effort</label>
                         <select
                             id={`gemini-effort-${config.id}`}
                             value={config.settings.effort}
                             onChange={(e) => handleSettingChange({ effort: e.target.value as GeminiThinkingEffort })}
                             disabled={disabled}
-                            className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                            className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"
                             title="Controls how much 'thinking' the Gemini model performs before answering. 'Dynamic' is recommended. 'High' can improve quality for complex tasks but increases latency. 'None' is fastest but least thorough."
                         >
                             <option value="dynamic">Dynamic</option>
@@ -277,13 +278,13 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                 ) : config.provider === 'openai' ? (
                     <div className="col-span-2 grid grid-cols-2 gap-3">
                         <div>
-                            <label htmlFor={`openai-effort-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Reasoning</label>
+                            <label htmlFor={`openai-effort-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Reasoning</label>
                              <select
                                 id={`openai-effort-${config.id}`}
                                 value={(config.settings as OpenAIAgentSettings).effort}
                                 onChange={(e) => handleSettingChange({ effort: e.target.value as OpenAIAgentSettings['effort'] })}
                                 disabled={disabled}
-                                className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"
                                 title="Controls the model's reasoning process. 'High' enables more complex, step-by-step thinking, which can improve accuracy for difficult prompts. 'Medium' is faster and suitable for general tasks."
                             >
                                 <option value="high">High</option>
@@ -291,13 +292,13 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                             </select>
                         </div>
                         <div>
-                             <label htmlFor={`openai-verbosity-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Verbosity</label>
+                             <label htmlFor={`openai-verbosity-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Verbosity</label>
                              <select
                                 id={`openai-verbosity-${config.id}`}
                                 value={(config.settings as OpenAIAgentSettings).verbosity}
                                 onChange={(e) => handleSettingChange({ verbosity: e.target.value as OpenAIAgentSettings['verbosity'] })}
                                 disabled={disabled}
-                                className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"
                                 title="Adjusts the length and detail of the agent's response. 'High' provides more comprehensive answers, while 'Low' is more concise."
                             >
                                 <option value="high">High</option>
@@ -309,20 +310,20 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                 ) : ( // OpenRouter Settings
                      <div className="col-span-2 grid grid-cols-2 gap-3">
                         <div>
-                             <label htmlFor={`or-temp-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Temperature</label>
-                             <input type="number" id={`or-temp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).temperature} onChange={e => handleSettingChange({ temperature: parseFloat(e.target.value) })} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"/>
+                         <label htmlFor={`or-temp-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Temperature</label>
+                             <input type="number" id={`or-temp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).temperature} onChange={e => handleSettingChange({ temperature: parseFloat(e.target.value) })} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
                         </div>
                         <div>
-                             <label htmlFor={`or-topk-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Top K</label>
-                             <input type="number" id={`or-topk-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topK} onChange={e => handleSettingChange({ topK: parseInt(e.target.value, 10) })} disabled={disabled} min="1" step="1" className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"/>
+                             <label htmlFor={`or-topk-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Top K</label>
+                             <input type="number" id={`or-topk-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topK} onChange={e => handleSettingChange({ topK: parseInt(e.target.value, 10) })} disabled={disabled} min="1" step="1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
                         </div>
                          <div>
-                             <label htmlFor={`or-topp-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Top P</label>
-                             <input type="number" id={`or-topp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topP} onChange={e => handleSettingChange({ topP: parseFloat(e.target.value) })} disabled={disabled} min="0" max="1" step="0.05" className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"/>
+                             <label htmlFor={`or-topp-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Top P</label>
+                             <input type="number" id={`or-topp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topP} onChange={e => handleSettingChange({ topP: parseFloat(e.target.value) })} disabled={disabled} min="0" max="1" step="0.05" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
                         </div>
                          <div>
-                             <label htmlFor={`or-repp-${config.id}`} className="block text-sm font-medium text-gray-400 mb-1">Repetition Penalty</label>
-                             <input type="number" id={`or-repp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).repetitionPenalty} onChange={e => handleSettingChange({ repetitionPenalty: parseFloat(e.target.value) })} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-gray-900 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"/>
+                             <label htmlFor={`or-repp-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Repetition Penalty</label>
+                             <input type="number" id={`or-repp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).repetitionPenalty} onChange={e => handleSettingChange({ repetitionPenalty: parseFloat(e.target.value) })} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
                         </div>
                      </div>
                 )}

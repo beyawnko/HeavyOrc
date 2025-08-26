@@ -18,8 +18,9 @@ export const GEMINI_PRO_MODEL = "gemini-2.5-pro";
 
 // OpenAI Models
 export const OPENAI_AGENT_MODEL = "gpt-5";
+export const OPENAI_GPT5_MINI_MODEL = "gpt-5-mini";
 export const OPENAI_ARBITER_MODEL = "gpt-5";
-export const OPENAI_JUDGE_MODEL = "gpt-5-mini"; // For DeepConf judge, as per request.
+export const OPENAI_JUDGE_MODEL = OPENAI_GPT5_MINI_MODEL; // For DeepConf judge and mini agents.
 
 // OpenRouter Models - Using popular models as examples
 export const OPENROUTER_GPT_4O = "openai/gpt-4o";

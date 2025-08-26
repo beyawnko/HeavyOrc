@@ -26,6 +26,27 @@
     </script>
     <script src="https://cdn.tailwindcss.com" defer></script>
     <style>
+      :root {
+        --bg: #071D10;
+        --surface-1: #0A2A16;
+        --surface-2: #0D361D;
+        --surface-active: #104224;
+        --primary: #14532D;
+
+        --text: #E8EEEA;
+        --text-muted: #ADC3B6;
+        --line: #123722;
+
+        --accent: #C6A15B;
+        --accent-2: #2FA899;
+        --danger: #B2513B;
+        --warn: #D7A152;
+        --success: #7FBF8A;
+      }
+      body {
+        background-color: var(--bg);
+        color: var(--text);
+      }
       /* For custom scrollbars to match the dark theme */
       html {
         scrollbar-color: #4b5563 #1f2937; /* thumb and track color for Firefox */
@@ -138,7 +159,7 @@
 }
 </script>
 </head>
-  <body class="text-gray-200">
+  <body class="bg-[var(--bg)] text-[var(--text)]">
     <div id="background-effects"></div>
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>

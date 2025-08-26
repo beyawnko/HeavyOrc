@@ -66,24 +66,24 @@ const FinalAnswerCard: React.FC<FinalAnswerCardProps> = ({ answer, title = "Arbi
 
   return (
     <div className={`final-answer-glow rounded-xl shadow-2xl ${className}`} {...rest}>
-      <div className="bg-gray-800/50 p-0 rounded-xl flex flex-col w-full min-h-[200px]">
+      <div className="bg-[var(--surface-2)] p-0 rounded-xl flex flex-col w-full min-h-[200px]">
         {/* Header */}
-        <div className="p-4 border-b border-gray-700 flex items-center justify-between gap-3 flex-shrink-0">
+        <div className="p-4 border-b border-[var(--line)] flex items-center justify-between gap-3 flex-shrink-0">
             <div className="flex items-center gap-3">
-                <SparklesIcon className="w-6 h-6 text-indigo-400"/>
-                <h2 className="text-xl font-bold text-gray-200">{title}</h2>
+                <SparklesIcon className="w-6 h-6 text-[var(--accent)]"/>
+                <h2 className="text-xl font-bold text-[var(--text)]">{title}</h2>
             </div>
         </div>
         {/* Content */}
         <div className="p-4 flex-grow min-h-0 overflow-y-auto max-h-[70vh]">
             {hasContent ? (
-                <p className="text-gray-200 whitespace-pre-wrap font-serif leading-relaxed">
+                <p className="text-[var(--text)] whitespace-pre-wrap font-serif leading-relaxed">
                     {displayedAnswer}
-                    {showCursor && <span className="inline-block w-2 h-5 bg-indigo-400 animate-pulse ml-1" />}
+                    {showCursor && <span className="inline-block w-2 h-5 bg-[var(--accent)] animate-pulse ml-1" />}
                 </p>
             ) : (
                 <div className="flex items-center justify-center h-full">
-                    <p className="text-gray-500 italic">Waiting for arbiter's response...</p>
+                    <p className="text-[var(--text-muted)] italic">Waiting for arbiter's response...</p>
                 </div>
             )}
         </div>
