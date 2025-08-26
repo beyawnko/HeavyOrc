@@ -2,6 +2,7 @@
 import { Type } from "@google/genai";
 import { getGeminiClient, getOpenAIClient } from './llmService';
 import { getGeminiResponseText } from '@/lib/utils';
+import { callWithGeminiRetry, isGeminiRateLimitError, GEMINI_QUOTA_MESSAGE } from './geminiUtils';
 import {
     GEMINI_FLASH_MODEL,
     GEMINI_PRO_MODEL,
@@ -107,26 +108,28 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
         const judgeModel = agentModel === GEMINI_PRO_MODEL ? GEMINI_PRO_MODEL : GEMINI_FLASH_MODEL;
         
         const geminiAI = getGeminiClient();
-        const response = await geminiAI.models.generateContent({
-            model: judgeModel,
-            contents: { parts: [{ text: judgeUserTemplate(prompt, answer) }] },
-            config: {
-                systemInstruction: judgeSystem,
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        score: { type: Type.NUMBER },
-                        reasons: {
-                            type: Type.ARRAY,
-                            items: { type: Type.STRING }
-                        }
+        const response = await callWithGeminiRetry(() =>
+            geminiAI.models.generateContent({
+                model: judgeModel,
+                contents: { parts: [{ text: judgeUserTemplate(prompt, answer) }] },
+                config: {
+                    systemInstruction: judgeSystem,
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            score: { type: Type.NUMBER },
+                            reasons: {
+                                type: Type.ARRAY,
+                                items: { type: Type.STRING }
+                            }
+                        },
+                        propertyOrdering: ["score", "reasons"],
                     },
-                    propertyOrdering: ["score", "reasons"],
+                    temperature: 0, // deterministic judging
                 },
-                temperature: 0, // deterministic judging
-            },
-        });
+            })
+        );
 
         const jsonString = getGeminiResponseText(response).trim();
         if (!jsonString) {
@@ -165,6 +168,9 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
 
     } catch (error) {
         console.error("Error during answer judging:", error);
+        if (isGeminiRateLimitError(error)) {
+            return { score: 0, reasons: [GEMINI_QUOTA_MESSAGE] };
+        }
         return { score: 0, reasons: ["An error occurred while judging the answer."] };
     }
 };

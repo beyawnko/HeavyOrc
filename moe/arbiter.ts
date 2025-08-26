@@ -10,6 +10,7 @@ import {
     OPENAI_ARBITER_MODEL,
 } from '@/constants';
 import { GeminiThinkingEffort } from '@/types';
+import { callWithGeminiRetry, handleGeminiError } from '@/services/geminiUtils';
 
 const GEMINI_PRO_BUDGETS: Record<Extract<GeminiThinkingEffort, 'low' | 'medium' | 'high' | 'dynamic'>, number> = {
     low: 8192,
@@ -147,19 +148,25 @@ export const arbitrateStream = async (
     const budget = GEMINI_PRO_BUDGETS[effortForPro];
 
     const geminiAI = getGeminiClient();
-    const stream = await geminiAI.models.generateContentStream({
-        model: GEMINI_PRO_MODEL, // Arbiter always uses the Pro model for Gemini
-        contents: { parts: [{ text: arbiterPrompt }] },
-        config: {
-            systemInstruction: ARBITER_PERSONA,
-            thinkingConfig: { thinkingBudget: budget },
-        }
-    });
+    try {
+        const stream = await callWithGeminiRetry(() =>
+            geminiAI.models.generateContentStream({
+                model: GEMINI_PRO_MODEL, // Arbiter always uses the Pro model for Gemini
+                contents: { parts: [{ text: arbiterPrompt }] },
+                config: {
+                    systemInstruction: ARBITER_PERSONA,
+                    thinkingConfig: { thinkingBudget: budget },
+                }
+            })
+        );
 
-    async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
-        for await (const chunk of stream) {
-            yield { text: getGeminiResponseText(chunk) };
+        async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
+            for await (const chunk of stream) {
+                yield { text: getGeminiResponseText(chunk) };
+            }
         }
+        return transformGeminiStream();
+    } catch (error) {
+        handleGeminiError(error, 'arbiter', 'arbitration');
     }
-    return transformGeminiStream();
 };
