@@ -197,7 +197,10 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                                 type="number"
                                 id={`traces-${config.id}`}
                                 value={config.settings.traceCount}
-                                onChange={(e) => handleSettingChange({ traceCount: parseInt(e.target.value, 10) })}
+                                onChange={(e) => {
+                                    const value = parseInt(e.target.value, 10);
+                                    if (!Number.isNaN(value)) handleSettingChange({ traceCount: value });
+                                }}
                                 disabled={disabled}
                                 min="2" max="32" step="1"
                                 className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"
@@ -236,7 +239,10 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                                 type="number"
                                 id={`tau-${config.id}`}
                                 value={config.settings.tau}
-                                onChange={(e) => handleSettingChange({ tau: parseFloat(e.target.value) })}
+                                onChange={(e) => {
+                                    const value = parseFloat(e.target.value);
+                                    if (!Number.isNaN(value)) handleSettingChange({ tau: value });
+                                }}
                                 disabled={disabled}
                                 min="0.5" max="1.0" step="0.01"
                                 className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"
@@ -249,7 +255,10 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                                 type="number"
                                 id={`groupWindow-${config.id}`}
                                 value={config.settings.groupWindow}
-                                onChange={(e) => handleSettingChange({ groupWindow: parseInt(e.target.value, 10) })}
+                                onChange={(e) => {
+                                    const value = parseInt(e.target.value, 10);
+                                    if (!Number.isNaN(value)) handleSettingChange({ groupWindow: value });
+                                }}
                                 disabled={disabled}
                                 min="8" max="4096" step="8"
                                 className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"

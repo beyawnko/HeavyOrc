@@ -478,6 +478,7 @@ const App: React.FC = () => {
 
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
+            if (e.isComposing) return;
             const target = e.target as HTMLElement;
             const tag = target.tagName;
             const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
