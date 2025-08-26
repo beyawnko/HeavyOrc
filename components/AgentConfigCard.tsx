@@ -71,6 +71,13 @@ const NumericInput: React.FC<NumericInputProps> = ({ value, onCommit, parser = p
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onBlur={commit}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    commit();
+                    (e.target as HTMLInputElement).blur();
+                }
+            }}
         />
     );
 };

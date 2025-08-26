@@ -34,7 +34,7 @@ import { ShieldCheckIcon, CogIcon, DownloadIcon, ExclamationTriangleIcon, XMarkI
 import SettingsView from '@/components/SettingsView';
 import { setOpenAIApiKey as storeOpenAIApiKey, setGeminiApiKey as storeGeminiApiKey, setOpenRouterApiKey as storeOpenRouterApiKey } from '@/services/llmService';
 import CollapsibleSection from '@/components/CollapsibleSection';
-import AgentEnsemble from '@/components/AgentEnsemble';
+import AgentEnsemble, { AgentEnsembleHandles } from '@/components/AgentEnsemble';
 import PromptInput from '@/components/PromptInput';
 import FinalAnswerCard from '@/components/FinalAnswerCard';
 import HistorySidebar from '@/components/HistorySidebar';
@@ -211,7 +211,7 @@ const App: React.FC = () => {
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
-    const openAddExpertRef = useRef<() => void>();
+    const agentEnsembleRef = useRef<AgentEnsembleHandles>(null);
     const [collapsedMap, setCollapsedMap] = useState<Record<string, boolean>>({});
     
     // Refs for capturing state in async callbacks
@@ -483,22 +483,36 @@ const App: React.FC = () => {
             const tag = target.tagName;
             const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
 
-            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'enter') {
+            const key = e.key.toLowerCase();
+            const noModifier = !(e.metaKey || e.ctrlKey || e.altKey);
+
+            if ((e.metaKey || e.ctrlKey) && key === 'enter') {
                 e.preventDefault();
                 latestHandleRun.current();
-            } else if (!isTyping && !isHistoryViewRef.current && !(e.metaKey || e.ctrlKey || e.altKey) && e.key.toLowerCase() === 'a') {
-                e.preventDefault();
-                openAddExpertRef.current?.();
-            } else if (!isTyping && !isHistoryViewRef.current && !(e.metaKey || e.ctrlKey || e.altKey) && e.key === '/') {
-                e.preventDefault();
-                promptInputRef.current?.focus();
-            } else if (!isTyping && !isHistoryViewRef.current && !(e.metaKey || e.ctrlKey || e.altKey) && e.key >= '1' && e.key <= '9') {
-                const index = parseInt(e.key, 10) - 1;
-                const agent = agentsRef.current[index];
-                if (!agent) return;
-                const isCollapsible = agent.status === 'COMPLETED' || agent.status === 'FAILED';
-                if (!isCollapsible) return;
-                setCollapsedMap(prev => ({ ...prev, [agent.id]: !prev[agent.id] }));
+                return;
+            }
+
+            const isGlobal = noModifier && !isTyping && !isHistoryViewRef.current;
+            if (!isGlobal) return;
+
+            switch (key) {
+                case 'a':
+                    e.preventDefault();
+                    agentEnsembleRef.current?.openModal();
+                    break;
+                case '/':
+                    e.preventDefault();
+                    promptInputRef.current?.focus();
+                    break;
+                default:
+                    if (key >= '1' && key <= '9') {
+                        const index = parseInt(key, 10) - 1;
+                        const agent = agentsRef.current[index];
+                        if (!agent) return;
+                        const isCollapsible = agent.status === 'COMPLETED' || agent.status === 'FAILED';
+                        if (!isCollapsible) return;
+                        setCollapsedMap(prev => ({ ...prev, [agent.id]: !prev[agent.id] }));
+                    }
             }
         };
         window.addEventListener('keydown', handler);
@@ -871,11 +885,11 @@ const App: React.FC = () => {
 
                             <div className="space-y-6 bg-[var(--surface-2)] p-6 rounded-xl shadow-2xl border border-[var(--line)]">
                                 <AgentEnsemble
+                                    ref={agentEnsembleRef}
                                     agentConfigs={displayData.agentConfigs}
                                     setAgentConfigs={setAgentConfigs}
                                     onDuplicateAgent={handleDuplicateAgent}
                                     disabled={isLoading || displayData.isHistoryView}
-                                    registerOpenModal={(fn) => { openAddExpertRef.current = fn; }}
                                 />
                                 <div className="border-t border-[var(--line)] pt-4">
                                     <CollapsibleSection title="Arbiter Settings" defaultOpen={true}>

@@ -1,7 +1,7 @@
 
 
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useImperativeHandle, forwardRef } from 'react';
 import { experts } from '@/moe/experts';
 import { AgentConfig, GeminiAgentConfig, Expert } from '@/types';
 import AgentConfigCard from '@/components/AgentConfigCard';
@@ -13,17 +13,18 @@ interface AgentEnsembleProps {
     setAgentConfigs: React.Dispatch<React.SetStateAction<AgentConfig[]>>;
     onDuplicateAgent: (id: string) => void;
     disabled: boolean;
-    registerOpenModal?: (open: () => void) => void;
 }
 
-const AgentEnsemble: React.FC<AgentEnsembleProps> = ({ agentConfigs, setAgentConfigs, onDuplicateAgent, disabled, registerOpenModal }) => {
+export interface AgentEnsembleHandles {
+    openModal: () => void;
+}
+
+const AgentEnsemble = forwardRef<AgentEnsembleHandles, AgentEnsembleProps>(({ agentConfigs, setAgentConfigs, onDuplicateAgent, disabled }, ref) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    useEffect(() => {
-        if (registerOpenModal) {
-            registerOpenModal(() => setIsModalOpen(true));
-        }
-    }, [registerOpenModal]);
+    useImperativeHandle(ref, () => ({
+        openModal: () => setIsModalOpen(true),
+    }));
 
     const handleAddAgent = (expert: Expert) => {
         const newAgent: GeminiAgentConfig = {
