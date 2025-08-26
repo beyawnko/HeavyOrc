@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect, useMemo } from 'react';
 import {
     XCircleIcon,
     PlusIcon,
@@ -94,6 +94,16 @@ const PromptInput: React.FC<PromptInputProps> = ({
         fileInputRef.current?.click();
     };
 
+    const imagePreviews = useMemo(() => (
+        images.map(img => ({ ...img, url: URL.createObjectURL(img.file) }))
+    ), [images]);
+
+    useEffect(() => {
+        return () => {
+            imagePreviews.forEach(img => URL.revokeObjectURL(img.url));
+        };
+    }, [imagePreviews]);
+
     const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
             event.preventDefault();
@@ -125,12 +135,12 @@ const PromptInput: React.FC<PromptInputProps> = ({
 
     return (
         <div className="bg-[var(--surface-2)] p-2 rounded-2xl shadow-2xl border border-[var(--line)] flex flex-col gap-2">
-            {images.length > 0 && (
+            {imagePreviews.length > 0 && (
                 <div className="flex flex-wrap gap-2 px-2 pt-1">
-                    {images.map(img => (
+                    {imagePreviews.map(img => (
                         <div key={img.id} className="relative group flex-shrink-0">
                             <img
-                                src={URL.createObjectURL(img.file)}
+                                src={img.url}
                                 alt="Image preview"
                                 className="w-20 h-20 rounded-lg object-cover border border-[var(--line)]"
                             />
