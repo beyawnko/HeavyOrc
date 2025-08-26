@@ -3,8 +3,12 @@ export const GEMINI_QUOTA_MESSAGE = "Gemini quota exceeded, please wait before r
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const isGeminiRateLimitError = (error: unknown): boolean => {
-    const status = (error as any)?.status || (error as any)?.response?.status;
-    const rawMessage = (error as any)?.message;
+    if (typeof error !== 'object' || error === null) {
+        return false;
+    }
+    const maybeError = error as { status?: number; response?: { status?: number }; message?: unknown };
+    const status = maybeError.status ?? maybeError.response?.status;
+    const rawMessage = maybeError.message;
     const message = typeof rawMessage === 'string' ? rawMessage.toLowerCase() : '';
     return status === 429 || message.includes('rate limit') || message.includes('quota');
 };
