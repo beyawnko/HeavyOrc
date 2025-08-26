@@ -24,4 +24,5 @@ export const callWithGeminiRetry = async <T>(
             await sleep(baseDelayMs * Math.pow(2, attempt));
         }
     }
+    throw new Error('callWithGeminiRetry failed unexpectedly');
 };

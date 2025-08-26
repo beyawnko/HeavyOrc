@@ -77,10 +77,14 @@ const runExpertGeminiSingle = async (
         const response = await callWithGeminiRetry(() => geminiAI.models.generateContent(generateContentParams));
         return getGeminiResponseText(response);
     } catch (error) {
+        console.error("Error calling the Gemini API for dispatcher:", error);
         if (isGeminiRateLimitError(error)) {
             throw new Error(GEMINI_QUOTA_MESSAGE);
         }
-        throw error;
+        if (error instanceof Error) {
+            throw new Error(`An error occurred with the Gemini Dispatcher: ${error.message}`);
+        }
+        throw new Error(`An unknown error occurred while communicating with the Gemini model for dispatch.`);
     }
 }
 
