@@ -261,7 +261,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 dialogRef.current.querySelectorAll<HTMLElement>(
                     'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
                 )
-            ).filter(el => !el.hasAttribute('disabled'));
+            ).filter(el => !el.hasAttribute('disabled') && el.offsetParent !== null);
             if (focusables.length === 0) return;
             const first = focusables[0];
             const last = focusables[focusables.length - 1];

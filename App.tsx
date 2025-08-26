@@ -463,6 +463,7 @@ const App: React.FC = () => {
 
     const latestHandleRun = useRef(handleRun);
     const agentsRef = useRef(agents);
+    const isHistoryViewRef = useRef(false);
 
     useEffect(() => {
         latestHandleRun.current = handleRun;
@@ -471,6 +472,7 @@ const App: React.FC = () => {
     useEffect(() => {
         agentsRef.current = agents;
     }, [agents]);
+
 
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
@@ -481,13 +483,13 @@ const App: React.FC = () => {
             if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'enter') {
                 e.preventDefault();
                 latestHandleRun.current();
-            } else if (!isTyping && !(e.metaKey || e.ctrlKey || e.altKey) && e.key.toLowerCase() === 'a') {
+            } else if (!isTyping && !isHistoryViewRef.current && !(e.metaKey || e.ctrlKey || e.altKey) && e.key.toLowerCase() === 'a') {
                 e.preventDefault();
                 openAddExpertRef.current?.();
-            } else if (!isTyping && !(e.metaKey || e.ctrlKey || e.altKey) && e.key === '/') {
+            } else if (!isTyping && !isHistoryViewRef.current && !(e.metaKey || e.ctrlKey || e.altKey) && e.key === '/') {
                 e.preventDefault();
                 promptInputRef.current?.focus();
-            } else if (!isTyping && !(e.metaKey || e.ctrlKey || e.altKey) && e.key >= '1' && e.key <= '9') {
+            } else if (!isTyping && !isHistoryViewRef.current && !(e.metaKey || e.ctrlKey || e.altKey) && e.key >= '1' && e.key <= '9') {
                 const index = parseInt(e.key, 10) - 1;
                 const agent = agentsRef.current[index];
                 if (!agent) return;
@@ -563,6 +565,10 @@ const App: React.FC = () => {
         };
     }, [selectedRun, prompt, images, agentConfigs, arbiterModel, openAIArbiterVerbosity, geminiArbiterEffort, finalAnswer, agents, arbiterSwitchWarning]);
 
+
+    useEffect(() => {
+        isHistoryViewRef.current = displayData.isHistoryView;
+    }, [displayData.isHistoryView]);
 
     const handleSaveAll = async () => {
         const dataToSave = displayData;
