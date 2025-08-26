@@ -3,7 +3,7 @@ import { GenerateContentParameters, Part } from "@google/genai";
 import { Draft, ExpertDispatch } from './types';
 import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '@/services/llmService';
 import { getAppUrl, getGeminiResponseText } from '@/lib/utils';
-import { callWithGeminiRetry, isGeminiRateLimitError, GEMINI_QUOTA_MESSAGE } from '@/services/geminiUtils';
+import { callWithGeminiRetry, handleGeminiError } from '@/services/geminiUtils';
 import { GEMINI_PRO_MODEL, GEMINI_FLASH_MODEL, OPENAI_REASONING_PROMPT_PREFIX } from '@/constants';
 import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort, OpenRouterAgentConfig } from '@/types';
 import {
@@ -77,14 +77,7 @@ const runExpertGeminiSingle = async (
         const response = await callWithGeminiRetry(() => geminiAI.models.generateContent(generateContentParams));
         return getGeminiResponseText(response);
     } catch (error) {
-        console.error("Error calling the Gemini API for dispatcher:", error);
-        if (isGeminiRateLimitError(error)) {
-            throw new Error(GEMINI_QUOTA_MESSAGE);
-        }
-        if (error instanceof Error) {
-            throw new Error(`An error occurred with the Gemini Dispatcher: ${error.message}`);
-        }
-        throw new Error(`An unknown error occurred while communicating with the Gemini model for dispatch.`);
+        handleGeminiError(error, 'dispatcher', 'dispatch');
     }
 }
 

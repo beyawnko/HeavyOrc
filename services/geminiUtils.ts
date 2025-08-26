@@ -24,5 +24,17 @@ export const callWithGeminiRetry = async <T>(
             await sleep(baseDelayMs * Math.pow(2, attempt));
         }
     }
-    throw new Error('callWithGeminiRetry failed unexpectedly');
+};
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+export const handleGeminiError = (error: unknown, context: string, action?: string): never => {
+    console.error(`Error calling the Gemini API for ${context}:`, error);
+    if (isGeminiRateLimitError(error)) {
+        throw new Error(GEMINI_QUOTA_MESSAGE);
+    }
+    if (error instanceof Error) {
+        throw new Error(`An error occurred with the Gemini ${capitalize(context)}: ${error.message}`);
+    }
+    throw new Error(`An unknown error occurred while communicating with the Gemini model for ${action ?? context}.`);
 };
