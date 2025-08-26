@@ -24,6 +24,7 @@ export const callWithGeminiRetry = async <T>(
             await sleep(baseDelayMs * Math.pow(2, attempt));
         }
     }
+    throw new Error("Failed to complete Gemini request after retries.");
 };
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
