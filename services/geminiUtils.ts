@@ -14,17 +14,16 @@ export const callWithGeminiRetry = async <T>(
     retries = 2,
     baseDelayMs = 1000,
 ): Promise<T> => {
-    for (let attempt = 0; attempt <= retries; attempt++) {
+    for (let attempt = 0; ; attempt++) {
         try {
             return await fn();
         } catch (error) {
-            if (!isGeminiRateLimitError(error) || attempt === retries) {
+            if (!isGeminiRateLimitError(error) || attempt >= retries) {
                 throw error;
             }
             await sleep(baseDelayMs * Math.pow(2, attempt));
         }
     }
-    throw new Error("Failed to complete Gemini request after retries.");
 };
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
