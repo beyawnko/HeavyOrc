@@ -50,9 +50,6 @@ export const handleGeminiError = (error: unknown, context: string, action?: stri
     if (isGeminiRateLimitError(error)) {
         throw new Error(GEMINI_QUOTA_MESSAGE);
     }
-    if (isGeminiServerError(error)) {
-        throw new Error('Gemini service is temporarily unavailable. Please try again later.');
-    }
     if (error instanceof Error) {
         throw new Error(`An error occurred with the Gemini ${capitalize(context)}: ${error.message}`);
     }

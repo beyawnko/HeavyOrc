@@ -11,25 +11,22 @@ export const fetchWithRetry = async (
     retries = 3,
     baseDelayMs = 500,
 ): Promise<Response> => {
-    for (let attempt = 0; ; attempt++) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
         try {
             const response = await fetch(input, init);
-            if (response.status >= 500 && response.status < 600) {
-                if (attempt < retries) {
-                    await sleep(baseDelayMs * Math.pow(2, attempt));
-                    continue;
-                }
-                return response;
-            }
-            return response;
-        } catch (error) {
-            if (attempt < retries) {
+            if (response.status >= 500 && response.status < 600 && attempt < retries) {
                 await sleep(baseDelayMs * Math.pow(2, attempt));
                 continue;
             }
-            throw error;
+            return response;
+        } catch (error) {
+            if (attempt === retries) {
+                throw error;
+            }
         }
+        await sleep(baseDelayMs * Math.pow(2, attempt));
     }
+    throw new Error("Retry logic failed unexpectedly.");
 };
 
 export const callWithRetry = async <T>(
@@ -38,7 +35,7 @@ export const callWithRetry = async <T>(
     retries = 3,
     baseDelayMs = 500,
 ): Promise<T> => {
-    for (let attempt = 0; ; attempt++) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
         try {
             return await fn();
         } catch (error) {
@@ -46,18 +43,16 @@ export const callWithRetry = async <T>(
             const status = maybeError.status ?? maybeError.response?.status;
             const isRetryable = !status || (status >= 500 && status < 600);
 
-            if (isRetryable && attempt < retries) {
-                await sleep(baseDelayMs * Math.pow(2, attempt));
-                continue;
+            if (!isRetryable || attempt === retries) {
+                if (isRetryable) {
+                    throw new Error(`${serviceName} service is temporarily unavailable. Please try again later.`);
+                }
+                throw error;
             }
-
-            if (isRetryable) {
-                throw new Error(`${serviceName} service is temporarily unavailable. Please try again later.`);
-            }
-
-            throw error;
         }
+        await sleep(baseDelayMs * Math.pow(2, attempt));
     }
+    throw new Error("Retry logic failed unexpectedly.");
 };
 
 let geminiClient: GoogleGenAI | undefined;
