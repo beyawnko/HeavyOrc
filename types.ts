@@ -103,7 +103,13 @@ export interface OpenRouterAgentConfig extends BaseAgentConfig {
 export type AgentConfig = GeminiAgentConfig | OpenAIAgentConfig | OpenRouterAgentConfig;
 
 // Types for session management
-export type ArbiterModel = typeof GEMINI_PRO_MODEL | typeof OPENAI_ARBITER_GPT5_MEDIUM_REASONING | typeof OPENAI_ARBITER_GPT5_HIGH_REASONING | string;
+export type ArbiterModel =
+    | typeof GEMINI_PRO_MODEL
+    | typeof GEMINI_FLASH_MODEL
+    | typeof OPENAI_GPT5_MINI_MODEL
+    | typeof OPENAI_ARBITER_GPT5_MEDIUM_REASONING
+    | typeof OPENAI_ARBITER_GPT5_HIGH_REASONING
+    | string;
 export type OpenAIVerbosity = 'low' | 'medium' | 'high';
 
 export interface SavedAgentConfig {

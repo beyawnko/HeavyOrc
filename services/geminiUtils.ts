@@ -13,6 +13,15 @@ export const isGeminiRateLimitError = (error: unknown): boolean => {
     return status === 429 || message.includes('rate limit') || message.includes('quota');
 };
 
+export const isGeminiServerError = (error: unknown): boolean => {
+    if (typeof error !== 'object' || error === null) {
+        return false;
+    }
+    const maybeError = error as { status?: number; response?: { status?: number } };
+    const status = maybeError.status ?? maybeError.response?.status;
+    return typeof status === 'number' && status >= 500;
+};
+
 export const callWithGeminiRetry = async <T>(
     fn: () => Promise<T>,
     retries = 2,
@@ -22,10 +31,14 @@ export const callWithGeminiRetry = async <T>(
         try {
             return await fn();
         } catch (error) {
-            if (!isGeminiRateLimitError(error) || attempt >= retries) {
-                throw error;
+            if ((isGeminiRateLimitError(error) || isGeminiServerError(error)) && attempt < retries) {
+                await sleep(baseDelayMs * Math.pow(2, attempt));
+                continue;
             }
-            await sleep(baseDelayMs * Math.pow(2, attempt));
+            if (isGeminiServerError(error)) {
+                throw new Error('Gemini service is temporarily unavailable. Please try again later.');
+            }
+            throw error;
         }
     }
 };
@@ -36,6 +49,9 @@ export const handleGeminiError = (error: unknown, context: string, action?: stri
     console.error(`Error calling the Gemini API for ${context}:`, error);
     if (isGeminiRateLimitError(error)) {
         throw new Error(GEMINI_QUOTA_MESSAGE);
+    }
+    if (isGeminiServerError(error)) {
+        throw new Error('Gemini service is temporarily unavailable. Please try again later.');
     }
     if (error instanceof Error) {
         throw new Error(`An error occurred with the Gemini ${capitalize(context)}: ${error.message}`);
