@@ -123,7 +123,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
     }, []);
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+        if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
             event.preventDefault();
             if (!disabled && !isLoading && (prompt.trim() || images.length > 0)) {
                 onSubmit();

@@ -78,6 +78,7 @@ const runExpertGeminiSingle = async (
         return getGeminiResponseText(response);
     } catch (error) {
         handleGeminiError(error, 'dispatcher', 'dispatch');
+        throw error;
     }
 }
 
