@@ -464,7 +464,6 @@ const App: React.FC = () => {
     }, []);
 
     const latestHandleRun = useRef(handleRun);
-    const agentsRef = useRef(agents);
     const isHistoryViewRef = useRef(false);
 
     useEffect(() => {

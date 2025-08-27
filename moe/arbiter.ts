@@ -167,6 +167,6 @@ export const arbitrateStream = async (
         }
         return transformGeminiStream();
     } catch (error) {
-        handleGeminiError(error, 'arbiter', 'arbitration');
+        return handleGeminiError(error, 'arbiter', 'arbitration');
     }
 };

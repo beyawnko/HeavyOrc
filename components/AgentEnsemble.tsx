@@ -100,7 +100,7 @@ const AgentEnsemble = forwardRef<AgentEnsembleHandles, AgentEnsembleProps>(({ ag
             />
         </div>
     );
-};
+});
 
 AgentEnsemble.displayName = 'AgentEnsemble';
 
