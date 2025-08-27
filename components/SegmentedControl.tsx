@@ -17,7 +17,7 @@ interface SegmentedControlProps<T extends string> {
 const SegmentedControl = <T extends string>({ options, value, onChange, disabled = false, 'aria-label': ariaLabel }: SegmentedControlProps<T>) => {
   return (
     <div
-      role="radiogroup"
+      role="tablist"
       aria-label={ariaLabel}
       className={`flex w-full p-1 bg-[var(--surface-1)] border border-[var(--line)] rounded-lg ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
     >
@@ -26,8 +26,8 @@ const SegmentedControl = <T extends string>({ options, value, onChange, disabled
           key={option.value}
           onClick={() => !disabled && onChange(option.value)}
           type="button"
-          role="radio"
-          aria-checked={value === option.value}
+          role="tab"
+          aria-selected={value === option.value}
           disabled={disabled}
           aria-disabled={disabled}
           title={option.tooltip}

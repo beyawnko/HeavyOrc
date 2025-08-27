@@ -102,4 +102,6 @@ const AgentEnsemble = forwardRef<AgentEnsembleHandles, AgentEnsembleProps>(({ ag
     );
 };
 
+AgentEnsemble.displayName = 'AgentEnsemble';
+
 export default AgentEnsemble;

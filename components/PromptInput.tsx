@@ -94,15 +94,33 @@ const PromptInput: React.FC<PromptInputProps> = ({
         fileInputRef.current?.click();
     };
 
-    const imagePreviews = useMemo(() => (
-        images.map(img => ({ ...img, url: URL.createObjectURL(img.file) }))
-    ), [images]);
+    const urlMapRef = useRef<Record<string, string>>({});
+    const imagePreviews = useMemo(() => {
+        const map = urlMapRef.current;
+        const previews = images.map(img => {
+            let url = map[img.id];
+            if (!url) {
+                url = URL.createObjectURL(img.file);
+                map[img.id] = url;
+            }
+            return { ...img, url };
+        });
+        const ids = new Set(images.map(i => i.id));
+        Object.keys(map).forEach(id => {
+            if (!ids.has(id)) {
+                URL.revokeObjectURL(map[id]);
+                delete map[id];
+            }
+        });
+        return previews;
+    }, [images]);
 
     useEffect(() => {
         return () => {
-            imagePreviews.forEach(img => URL.revokeObjectURL(img.url));
+            Object.values(urlMapRef.current).forEach(url => URL.revokeObjectURL(url));
+            urlMapRef.current = {};
         };
-    }, [imagePreviews]);
+    }, []);
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {

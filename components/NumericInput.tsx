@@ -4,9 +4,10 @@ interface NumericInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElem
     value: number;
     onCommit: (value: number) => void;
     parser?: (value: string) => number;
+    onCancel?: () => void;
 }
 
-const NumericInput: React.FC<NumericInputProps> = ({ value, onCommit, parser = parseFloat, ...rest }) => {
+const NumericInput: React.FC<NumericInputProps> = ({ value, onCommit, parser = parseFloat, onCancel, ...rest }) => {
     const [inputValue, setInputValue] = React.useState<string>(String(value));
 
     React.useEffect(() => {
@@ -14,11 +15,16 @@ const NumericInput: React.FC<NumericInputProps> = ({ value, onCommit, parser = p
     }, [value]);
 
     const commit = () => {
-        const parsed = parser(inputValue);
+        let parsed = parser(inputValue);
         if (!Number.isNaN(parsed)) {
+            const min = rest.min !== undefined ? Number(rest.min) : undefined;
+            const max = rest.max !== undefined ? Number(rest.max) : undefined;
+            if (min !== undefined) parsed = Math.max(parsed, min);
+            if (max !== undefined) parsed = Math.min(parsed, max);
             onCommit(parsed);
         } else {
             setInputValue(String(value));
+            onCancel?.();
         }
     };
 

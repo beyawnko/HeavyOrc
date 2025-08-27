@@ -14,6 +14,8 @@ interface AgentConfigCardProps {
   displayId: number;
 }
 
+const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+
 const getStatusIndicator = (status: AgentStatus): React.ReactNode => {
     switch (status) {
         case 'RUNNING':
@@ -199,7 +201,7 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                                 type="number"
                                 id={`traces-${config.id}`}
                                 value={config.settings.traceCount}
-                                onCommit={(value) => handleSettingChange({ traceCount: value })}
+                                onCommit={(value) => handleSettingChange({ traceCount: clamp(value, 2, 32) })}
                                 parser={(v) => parseInt(v, 10)}
                                 disabled={disabled}
                                 min="2" max="32" step="1"
@@ -239,7 +241,7 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                                 type="number"
                                 id={`tau-${config.id}`}
                                 value={config.settings.tau}
-                                onCommit={(value) => handleSettingChange({ tau: value })}
+                                onCommit={(value) => handleSettingChange({ tau: clamp(value, 0.5, 1.0) })}
                                 parser={(v) => parseFloat(v)}
                                 disabled={disabled}
                                 min="0.5" max="1.0" step="0.01"
@@ -253,7 +255,7 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                                 type="number"
                                 id={`groupWindow-${config.id}`}
                                 value={config.settings.groupWindow}
-                                onCommit={(value) => handleSettingChange({ groupWindow: value })}
+                                onCommit={(value) => handleSettingChange({ groupWindow: clamp(value, 8, 4096) })}
                                 parser={(v) => parseInt(v, 10)}
                                 disabled={disabled}
                                 min="8" max="4096" step="8"
@@ -319,19 +321,19 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                      <div className="col-span-2 grid grid-cols-2 gap-3">
                         <div>
                          <label htmlFor={`or-temp-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Temperature</label>
-                             <NumericInput type="number" id={`or-temp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).temperature} onCommit={(value) => handleSettingChange({ temperature: value })} parser={(v) => parseFloat(v)} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
+                             <NumericInput type="number" id={`or-temp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).temperature} onCommit={(value) => handleSettingChange({ temperature: clamp(value, 0, 2) })} parser={(v) => parseFloat(v)} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
                         </div>
                         <div>
                              <label htmlFor={`or-topk-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Top K</label>
-                             <NumericInput type="number" id={`or-topk-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topK} onCommit={(value) => handleSettingChange({ topK: value })} parser={(v) => parseInt(v, 10)} disabled={disabled} min="1" step="1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
+                             <NumericInput type="number" id={`or-topk-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topK} onCommit={(value) => handleSettingChange({ topK: Math.max(1, value) })} parser={(v) => parseInt(v, 10)} disabled={disabled} min="1" step="1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
                         </div>
                          <div>
                              <label htmlFor={`or-topp-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Top P</label>
-                             <NumericInput type="number" id={`or-topp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topP} onCommit={(value) => handleSettingChange({ topP: value })} parser={(v) => parseFloat(v)} disabled={disabled} min="0" max="1" step="0.05" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
+                             <NumericInput type="number" id={`or-topp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topP} onCommit={(value) => handleSettingChange({ topP: clamp(value, 0, 1) })} parser={(v) => parseFloat(v)} disabled={disabled} min="0" max="1" step="0.05" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
                         </div>
                          <div>
                              <label htmlFor={`or-repp-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Repetition Penalty</label>
-                             <NumericInput type="number" id={`or-repp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).repetitionPenalty} onCommit={(value) => handleSettingChange({ repetitionPenalty: value })} parser={(v) => parseFloat(v)} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
+                             <NumericInput type="number" id={`or-repp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).repetitionPenalty} onCommit={(value) => handleSettingChange({ repetitionPenalty: clamp(value, 0, 2) })} parser={(v) => parseFloat(v)} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
                         </div>
                     </div>
                 )}

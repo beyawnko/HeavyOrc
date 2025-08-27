@@ -1,5 +1,5 @@
 
-import React, { useCallback, useRef, useMemo, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
 import { UploadIcon, XCircleIcon } from '@/components/icons';
 import { ImageState } from '@/types';
 
@@ -46,15 +46,19 @@ const ImageInput: React.FC<ImageInputProps> = ({ image, onImageChange, disabled 
         fileInputRef.current?.click();
     };
 
-    const previewUrl = useMemo(() => (image ? URL.createObjectURL(image.file) : null), [image]);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
     useEffect(() => {
+        if (!image) {
+            setPreviewUrl(null);
+            return;
+        }
+        const url = URL.createObjectURL(image.file);
+        setPreviewUrl(url);
         return () => {
-            if (previewUrl) {
-                URL.revokeObjectURL(previewUrl);
-            }
+            URL.revokeObjectURL(url);
         };
-    }, [previewUrl]);
+    }, [image]);
 
     return (
         <div className="mt-4">

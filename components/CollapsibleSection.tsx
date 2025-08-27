@@ -35,7 +35,7 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ title, children
           <ChevronDownIcon className="w-5 h-5 text-[var(--text-muted)]" aria-hidden="true" />
         )}
       </button>
-      <div id={contentId} className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[1000px]' : 'max-h-0'}`}>
+      <div id={contentId} className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-screen' : 'max-h-0'}`}>
         <div className="p-4 border-t border-[var(--line)]">
             {children}
         </div>

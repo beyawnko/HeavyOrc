@@ -4,7 +4,7 @@ export const EXPERT_COLORS = [
   'var(--success)',
   'var(--warn)',
   'var(--danger)'
-];
+] as const;
 
 /**
  * Returns a CSS color value for a given expert index (1-based).

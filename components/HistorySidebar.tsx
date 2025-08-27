@@ -116,7 +116,6 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, selectedRunId,
                                     className={`w-full text-left flex items-center gap-3 p-2 rounded-md transition-colors ${
                                         selectedRunId === run.id ? 'bg-[var(--surface-1)]' : 'hover:bg-[var(--surface-active)]'
                                     }`}
-                                    title={run.prompt}
                                 >
                                    <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center mt-0.5">
                                         <StatusIndicator status={run.status} />

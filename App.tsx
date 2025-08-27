@@ -81,7 +81,7 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error'; onClose: () 
 
     return (
         <div
-            className={`fixed bottom-5 right-5 p-4 rounded-lg shadow-2xl bg-opacity-20 border z-50 animate-fade-in-up flex items-center gap-4 ${colorClasses}`}
+            className={`fixed bottom-5 right-5 p-4 rounded-lg shadow-2xl border z-50 animate-fade-in-up flex items-center gap-4 ${colorClasses}`}
             style={{ animationDuration: '0.3s' }}
         >
             <span>{message}</span>
@@ -474,7 +474,7 @@ const App: React.FC = () => {
 
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
-            if (e.isComposing) return;
+            if (e.isComposing || e.repeat) return;
             const target = e.target as HTMLElement;
             const tag = target.tagName;
             const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
