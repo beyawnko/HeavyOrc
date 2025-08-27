@@ -1,5 +1,5 @@
 
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
 import { UploadIcon, XCircleIcon } from '@/components/icons';
 import { ImageState } from '@/types';
 
@@ -46,26 +46,42 @@ const ImageInput: React.FC<ImageInputProps> = ({ image, onImageChange, disabled 
         fileInputRef.current?.click();
     };
 
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!image) {
+            setPreviewUrl(null);
+            return;
+        }
+        const url = URL.createObjectURL(image.file);
+        setPreviewUrl(url);
+        return () => {
+            URL.revokeObjectURL(url);
+        };
+    }, [image]);
+
     return (
         <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-[var(--text)] mb-2">
                 Image (Optional)
             </label>
             {image ? (
                 <div className="relative group w-full sm:w-64">
-                    <img
-                        src={URL.createObjectURL(image.file)}
-                        alt="Image preview"
-                        className="w-full sm:w-64 h-auto rounded-lg object-cover border-2 border-gray-600"
-                    />
+                    {previewUrl && (
+                        <img
+                            src={previewUrl}
+                            alt="Image preview"
+                            className="w-full sm:w-64 h-auto rounded-lg object-cover border-2 border-[var(--line)]"
+                        />
+                    )}
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-lg">
                         <button
                             onClick={handleRemoveImage}
                             disabled={disabled}
-                            className="p-2 bg-red-600/80 text-white rounded-full hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50"
+                            className="p-2 bg-[var(--danger)] bg-opacity-80 text-[var(--text)] rounded-full hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[var(--danger)] focus:ring-offset-2 focus:ring-offset-[var(--surface-1)] disabled:opacity-50"
                             aria-label="Remove image"
                         >
-                            <XCircleIcon className="w-6 h-6" />
+                            <XCircleIcon className="w-6 h-6" aria-hidden="true" />
                         </button>
                     </div>
                 </div>
@@ -74,10 +90,10 @@ const ImageInput: React.FC<ImageInputProps> = ({ image, onImageChange, disabled 
                     type="button"
                     onClick={triggerFileInput}
                     disabled={disabled}
-                    className="w-full h-24 p-3 flex flex-col items-center justify-center bg-gray-900 border-2 border-dashed border-gray-600 rounded-lg hover:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full h-24 p-3 flex flex-col items-center justify-center bg-[var(--surface-1)] border-2 border-dashed border-[var(--line)] rounded-lg hover:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)] focus:border-[var(--accent)] transition disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                    <UploadIcon className="w-6 h-6 text-gray-400 mb-1" />
-                    <span className="text-sm text-gray-400">Drag and drop an image, or click to upload</span>
+                    <UploadIcon className="w-6 h-6 text-[var(--text-muted)] mb-1" aria-hidden="true" />
+                    <span className="text-sm text-[var(--text-muted)]">Drag and drop an image, or click to upload</span>
                     <input
                         ref={fileInputRef}
                         type="file"

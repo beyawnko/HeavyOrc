@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect, useMemo } from 'react';
 import {
     XCircleIcon,
     PlusIcon,
@@ -19,6 +19,7 @@ interface PromptInputProps {
     onSubmit: () => void;
     isLoading?: boolean;
     disabled?: boolean;
+    inputRef?: React.RefObject<HTMLTextAreaElement>;
 }
 
 const readFileAsBase64 = (file: File): Promise<string> => {
@@ -44,10 +45,11 @@ const PromptInput: React.FC<PromptInputProps> = ({
     onImagesChange,
     onSubmit,
     isLoading = false,
-    disabled = false
+    disabled = false,
+    inputRef
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const textareaRef = inputRef || useRef<HTMLTextAreaElement>(null);
 
     const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
@@ -92,8 +94,36 @@ const PromptInput: React.FC<PromptInputProps> = ({
         fileInputRef.current?.click();
     };
 
+    const urlMapRef = useRef<Record<string, string>>({});
+    const imagePreviews = useMemo(() => {
+        const map = urlMapRef.current;
+        const previews = images.map(img => {
+            let url = map[img.id];
+            if (!url) {
+                url = URL.createObjectURL(img.file);
+                map[img.id] = url;
+            }
+            return { ...img, url };
+        });
+        const ids = new Set(images.map(i => i.id));
+        Object.keys(map).forEach(id => {
+            if (!ids.has(id)) {
+                URL.revokeObjectURL(map[id]);
+                delete map[id];
+            }
+        });
+        return previews;
+    }, [images]);
+
+    useEffect(() => {
+        return () => {
+            Object.values(urlMapRef.current).forEach(url => URL.revokeObjectURL(url));
+            urlMapRef.current = {};
+        };
+    }, []);
+
     const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (event.key === 'Enter' && !event.shiftKey) {
+        if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
             event.preventDefault();
             if (!disabled && !isLoading && (prompt.trim() || images.length > 0)) {
                 onSubmit();
@@ -122,23 +152,23 @@ const PromptInput: React.FC<PromptInputProps> = ({
     const canSubmit = !disabled && (!!prompt.trim() || images.length > 0);
 
     return (
-        <div className="bg-gray-800/50 p-2 rounded-2xl shadow-2xl border border-gray-700 flex flex-col gap-2">
-            {images.length > 0 && (
+        <div className="bg-[var(--surface-2)] p-2 rounded-2xl shadow-2xl border border-[var(--line)] flex flex-col gap-2">
+            {imagePreviews.length > 0 && (
                 <div className="flex flex-wrap gap-2 px-2 pt-1">
-                    {images.map(img => (
+                    {imagePreviews.map(img => (
                         <div key={img.id} className="relative group flex-shrink-0">
                             <img
-                                src={URL.createObjectURL(img.file)}
+                                src={img.url}
                                 alt="Image preview"
-                                className="w-20 h-20 rounded-lg object-cover border border-gray-600"
+                                className="w-20 h-20 rounded-lg object-cover border border-[var(--line)]"
                             />
                             <button
                                 onClick={() => handleRemoveImage(img.id)}
                                 disabled={disabled || isLoading}
-                                className="absolute top-1 right-1 p-0.5 bg-black/60 text-white rounded-full hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-400 disabled:opacity-50"
+                                className="absolute top-1 right-1 p-0.5 bg-black/60 text-[var(--text)] rounded-full hover:bg-[var(--danger)] focus:outline-none focus:ring-2 focus:ring-[var(--danger)] disabled:opacity-50"
                                 aria-label="Remove image"
                             >
-                                <XCircleIcon className="w-5 h-5" />
+                                <XCircleIcon className="w-5 h-5" aria-hidden="true" />
                             </button>
                         </div>
                     ))}
@@ -150,10 +180,10 @@ const PromptInput: React.FC<PromptInputProps> = ({
                         type="button"
                         onClick={triggerFileInput}
                         disabled={disabled || isLoading || images.length >= MAX_IMAGES}
-                        className="p-2 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-active)] rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title={images.length >= MAX_IMAGES ? `Maximum ${MAX_IMAGES} images reached` : `Add image (${images.length}/${MAX_IMAGES})`}
                     >
-                         <PlusIcon className="w-5 h-5" />
+                         <PlusIcon className="w-5 h-5" aria-hidden="true" />
                          <span className="sr-only">Add Image</span>
                     </button>
                     <input
@@ -168,10 +198,10 @@ const PromptInput: React.FC<PromptInputProps> = ({
                      <button
                         type="button"
                         disabled
-                        className="p-2 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full transition-colors disabled:opacity-50"
+                        className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-active)] rounded-full transition-colors disabled:opacity-50"
                         title="Use microphone (coming soon)"
                     >
-                         <MicrophoneIcon className="w-5 h-5" />
+                         <MicrophoneIcon className="w-5 h-5" aria-hidden="true" />
                          <span className="sr-only">Use microphone</span>
                     </button>
                 </div>
@@ -182,7 +212,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
                     onChange={(e) => onPromptChange(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Ask me anything, or add up to 5 images..."
-                    className="w-full flex-grow bg-transparent text-gray-200 placeholder-gray-500 text-base resize-none focus:outline-none p-2 min-h-[44px]"
+                    className="w-full flex-grow bg-transparent text-[var(--text)] placeholder-[var(--text-muted)] text-base resize-none focus:outline-none p-2 min-h-[44px]"
                     rows={1}
                     disabled={disabled || isLoading}
                 />
@@ -191,17 +221,17 @@ const PromptInput: React.FC<PromptInputProps> = ({
                     type="button"
                     onClick={onSubmit}
                     disabled={!canSubmit || isLoading}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg shadow-md transition-all duration-300 bg-indigo-600 text-white hover:bg-indigo-500 disabled:bg-gray-600 disabled:cursor-not-allowed"
+                    className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg shadow-md transition-all duration-300 bg-[var(--accent)] text-[#0D1411] hover:brightness-110 disabled:bg-[var(--surface-1)] disabled:text-[var(--text-muted)] disabled:cursor-not-allowed"
                     title="Run Orchestration"
                 >
                     {isLoading ? (
                         <>
-                            <LoadingSpinner className="w-5 h-5 animate-spin" />
+                            <LoadingSpinner className="w-5 h-5 animate-spin" aria-hidden="true" />
                             Processing...
                         </>
                     ) : (
                         <>
-                           <SparklesIcon className="w-5 h-5" />
+                           <SparklesIcon className="w-5 h-5" aria-hidden="true" />
                            Run 
                         </>
                     )}

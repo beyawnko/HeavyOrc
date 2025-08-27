@@ -1,7 +1,7 @@
 
 
 
-import React, { useState } from 'react';
+import React, { useState, useImperativeHandle, forwardRef } from 'react';
 import { experts } from '@/moe/experts';
 import { AgentConfig, GeminiAgentConfig, Expert } from '@/types';
 import AgentConfigCard from '@/components/AgentConfigCard';
@@ -15,8 +15,16 @@ interface AgentEnsembleProps {
     disabled: boolean;
 }
 
-const AgentEnsemble: React.FC<AgentEnsembleProps> = ({ agentConfigs, setAgentConfigs, onDuplicateAgent, disabled }) => {
+export interface AgentEnsembleHandles {
+    openModal: () => void;
+}
+
+const AgentEnsemble = forwardRef<AgentEnsembleHandles, AgentEnsembleProps>(({ agentConfigs, setAgentConfigs, onDuplicateAgent, disabled }, ref) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    useImperativeHandle(ref, () => ({
+        openModal: () => setIsModalOpen(true),
+    }));
 
     const handleAddAgent = (expert: Expert) => {
         const newAgent: GeminiAgentConfig = {
@@ -51,30 +59,37 @@ const AgentEnsemble: React.FC<AgentEnsembleProps> = ({ agentConfigs, setAgentCon
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-                <h3 className="text-base font-medium text-gray-200">Agent Ensemble</h3>
+                <h3 className="text-base font-medium text-[var(--text)]">Agent Ensemble</h3>
                 {availableExperts.length > 0 && (
                     <button
                         onClick={() => setIsModalOpen(true)}
                         disabled={disabled}
-                        className="flex items-center justify-center gap-2 px-3 py-1 bg-gray-700/80 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center justify-center gap-2 px-3 py-1 bg-[var(--accent)] text-[#0D1411] text-sm font-semibold rounded-lg shadow-md hover:brightness-110 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <PlusIcon className="w-4 h-4" />
+                        <PlusIcon className="w-4 h-4" aria-hidden="true" />
                         Add Expert
                     </button>
                 )}
             </div>
             
             <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
-                {agentConfigs.map(config => (
-                    <AgentConfigCard
-                        key={config.id}
-                        config={config}
-                        onUpdate={handleUpdateAgent}
-                        onRemove={handleRemoveAgent}
-                        onDuplicate={onDuplicateAgent}
-                        disabled={disabled}
-                    />
-                ))}
+                {agentConfigs.length > 0 ? (
+                    agentConfigs.map((config, idx) => (
+                        <AgentConfigCard
+                            key={config.id}
+                            config={config}
+                            onUpdate={handleUpdateAgent}
+                            onRemove={handleRemoveAgent}
+                            onDuplicate={onDuplicateAgent}
+                            disabled={disabled}
+                            displayId={idx + 1}
+                        />
+                    ))
+                ) : (
+                    <div className="flex items-center justify-center h-24 text-sm text-[var(--text-muted)]">
+                        No experts configured. Click "Add Expert" to get started.
+                    </div>
+                )}
             </div>
 
              <AddExpertModal
@@ -85,6 +100,8 @@ const AgentEnsemble: React.FC<AgentEnsembleProps> = ({ agentConfigs, setAgentCon
             />
         </div>
     );
-};
+});
+
+AgentEnsemble.displayName = 'AgentEnsemble';
 
 export default AgentEnsemble;

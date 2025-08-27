@@ -34,7 +34,7 @@ import { ShieldCheckIcon, CogIcon, DownloadIcon, ExclamationTriangleIcon, XMarkI
 import SettingsView from '@/components/SettingsView';
 import { setOpenAIApiKey as storeOpenAIApiKey, setGeminiApiKey as storeGeminiApiKey, setOpenRouterApiKey as storeOpenRouterApiKey } from '@/services/llmService';
 import CollapsibleSection from '@/components/CollapsibleSection';
-import AgentEnsemble from '@/components/AgentEnsemble';
+import AgentEnsemble, { AgentEnsembleHandles } from '@/components/AgentEnsemble';
 import PromptInput from '@/components/PromptInput';
 import FinalAnswerCard from '@/components/FinalAnswerCard';
 import HistorySidebar from '@/components/HistorySidebar';
@@ -74,17 +74,19 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error'; onClose: () 
         return () => clearTimeout(timer);
     }, [onClose]);
 
-    const bgColor = type === 'success' ? 'bg-green-800/90' : 'bg-red-800/90';
-    const borderColor = type === 'success' ? 'border-green-600' : 'border-red-600';
+    const colorClasses =
+        type === 'success'
+            ? 'bg-[var(--success)] border-[var(--success)] text-[var(--text)]'
+            : 'bg-[var(--danger)] border-[var(--danger)] text-[var(--text)]';
 
     return (
-        <div 
-            className={`fixed bottom-5 right-5 p-4 rounded-lg shadow-2xl text-white border ${borderColor} ${bgColor} z-50 animate-fade-in-up flex items-center gap-4`}
+        <div
+            className={`fixed bottom-5 right-5 p-4 rounded-lg shadow-2xl border z-50 animate-fade-in-up flex items-center gap-4 ${colorClasses}`}
             style={{ animationDuration: '0.3s' }}
         >
             <span>{message}</span>
-            <button onClick={onClose} className="p-1 rounded-full hover:bg-black/20" aria-label="Close notification">
-                <XMarkIcon className="w-5 h-5" />
+            <button onClick={onClose} className="p-1 rounded-full hover:bg-[var(--surface-active)]" aria-label="Close notification">
+                <XMarkIcon className="w-5 h-5" aria-hidden="true" />
             </button>
         </div>
     );
@@ -207,6 +209,10 @@ const App: React.FC = () => {
     const [isSettingsViewOpen, setIsSettingsViewOpen] = useState<boolean>(false);
     const [queryHistory, setQueryHistory] = useState<string[]>([]);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+    const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
+    const agentEnsembleRef = useRef<AgentEnsembleHandles>(null);
+    const [collapsedMap, setCollapsedMap] = useState<Record<string, boolean>>({});
     
     // Refs for capturing state in async callbacks
     const finalAnswerRef = useRef(finalAnswer);
@@ -457,6 +463,57 @@ const App: React.FC = () => {
         });
     }, []);
 
+    const latestHandleRun = useRef(handleRun);
+    const isHistoryViewRef = useRef(false);
+
+    useEffect(() => {
+        latestHandleRun.current = handleRun;
+    }, [handleRun]);
+
+
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            if (e.isComposing || e.repeat) return;
+            const target = e.target as HTMLElement;
+            const tag = target.tagName;
+            const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
+
+            const key = e.key.toLowerCase();
+            const noModifier = !(e.metaKey || e.ctrlKey || e.altKey);
+
+            if ((e.metaKey || e.ctrlKey) && key === 'enter') {
+                e.preventDefault();
+                latestHandleRun.current();
+                return;
+            }
+
+            const isGlobal = noModifier && !isTyping && !isHistoryViewRef.current;
+            if (!isGlobal) return;
+
+            switch (key) {
+                case 'a':
+                    e.preventDefault();
+                    agentEnsembleRef.current?.openModal();
+                    break;
+                case '/':
+                    e.preventDefault();
+                    promptInputRef.current?.focus();
+                    break;
+                default:
+                    if (key >= '1' && key <= '9') {
+                        const index = parseInt(key, 10) - 1;
+                        const agent = agentsRef.current[index];
+                        if (!agent) return;
+                        const isCollapsible = agent.status === 'COMPLETED' || agent.status === 'FAILED';
+                        if (!isCollapsible) return;
+                        setCollapsedMap(prev => ({ ...prev, [agent.id]: !prev[agent.id] }));
+                    }
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, []);
+
     const progressData = useMemo(() => {
         if (!isLoading) {
             return { total: 0, agentPercent: 0, phase: 'idle' };
@@ -520,6 +577,11 @@ const App: React.FC = () => {
         };
     }, [selectedRun, prompt, images, agentConfigs, arbiterModel, openAIArbiterVerbosity, geminiArbiterEffort, finalAnswer, agents, arbiterSwitchWarning]);
 
+
+    useEffect(() => {
+        isHistoryViewRef.current = displayData.isHistoryView;
+        agentsRef.current = displayData.agents;
+    }, [displayData]);
 
     const handleSaveAll = async () => {
         const dataToSave = displayData;
@@ -685,7 +747,7 @@ const App: React.FC = () => {
     }, [isRunning, error, hasResults, selectedRunId]);
 
     return (
-        <div className="min-h-screen bg-gray-900 text-gray-200 font-sans flex h-screen">
+        <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] font-sans flex h-screen">
             <HistorySidebar 
                 history={history}
                 selectedRunId={selectedRunId}
@@ -713,41 +775,41 @@ const App: React.FC = () => {
                     <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <header className="text-center py-8 relative">
                             <img src={`${import.meta.env.BASE_URL}assets/banner.svg`} alt="HeavyOrc banner" className="mx-auto mb-4 w-full max-w-2xl" />
-                            <h1 className="text-4xl sm:text-5xl font-bold text-gray-100 flex items-center justify-center gap-3">
-                                <ShieldCheckIcon className="w-10 h-10 text-emerald-400" />
+                            <h1 className="text-4xl sm:text-5xl font-bold text-[var(--text)] flex items-center justify-center gap-3">
+                                <ShieldCheckIcon className="w-10 h-10 text-emerald-400" aria-hidden="true" />
                                 HeavyOrc
                             </h1>
                             <div className="absolute top-8 right-0 flex items-center gap-2">
                                 <button
                                     onClick={handleSaveAll}
                                     disabled={!hasResults || isLoading}
-                                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-700 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors"
+                                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-[var(--surface-1)] text-[var(--text)] font-semibold rounded-lg shadow-md hover:bg-[var(--surface-active)] disabled:bg-[var(--surface-2)] disabled:text-[var(--text-muted)] disabled:cursor-not-allowed transition-colors"
                                     title="Save final answer and all drafts to a ZIP file"
                                 >
-                                    <DownloadIcon className="w-4 h-4" />
+                                    <DownloadIcon className="w-4 h-4" aria-hidden="true" />
                                     Save
                                 </button>
                                 <button
                                     onClick={() => setIsSettingsViewOpen(true)}
-                                    className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700/50"
+                                    className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] transition-colors rounded-full hover:bg-[var(--surface-active)]"
                                     title="Settings"
                                     aria-label="Open Settings"
                                 >
-                                    <CogIcon className="w-6 h-6" />
+                                    <CogIcon className="w-6 h-6" aria-hidden="true" />
                                 </button>
                             </div>
-                            <p className="mt-4 text-lg text-gray-400 max-w-3xl mx-auto">
+                            <p className="mt-4 text-lg text-[var(--text-muted)] max-w-3xl mx-auto">
                             Directly configure a 'Mixture-of-Experts' ensemble. Parallel agents generate diverse drafts, and a final arbiter synthesizes the optimal response.
                             </p>
                         </header>
 
                         <main className="max-w-4xl mx-auto space-y-8 pb-40">
-                            {error && !displayData.isHistoryView && <div className="p-3 bg-red-900/50 text-red-300 border border-red-700 rounded-lg text-sm text-center">{error}</div>}
+                            {error && !displayData.isHistoryView && <div className="p-3 bg-[var(--danger)] bg-opacity-20 text-[var(--danger)] border border-[var(--danger)] rounded-lg text-sm text-center">{error}</div>}
 
                             {(openAIAgentCount > 0 && !openAIApiKey) || (openRouterAgentCount > 0 && !openRouterApiKey) && (
-                                <p className="text-xs text-yellow-400 text-center p-2 bg-yellow-900/40 rounded-md border border-yellow-800">
+                                <p className="text-xs text-[var(--warn)] text-center p-2 bg-[var(--warn)] bg-opacity-20 rounded-md border border-[var(--warn)]">
                                     An API key is required for one or more of your agents. 
-                                    <button onClick={() => setIsSettingsViewOpen(true)} className="ml-1 underline font-semibold hover:text-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded">
+                                    <button onClick={() => setIsSettingsViewOpen(true)} className="ml-1 underline font-semibold hover:text-[var(--warn)] focus:outline-none focus:ring-2 focus:ring-[var(--warn)] rounded">
                                         Set API Key
                                     </button>
                                 </p>
@@ -762,12 +824,12 @@ const App: React.FC = () => {
                                 >
                                     {displayData.arbiterSwitchWarning && (
                                         <motion.div 
-                                            className="bg-yellow-900/50 border border-yellow-700 text-yellow-200 px-4 py-3 rounded-lg relative" 
+                                            className="bg-[var(--warn)] bg-opacity-20 border border-[var(--warn)] text-[var(--warn)] px-4 py-3 rounded-lg relative"
                                             role="alert"
                                             variants={itemVariants}
                                         >
                                             <div className="flex items-start">
-                                                <ExclamationTriangleIcon className="w-5 h-5 mr-3 mt-0.5 text-yellow-400 flex-shrink-0" />
+                                                <ExclamationTriangleIcon className="w-5 h-5 mr-3 mt-0.5 text-[var(--warn)] flex-shrink-0" aria-hidden="true" />
                                                 <div>
                                                     <strong className="font-bold">Automatic Model Switch:</strong>
                                                     <span className="block sm:inline sm:ml-2">{displayData.arbiterSwitchWarning}</span>
@@ -797,7 +859,17 @@ const App: React.FC = () => {
                                                             key={agent.id}
                                                             variants={itemVariants}
                                                         >
-                                                            <AgentCard agent={agent} displayId={index + 1} />
+                                                            <AgentCard
+                                                                agent={agent}
+                                                                displayId={index + 1}
+                                                                isCollapsed={collapsedMap[agent.id] || false}
+                                                                onToggleCollapse={() =>
+                                                                    setCollapsedMap(prev => ({
+                                                                        ...prev,
+                                                                        [agent.id]: !prev[agent.id]
+                                                                    }))
+                                                                }
+                                                            />
                                                         </motion.div>
                                                     ))}
                                                 </motion.div>
@@ -807,14 +879,15 @@ const App: React.FC = () => {
                                 </motion.div>
                             )}
 
-                            <div className="space-y-6 bg-gray-800/50 p-6 rounded-xl shadow-2xl border border-gray-700">
+                            <div className="space-y-6 bg-[var(--surface-2)] p-6 rounded-xl shadow-2xl border border-[var(--line)]">
                                 <AgentEnsemble
+                                    ref={agentEnsembleRef}
                                     agentConfigs={displayData.agentConfigs}
                                     setAgentConfigs={setAgentConfigs}
                                     onDuplicateAgent={handleDuplicateAgent}
                                     disabled={isLoading || displayData.isHistoryView}
                                 />
-                                <div className="border-t border-gray-700 pt-4">
+                                <div className="border-t border-[var(--line)] pt-4">
                                     <CollapsibleSection title="Arbiter Settings" defaultOpen={true}>
                                         <div className="space-y-4">
                                             <ArbiterSettings 
@@ -834,14 +907,14 @@ const App: React.FC = () => {
                     </div>
                 </div>
 
-                <footer className="sticky bottom-0 z-10 bg-gray-900/80 backdrop-blur-lg border-t border-gray-700 flex-shrink-0">
+                <footer className="sticky bottom-0 z-10 bg-[var(--surface-1)] bg-opacity-80 backdrop-blur-lg border-t border-[var(--line)] flex-shrink-0">
                     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3 space-y-3">
                         {isLoading && (
                             <div>
-                                <div className="w-full bg-gray-700 rounded-full h-2.5">
+                                <div className="w-full bg-[var(--surface-2)] rounded-full h-2.5">
                                     <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-2.5 rounded-full transition-all duration-500" style={{ width: `${progressData.total}%` }}></div>
                                 </div>
-                                <p className="text-center text-xs text-gray-400 mt-1">
+                                <p className="text-center text-xs text-[var(--text-muted)] mt-1">
                                     {progressData.phase === 'arbitrating' ? `Arbiter is synthesizing...` : `Agents drafting... (${Math.round(progressData.agentPercent)}%)`}
                                 </p>
                             </div>
@@ -854,6 +927,7 @@ const App: React.FC = () => {
                             onSubmit={handleRun}
                             isLoading={isLoading}
                             disabled={isLoading || displayData.isHistoryView || agentConfigs.length === 0}
+                            inputRef={promptInputRef}
                         />
                     </div>
                 </footer>
@@ -896,7 +970,7 @@ const ArbiterSettings: React.FC<{
     return (
         <>
             <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Arbiter Model</label>
+                <label className="block text-sm font-medium text-[var(--text)] mb-2">Arbiter Model</label>
                 <SegmentedControl
                     aria-label="Arbiter Model"
                     options={arbiterModelOptions}
@@ -907,7 +981,7 @@ const ArbiterSettings: React.FC<{
             </div>
             {selectedModelOption?.provider === 'openai' ? (
                 <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Arbiter Verbosity</label>
+                    <label className="block text-sm font-medium text-[var(--text)] mb-2">Arbiter Verbosity</label>
                     <SegmentedControl
                         aria-label="Arbiter Verbosity"
                         options={openAIVerbosityOptions}
@@ -918,7 +992,7 @@ const ArbiterSettings: React.FC<{
                 </div>
             ) : selectedModelOption?.provider === 'gemini' ? (
                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Thinking Effort</label>
+                    <label className="block text-sm font-medium text-[var(--text)] mb-2">Thinking Effort</label>
                     <SegmentedControl
                         aria-label="Arbiter Thinking Effort"
                         options={geminiEffortOptions.filter(o => o.value !== 'none')}

@@ -2,6 +2,7 @@ import {
     GEMINI_FLASH_MODEL,
     GEMINI_PRO_MODEL,
     OPENAI_AGENT_MODEL,
+    OPENAI_GPT5_MINI_MODEL,
     OPENAI_ARBITER_GPT5_MEDIUM_REASONING,
     OPENAI_ARBITER_GPT5_HIGH_REASONING
 } from './constants';
@@ -34,7 +35,7 @@ export interface ImageState {
 
 // New types for direct manipulation UI
 export type GeminiModel = typeof GEMINI_FLASH_MODEL | typeof GEMINI_PRO_MODEL;
-export type OpenAIModel = typeof OPENAI_AGENT_MODEL;
+export type OpenAIModel = typeof OPENAI_AGENT_MODEL | typeof OPENAI_GPT5_MINI_MODEL;
 export type OpenRouterModel = string; // e.g., "openai/gpt-4o"
 export type AgentModel = GeminiModel | OpenAIModel | OpenRouterModel;
 
