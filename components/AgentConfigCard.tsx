@@ -2,6 +2,7 @@ import React from 'react';
 import { AgentConfig, AgentModel, GeminiAgentConfig, GeminiAgentSettings, OpenAIAgentConfig, OpenAIAgentSettings, AgentStatus, GeminiModel, OpenAIModel, GeminiThinkingEffort, GenerationStrategy, OpenRouterAgentConfig, OpenRouterAgentSettings, OpenRouterModel } from '@/types';
 import { GEMINI_FLASH_MODEL, GEMINI_PRO_MODEL, OPENAI_AGENT_MODEL, OPENAI_GPT5_MINI_MODEL, OPENROUTER_CLAUDE_3_HAIKU, OPENROUTER_GEMINI_FLASH_1_5, OPENROUTER_GPT_4O } from '@/constants';
 import { XCircleIcon, LoadingSpinner, CheckCircleIcon, DocumentDuplicateIcon } from '@/components/icons';
+import NumericInput from '@/components/NumericInput';
 
 interface AgentConfigCardProps {
   config: AgentConfig;
@@ -188,19 +189,17 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                 
                 {config.provider !== 'openrouter' && config.settings.generationStrategy !== 'single' &&
                     <>
-                        <div>
-                            <label htmlFor={`traces-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Trace Count</label>
-                            <input
-                                type="number"
-                                id={`traces-${config.id}`}
-                                value={config.settings.traceCount}
-                                onChange={(e) => handleSettingChange({ traceCount: parseInt(e.target.value, 10) })}
-                                disabled={disabled}
-                                min="2" max="32" step="1"
-                                className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"
-                                title="Number of parallel responses to generate for DeepConf."
-                            />
-                        </div>
+                        <NumericInput
+                            id={`traces-${config.id}`}
+                            label="Trace Count"
+                            value={config.settings.traceCount}
+                            onChange={v => handleSettingChange({ traceCount: v })}
+                            disabled={disabled}
+                            min={2}
+                            max={32}
+                            step={1}
+                            title="Number of parallel responses to generate for DeepConf."
+                        />
                         <div>
                             <label htmlFor={`eta-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Confidence (Eta)</label>
                             <select
@@ -227,32 +226,28 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                                 <option value="judge">Judge Verifier</option>
                             </select>
                         </div>
-                        <div>
-                            <label htmlFor={`tau-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Consensus (Tau)</label>
-                            <input
-                                type="number"
-                                id={`tau-${config.id}`}
-                                value={config.settings.tau}
-                                onChange={(e) => handleSettingChange({ tau: parseFloat(e.target.value) })}
-                                disabled={disabled}
-                                min="0.5" max="1.0" step="0.01"
-                                className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"
-                                title="Consensus threshold for online mode. Stops when the top answer's vote share exceeds this value (e.g., 0.95)."
-                            />
-                        </div>
-                        <div>
-                            <label htmlFor={`groupWindow-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Group Window</label>
-                            <input
-                                type="number"
-                                id={`groupWindow-${config.id}`}
-                                value={config.settings.groupWindow}
-                                onChange={(e) => handleSettingChange({ groupWindow: parseInt(e.target.value, 10) })}
-                                disabled={disabled}
-                                min="8" max="4096" step="8"
-                                className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"
-                                title="Sliding window size (in tokens) for calculating group confidence."
-                            />
-                        </div>
+                        <NumericInput
+                            id={`tau-${config.id}`}
+                            label="Consensus (Tau)"
+                            value={config.settings.tau}
+                            onChange={v => handleSettingChange({ tau: v })}
+                            disabled={disabled}
+                            min={0.5}
+                            max={1.0}
+                            step={0.01}
+                            title="Consensus threshold for online mode. Stops when the top answer's vote share exceeds this value (e.g., 0.95)."
+                        />
+                        <NumericInput
+                            id={`groupWindow-${config.id}`}
+                            label="Group Window"
+                            value={config.settings.groupWindow}
+                            onChange={v => handleSettingChange({ groupWindow: v })}
+                            disabled={disabled}
+                            min={8}
+                            max={4096}
+                            step={8}
+                            title="Sliding window size (in tokens) for calculating group confidence."
+                        />
                     </>
                 }
 
@@ -309,34 +304,53 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                     </div>
                 ) : ( // OpenRouter Settings
                      <div className="col-span-2 grid grid-cols-2 gap-3">
-                        <div>
-                         <label htmlFor={`or-temp-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Temperature</label>
-                             <input type="number" id={`or-temp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).temperature} onChange={e => {
-                                 const value = parseFloat(e.target.value);
-                                 if (!Number.isNaN(value)) handleSettingChange({ temperature: value });
-                             }} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
-                        </div>
-                        <div>
-                             <label htmlFor={`or-topk-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Top K</label>
-                             <input type="number" id={`or-topk-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topK} onChange={e => {
-                                 const value = parseInt(e.target.value, 10);
-                                 if (!Number.isNaN(value)) handleSettingChange({ topK: value });
-                             }} disabled={disabled} min="1" step="1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
-                        </div>
-                         <div>
-                             <label htmlFor={`or-topp-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Top P</label>
-                             <input type="number" id={`or-topp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).topP} onChange={e => {
-                                 const value = parseFloat(e.target.value);
-                                 if (!Number.isNaN(value)) handleSettingChange({ topP: value });
-                             }} disabled={disabled} min="0" max="1" step="0.05" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
-                        </div>
-                         <div>
-                             <label htmlFor={`or-repp-${config.id}`} className="block text-sm font-medium text-[var(--text-muted)] mb-1">Repetition Penalty</label>
-                             <input type="number" id={`or-repp-${config.id}`} value={(config.settings as OpenRouterAgentSettings).repetitionPenalty} onChange={e => {
-                                 const value = parseFloat(e.target.value);
-                                 if (!Number.isNaN(value)) handleSettingChange({ repetitionPenalty: value });
-                             }} disabled={disabled} min="0" max="2" step="0.1" className="w-full p-1.5 text-sm bg-[var(--surface-1)] border border-[var(--line)] rounded-md focus:ring-2 focus:ring-[var(--accent)]"/>
-                        </div>
+                        <NumericInput
+                            id={`or-temp-${config.id}`}
+                            label="Temperature"
+                            value={(config.settings as OpenRouterAgentSettings).temperature}
+                            onChange={v => {
+                                if (!Number.isNaN(v)) handleSettingChange({ temperature: v });
+                            }}
+                            disabled={disabled}
+                            min={0}
+                            max={2}
+                            step={0.1}
+                        />
+                        <NumericInput
+                            id={`or-topk-${config.id}`}
+                            label="Top K"
+                            value={(config.settings as OpenRouterAgentSettings).topK}
+                            onChange={v => {
+                                if (!Number.isNaN(v)) handleSettingChange({ topK: v });
+                            }}
+                            disabled={disabled}
+                            min={1}
+                            step={1}
+                        />
+                        <NumericInput
+                            id={`or-topp-${config.id}`}
+                            label="Top P"
+                            value={(config.settings as OpenRouterAgentSettings).topP}
+                            onChange={v => {
+                                if (!Number.isNaN(v)) handleSettingChange({ topP: v });
+                            }}
+                            disabled={disabled}
+                            min={0}
+                            max={1}
+                            step={0.05}
+                        />
+                        <NumericInput
+                            id={`or-repp-${config.id}`}
+                            label="Repetition Penalty"
+                            value={(config.settings as OpenRouterAgentSettings).repetitionPenalty}
+                            onChange={v => {
+                                if (!Number.isNaN(v)) handleSettingChange({ repetitionPenalty: v });
+                            }}
+                            disabled={disabled}
+                            min={0}
+                            max={2}
+                            step={0.1}
+                        />
                      </div>
                 )}
             </div>

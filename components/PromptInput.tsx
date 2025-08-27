@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect, useMemo } from 'react';
 import {
     XCircleIcon,
     PlusIcon,
@@ -50,6 +50,20 @@ const PromptInput: React.FC<PromptInputProps> = ({
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = inputRef || useRef<HTMLTextAreaElement>(null);
+
+    const previewUrls = useMemo(() => {
+        const urls: Record<string, string> = {};
+        images.forEach(img => {
+            urls[img.id] = URL.createObjectURL(img.file);
+        });
+        return urls;
+    }, [images]);
+
+    useEffect(() => {
+        return () => {
+            Object.values(previewUrls).forEach(url => URL.revokeObjectURL(url));
+        };
+    }, [previewUrls]);
 
     const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
@@ -129,11 +143,13 @@ const PromptInput: React.FC<PromptInputProps> = ({
                 <div className="flex flex-wrap gap-2 px-2 pt-1">
                     {images.map(img => (
                         <div key={img.id} className="relative group flex-shrink-0">
-                            <img
-                                src={URL.createObjectURL(img.file)}
-                                alt="Image preview"
-                                className="w-20 h-20 rounded-lg object-cover border border-[var(--line)]"
-                            />
+                            {previewUrls[img.id] && (
+                                <img
+                                    src={previewUrls[img.id]}
+                                    alt="Image preview"
+                                    className="w-20 h-20 rounded-lg object-cover border border-[var(--line)]"
+                                />
+                            )}
                             <button
                                 onClick={() => handleRemoveImage(img.id)}
                                 disabled={disabled || isLoading}

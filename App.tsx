@@ -471,10 +471,6 @@ const App: React.FC = () => {
         latestHandleRun.current = handleRun;
     }, [handleRun]);
 
-    useEffect(() => {
-        agentsRef.current = agents;
-    }, [agents]);
-
 
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
@@ -570,7 +566,8 @@ const App: React.FC = () => {
 
     useEffect(() => {
         isHistoryViewRef.current = displayData.isHistoryView;
-    }, [displayData.isHistoryView]);
+        agentsRef.current = displayData.agents;
+    }, [displayData.isHistoryView, displayData.agents]);
 
     const handleSaveAll = async () => {
         const dataToSave = displayData;
