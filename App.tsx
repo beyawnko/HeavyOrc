@@ -969,6 +969,9 @@ const ArbiterSettings: React.FC<{
     ];
     
     const selectedModelOption = arbiterModelOptions.find(opt => opt.value === arbiterModel);
+    const effortOptions = selectedModelOption?.value === GEMINI_FLASH_MODEL
+        ? geminiEffortOptions
+        : geminiEffortOptions.filter(o => o.value !== 'none');
 
     return (
         <>
@@ -998,7 +1001,7 @@ const ArbiterSettings: React.FC<{
                     <label className="block text-sm font-medium text-[var(--text)] mb-2">Thinking Effort</label>
                     <SegmentedControl
                         aria-label="Arbiter Thinking Effort"
-                        options={selectedModelOption?.value === GEMINI_FLASH_MODEL ? geminiEffortOptions : geminiEffortOptions.filter(o => o.value !== 'none')}
+                        options={effortOptions}
                         value={geminiArbiterEffort}
                         onChange={setGeminiArbiterEffort}
                         disabled={isLoading}

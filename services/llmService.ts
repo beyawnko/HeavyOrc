@@ -47,7 +47,8 @@ export const callWithRetry = async <T>(
         } catch (error) {
             const maybeError = error as { status?: number; response?: { status?: number } };
             const status = maybeError.status ?? maybeError.response?.status;
-            if (status && status >= 500 && status < 600 && attempt < retries) {
+            // Retry on 5xx server errors or network errors where no status code is present
+            if ((!status || (status >= 500 && status < 600)) && attempt < retries) {
                 await sleep(baseDelayMs * Math.pow(2, attempt));
                 continue;
             }
