@@ -162,10 +162,7 @@ const runExpertOpenAISingle = async (
         );
         return completion.choices[0].message.content || 'No content received.';
     } catch (error) {
-        if (error instanceof Error) {
-            throw error;
-        }
-        throw new Error('OpenAI request failed.');
+        throw error;
     }
 }
 
@@ -267,10 +264,7 @@ const runExpertOpenRouterSingle = async (
         const data = await response.json();
         return data.choices[0].message.content || 'No content received.';
     } catch (error) {
-        if (error instanceof Error) {
-            throw error;
-        }
-        throw new Error('OpenRouter request failed.');
+        throw error;
     }
 };
 

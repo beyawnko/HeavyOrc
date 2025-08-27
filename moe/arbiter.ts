@@ -117,10 +117,7 @@ export const arbitrateStream = async (
 
             return openRouterStreamer(response.body);
         } catch (error) {
-            if (error instanceof Error) {
-                throw error;
-            }
-            throw new Error('OpenRouter request failed.');
+            throw error;
         }
     }
 
@@ -160,10 +157,7 @@ export const arbitrateStream = async (
             return transformStream();
         } catch (error) {
             console.error("Error calling the OpenAI API for arbiter:", error);
-            if (error instanceof Error) {
-                throw error;
-            }
-            throw new Error('An unknown error occurred while communicating with the OpenAI model for arbitration.');
+            throw error;
         }
     }
 

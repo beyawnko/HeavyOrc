@@ -27,7 +27,8 @@ export const fetchWithRetry = async (
             if (attempt < retries) {
                 await sleep(baseDelayMs * Math.pow(2, attempt));
             } else {
-                throw new Error(`${serviceName} service is temporarily unavailable. Please try again later.`);
+                // Re-throw the original error to preserve context for easier debugging.
+                throw error;
             }
         }
     }
