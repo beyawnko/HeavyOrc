@@ -27,10 +27,8 @@ export const fetchWithRetry = async (
             if (attempt < retries) {
                 await sleep(baseDelayMs * Math.pow(2, attempt));
                 continue;
-            } else {
-                // Re-throw the original error to preserve context for easier debugging.
-                throw error;
             }
+            throw new Error(`${serviceName} service is temporarily unavailable. Please try again later.`);
         }
     }
 };
@@ -47,14 +45,17 @@ export const callWithRetry = async <T>(
         } catch (error) {
             const maybeError = error as { status?: number; response?: { status?: number } };
             const status = maybeError.status ?? maybeError.response?.status;
-            // Retry on 5xx server errors or network errors where no status code is present
-            if ((!status || (status >= 500 && status < 600)) && attempt < retries) {
+            const isRetryable = !status || (status >= 500 && status < 600);
+
+            if (isRetryable && attempt < retries) {
                 await sleep(baseDelayMs * Math.pow(2, attempt));
                 continue;
             }
-            if (status && status >= 500 && status < 600) {
+
+            if (isRetryable) {
                 throw new Error(`${serviceName} service is temporarily unavailable. Please try again later.`);
             }
+
             throw error;
         }
     }
