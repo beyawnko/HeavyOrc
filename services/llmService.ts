@@ -14,9 +14,13 @@ export const fetchWithRetry = async (
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
             const response = await fetch(input, init);
-            if (response.status >= 500 && response.status < 600 && attempt < retries) {
-                await sleep(baseDelayMs * Math.pow(2, attempt));
-                continue;
+            if (response.status >= 500 && response.status < 600) {
+                if (attempt < retries) {
+                    await sleep(baseDelayMs * Math.pow(2, attempt));
+                    continue;
+                }
+                const serviceName = new URL(input.toString()).hostname;
+                throw new Error(`${serviceName} service is temporarily unavailable. Please try again later.`);
             }
             return response;
         } catch (error) {

@@ -35,6 +35,9 @@ export const callWithGeminiRetry = async <T>(
                 await sleep(baseDelayMs * Math.pow(2, attempt));
                 continue;
             }
+            if (isGeminiRateLimitError(error)) {
+                throw new Error(GEMINI_QUOTA_MESSAGE);
+            }
             if (isGeminiServerError(error)) {
                 throw new Error('Gemini service is temporarily unavailable. Please try again later.');
             }
