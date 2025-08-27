@@ -152,18 +152,14 @@ const runExpertOpenAISingle = async (
         messages.push({ role: 'user', content: prompt });
     }
 
-    try {
-        const completion = await callWithRetry(
-            () => openaiAI.chat.completions.create({
-                model: expert.model,
-                messages: messages,
-            }, { signal: abortSignal }),
-            'OpenAI'
-        );
-        return completion.choices[0].message.content || 'No content received.';
-    } catch (error) {
-        throw error;
-    }
+    const completion = await callWithRetry(
+        () => openaiAI.chat.completions.create({
+            model: expert.model,
+            messages: messages,
+        }, { signal: abortSignal }),
+        'OpenAI'
+    );
+    return completion.choices[0].message.content || 'No content received.';
 }
 
 const runExpertOpenAIDeepConf = async (
@@ -245,27 +241,23 @@ const runExpertOpenRouterSingle = async (
         ...config.settings
     };
 
-    try {
-        const response = await fetchWithRetry(
-            'https://openrouter.ai/api/v1/chat/completions',
-            {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(body),
-            },
-            'OpenRouter'
-        );
+    const response = await fetchWithRetry(
+        'https://openrouter.ai/api/v1/chat/completions',
+        {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body),
+        },
+        'OpenRouter'
+    );
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(`OpenRouter API Error: ${errorData.error?.message || response.statusText}`);
-        }
-
-        const data = await response.json();
-        return data.choices[0].message.content || 'No content received.';
-    } catch (error) {
-        throw error;
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`OpenRouter API Error: ${errorData.error?.message || response.statusText}`);
     }
+
+    const data = await response.json();
+    return data.choices[0].message.content || 'No content received.';
 };
 
 

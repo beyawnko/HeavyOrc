@@ -998,7 +998,7 @@ const ArbiterSettings: React.FC<{
                     <label className="block text-sm font-medium text-[var(--text)] mb-2">Thinking Effort</label>
                     <SegmentedControl
                         aria-label="Arbiter Thinking Effort"
-                        options={geminiEffortOptions.filter(o => o.value !== 'none')}
+                        options={selectedModelOption?.value === GEMINI_FLASH_MODEL ? geminiEffortOptions : geminiEffortOptions.filter(o => o.value !== 'none')}
                         value={geminiArbiterEffort}
                         onChange={setGeminiArbiterEffort}
                         disabled={isLoading}

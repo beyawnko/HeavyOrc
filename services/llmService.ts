@@ -26,6 +26,7 @@ export const fetchWithRetry = async (
         } catch (error) {
             if (attempt < retries) {
                 await sleep(baseDelayMs * Math.pow(2, attempt));
+                continue;
             } else {
                 // Re-throw the original error to preserve context for easier debugging.
                 throw error;

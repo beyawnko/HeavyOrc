@@ -99,26 +99,22 @@ export const arbitrateStream = async (
         ];
         const body = { model: arbiterModel, messages, stream: true };
 
-        try {
-            const response = await fetchWithRetry(
-                'https://openrouter.ai/api/v1/chat/completions',
-                {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify(body),
-                },
-                'OpenRouter'
-            );
+        const response = await fetchWithRetry(
+            'https://openrouter.ai/api/v1/chat/completions',
+            {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(body),
+            },
+            'OpenRouter'
+        );
 
-            if (!response.ok || !response.body) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(`OpenRouter API Error: ${errorData.error?.message || response.statusText}`);
-            }
-
-            return openRouterStreamer(response.body);
-        } catch (error) {
-            throw error;
+        if (!response.ok || !response.body) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`OpenRouter API Error: ${errorData.error?.message || response.statusText}`);
         }
+
+        return openRouterStreamer(response.body);
     }
 
     // OpenAI Logic
