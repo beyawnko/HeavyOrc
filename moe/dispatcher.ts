@@ -247,8 +247,7 @@ const runExpertOpenRouterSingle = async (
             method: 'POST',
             headers,
             body: JSON.stringify(body),
-        },
-        'OpenRouter'
+        }
     );
 
     if (!response.ok) {

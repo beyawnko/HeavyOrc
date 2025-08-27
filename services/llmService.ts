@@ -8,7 +8,6 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export const fetchWithRetry = async (
     input: RequestInfo,
     init: RequestInit,
-    serviceName: string,
     retries = 3,
     baseDelayMs = 500,
 ): Promise<Response> => {
@@ -20,7 +19,7 @@ export const fetchWithRetry = async (
                     await sleep(baseDelayMs * Math.pow(2, attempt));
                     continue;
                 }
-                throw new Error(`${serviceName} service is temporarily unavailable. Please try again later.`);
+                return response;
             }
             return response;
         } catch (error) {
@@ -28,7 +27,7 @@ export const fetchWithRetry = async (
                 await sleep(baseDelayMs * Math.pow(2, attempt));
                 continue;
             }
-            throw new Error(`${serviceName} service is temporarily unavailable. Please try again later.`);
+            throw error;
         }
     }
 };
