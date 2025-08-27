@@ -104,27 +104,33 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, selectedRunId,
                             </button>
                         </li>
                      )}
-                    {history.map(run => (
-                        <li key={run.id}>
-                            <button
-                                onClick={() => onSelectRun(run.id)}
-                                className={`w-full text-left flex items-center gap-3 p-2 rounded-md transition-colors ${
-                                    selectedRunId === run.id ? 'bg-[var(--surface-1)]' : 'hover:bg-[var(--surface-active)]'
-                                }`}
-                                title={run.prompt}
-                            >
-                               <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center mt-0.5">
-                                    <StatusIndicator status={run.status} />
-                               </div>
-                                {isOpen && (
-                                    <div className="overflow-hidden">
-                                        <p className="text-sm font-medium text-[var(--text)] truncate">{run.prompt || "Image-based prompt"}</p>
-                                        <p className="text-xs text-[var(--text-muted)]">{formatTimestamp(run.timestamp)}</p>
-                                    </div>
-                                )}
-                            </button>
+                    {history.length === 0 && currentRunStatus === 'IDLE' ? (
+                        <li className="text-center py-4 text-sm text-[var(--text-muted)]">
+                            No past runs yet. Submit a prompt to create one.
                         </li>
-                    ))}
+                    ) : (
+                        history.map(run => (
+                            <li key={run.id}>
+                                <button
+                                    onClick={() => onSelectRun(run.id)}
+                                    className={`w-full text-left flex items-center gap-3 p-2 rounded-md transition-colors ${
+                                        selectedRunId === run.id ? 'bg-[var(--surface-1)]' : 'hover:bg-[var(--surface-active)]'
+                                    }`}
+                                    title={run.prompt}
+                                >
+                                   <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center mt-0.5">
+                                        <StatusIndicator status={run.status} />
+                                   </div>
+                                    {isOpen && (
+                                        <div className="overflow-hidden">
+                                            <p className="text-sm font-medium text-[var(--text)] truncate">{run.prompt || "Image-based prompt"}</p>
+                                            <p className="text-xs text-[var(--text-muted)]">{formatTimestamp(run.timestamp)}</p>
+                                        </div>
+                                    )}
+                                </button>
+                            </li>
+                        ))
+                    )}
                 </ul>
             </nav>
         </aside>

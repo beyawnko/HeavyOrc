@@ -73,17 +73,23 @@ const AgentEnsemble = forwardRef<AgentEnsembleHandles, AgentEnsembleProps>(({ ag
             </div>
             
             <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
-                {agentConfigs.map((config, idx) => (
-                    <AgentConfigCard
-                        key={config.id}
-                        config={config}
-                        onUpdate={handleUpdateAgent}
-                        onRemove={handleRemoveAgent}
-                        onDuplicate={onDuplicateAgent}
-                        disabled={disabled}
-                        displayId={idx + 1}
-                    />
-                ))}
+                {agentConfigs.length > 0 ? (
+                    agentConfigs.map((config, idx) => (
+                        <AgentConfigCard
+                            key={config.id}
+                            config={config}
+                            onUpdate={handleUpdateAgent}
+                            onRemove={handleRemoveAgent}
+                            onDuplicate={onDuplicateAgent}
+                            disabled={disabled}
+                            displayId={idx + 1}
+                        />
+                    ))
+                ) : (
+                    <div className="flex items-center justify-center h-24 text-sm text-[var(--text-muted)]">
+                        No experts configured. Click "Add Expert" to get started.
+                    </div>
+                )}
             </div>
 
              <AddExpertModal
