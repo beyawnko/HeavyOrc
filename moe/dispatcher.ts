@@ -77,8 +77,7 @@ const runExpertGeminiSingle = async (
         const response = await callWithGeminiRetry(() => geminiAI.models.generateContent(generateContentParams));
         return getGeminiResponseText(response);
     } catch (error) {
-        handleGeminiError(error, 'dispatcher', 'dispatch');
-        throw error;
+        return handleGeminiError(error, 'dispatcher', 'dispatch');
     }
 }
 
