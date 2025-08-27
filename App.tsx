@@ -76,8 +76,8 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error'; onClose: () 
 
     const colorClasses =
         type === 'success'
-            ? 'bg-[var(--success)] border-[var(--success)] text-[var(--success)]'
-            : 'bg-[var(--danger)] border-[var(--danger)] text-[var(--danger)]';
+            ? 'bg-[var(--success)] border-[var(--success)] text-[var(--text)]'
+            : 'bg-[var(--danger)] border-[var(--danger)] text-[var(--text)]';
 
     return (
         <div
