@@ -174,11 +174,11 @@ const SessionSection: React.FC<Pick<SettingsViewProps, 'onSaveSession' | 'onLoad
     return (
         <div className="flex flex-col sm:flex-row gap-4">
             <button onClick={onSaveSession} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[var(--surface-1)] text-[var(--text)] font-semibold rounded-lg shadow-md hover:bg-[var(--surface-active)] transition-colors">
-                <DownloadIcon className="w-5 h-5" />
+                <DownloadIcon className="w-5 h-5" aria-hidden="true" />
                 Save Session
             </button>
             <button onClick={handleLoadClick} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[var(--surface-1)] text-[var(--text)] font-semibold rounded-lg shadow-md hover:bg-[var(--surface-active)] transition-colors">
-                <UploadIcon className="w-5 h-5" />
+                <UploadIcon className="w-5 h-5" aria-hidden="true" />
                 Load Session
             </button>
             <input

@@ -150,7 +150,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
                                 className="absolute top-1 right-1 p-0.5 bg-black/60 text-[var(--text)] rounded-full hover:bg-[var(--danger)] focus:outline-none focus:ring-2 focus:ring-[var(--danger)] disabled:opacity-50"
                                 aria-label="Remove image"
                             >
-                                <XCircleIcon className="w-5 h-5" />
+                                <XCircleIcon className="w-5 h-5" aria-hidden="true" />
                             </button>
                         </div>
                     ))}
@@ -165,7 +165,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
                         className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-active)] rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title={images.length >= MAX_IMAGES ? `Maximum ${MAX_IMAGES} images reached` : `Add image (${images.length}/${MAX_IMAGES})`}
                     >
-                         <PlusIcon className="w-5 h-5" />
+                         <PlusIcon className="w-5 h-5" aria-hidden="true" />
                          <span className="sr-only">Add Image</span>
                     </button>
                     <input
@@ -183,7 +183,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
                         className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-active)] rounded-full transition-colors disabled:opacity-50"
                         title="Use microphone (coming soon)"
                     >
-                         <MicrophoneIcon className="w-5 h-5" />
+                         <MicrophoneIcon className="w-5 h-5" aria-hidden="true" />
                          <span className="sr-only">Use microphone</span>
                     </button>
                 </div>
@@ -208,12 +208,12 @@ const PromptInput: React.FC<PromptInputProps> = ({
                 >
                     {isLoading ? (
                         <>
-                            <LoadingSpinner className="w-5 h-5 animate-spin" />
+                            <LoadingSpinner className="w-5 h-5 animate-spin" aria-hidden="true" />
                             Processing...
                         </>
                     ) : (
                         <>
-                           <SparklesIcon className="w-5 h-5" />
+                           <SparklesIcon className="w-5 h-5" aria-hidden="true" />
                            Run 
                         </>
                     )}

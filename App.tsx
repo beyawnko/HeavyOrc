@@ -777,7 +777,7 @@ const App: React.FC = () => {
                         <header className="text-center py-8 relative">
                             <img src={`${import.meta.env.BASE_URL}assets/banner.svg`} alt="HeavyOrc banner" className="mx-auto mb-4 w-full max-w-2xl" />
                             <h1 className="text-4xl sm:text-5xl font-bold text-[var(--text)] flex items-center justify-center gap-3">
-                                <ShieldCheckIcon className="w-10 h-10 text-emerald-400" />
+                                <ShieldCheckIcon className="w-10 h-10 text-emerald-400" aria-hidden="true" />
                                 HeavyOrc
                             </h1>
                             <div className="absolute top-8 right-0 flex items-center gap-2">
@@ -787,7 +787,7 @@ const App: React.FC = () => {
                                     className="flex items-center gap-2 px-3 py-1.5 text-sm bg-[var(--surface-1)] text-[var(--text)] font-semibold rounded-lg shadow-md hover:bg-[var(--surface-active)] disabled:bg-[var(--surface-2)] disabled:text-[var(--text-muted)] disabled:cursor-not-allowed transition-colors"
                                     title="Save final answer and all drafts to a ZIP file"
                                 >
-                                    <DownloadIcon className="w-4 h-4" />
+                                    <DownloadIcon className="w-4 h-4" aria-hidden="true" />
                                     Save
                                 </button>
                                 <button
@@ -796,7 +796,7 @@ const App: React.FC = () => {
                                     title="Settings"
                                     aria-label="Open Settings"
                                 >
-                                    <CogIcon className="w-6 h-6" />
+                                    <CogIcon className="w-6 h-6" aria-hidden="true" />
                                 </button>
                             </div>
                             <p className="mt-4 text-lg text-[var(--text-muted)] max-w-3xl mx-auto">
@@ -830,7 +830,7 @@ const App: React.FC = () => {
                                             variants={itemVariants}
                                         >
                                             <div className="flex items-start">
-                                                <ExclamationTriangleIcon className="w-5 h-5 mr-3 mt-0.5 text-[var(--warn)] flex-shrink-0" />
+                                                <ExclamationTriangleIcon className="w-5 h-5 mr-3 mt-0.5 text-[var(--warn)] flex-shrink-0" aria-hidden="true" />
                                                 <div>
                                                     <strong className="font-bold">Automatic Model Switch:</strong>
                                                     <span className="block sm:inline sm:ml-2">{displayData.arbiterSwitchWarning}</span>

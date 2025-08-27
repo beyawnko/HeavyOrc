@@ -17,11 +17,11 @@ interface AgentConfigCardProps {
 const getStatusIndicator = (status: AgentStatus): React.ReactNode => {
     switch (status) {
         case 'RUNNING':
-            return <LoadingSpinner className="h-5 w-5 text-[var(--accent-2)] animate-spin" />;
+            return <LoadingSpinner className="h-5 w-5 text-[var(--accent-2)] animate-spin" aria-hidden="true" />;
         case 'COMPLETED':
-            return <CheckCircleIcon className="h-5 w-5 text-[var(--success)]" />;
+            return <CheckCircleIcon className="h-5 w-5 text-[var(--success)]" aria-hidden="true" />;
         case 'FAILED':
-            return <XCircleIcon className="h-5 w-5 text-[var(--danger)]" />;
+            return <XCircleIcon className="h-5 w-5 text-[var(--danger)]" aria-hidden="true" />;
         case 'PENDING':
         case 'QUEUED':
         default:
@@ -134,7 +134,7 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                     className="p-1 text-[var(--text-muted)] hover:text-[var(--text)] disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Duplicate Agent"
                 >
-                    <DocumentDuplicateIcon className="w-5 h-5" />
+                    <DocumentDuplicateIcon className="w-5 h-5" aria-hidden="true" />
                     <span className="sr-only">Duplicate Agent</span>
                 </button>
                 <button 
@@ -143,7 +143,7 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                     className="p-1 text-[var(--text-muted)] hover:text-[var(--danger)] disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Remove Agent"
                 >
-                    <XCircleIcon className="w-5 h-5" />
+                    <XCircleIcon className="w-5 h-5" aria-hidden="true" />
                     <span className="sr-only">Remove Agent</span>
                 </button>
             </div>
