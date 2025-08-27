@@ -2,6 +2,7 @@ import React from 'react';
 import { AgentConfig, AgentModel, GeminiAgentConfig, GeminiAgentSettings, OpenAIAgentConfig, OpenAIAgentSettings, AgentStatus, GeminiModel, OpenAIModel, GeminiThinkingEffort, GenerationStrategy, OpenRouterAgentConfig, OpenRouterAgentSettings, OpenRouterModel } from '@/types';
 import { GEMINI_FLASH_MODEL, GEMINI_PRO_MODEL, OPENAI_AGENT_MODEL, OPENAI_GPT5_MINI_MODEL, OPENROUTER_CLAUDE_3_HAIKU, OPENROUTER_GEMINI_FLASH_1_5, OPENROUTER_GPT_4O } from '@/constants';
 import { XCircleIcon, LoadingSpinner, CheckCircleIcon, DocumentDuplicateIcon } from '@/components/icons';
+import NumericInput from './NumericInput';
 import { getExpertColor } from '@/lib/colors';
 
 interface AgentConfigCardProps {
@@ -43,44 +44,6 @@ const getBorderColor = (status: AgentStatus): string => {
     }
 }
 
-interface NumericInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> {
-    value: number;
-    onCommit: (value: number) => void;
-    parser?: (value: string) => number;
-}
-
-const NumericInput: React.FC<NumericInputProps> = ({ value, onCommit, parser = parseFloat, ...rest }) => {
-    const [inputValue, setInputValue] = React.useState<string>(String(value));
-
-    React.useEffect(() => {
-        setInputValue(String(value));
-    }, [value]);
-
-    const commit = () => {
-        const parsed = parser(inputValue);
-        if (!Number.isNaN(parsed)) {
-            onCommit(parsed);
-        } else {
-            setInputValue(String(value));
-        }
-    };
-
-    return (
-        <input
-            {...rest}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onBlur={commit}
-            onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    commit();
-                    (e.target as HTMLInputElement).blur();
-                }
-            }}
-        />
-    );
-};
 
 const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onRemove, onDuplicate, disabled, displayId }) => {
     
