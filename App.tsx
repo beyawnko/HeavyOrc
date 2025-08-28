@@ -215,11 +215,27 @@ const App: React.FC = () => {
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [isMobileHistoryOpen, setMobileHistoryOpen] = useState(false);
     const openHistoryButtonRef = useRef<HTMLButtonElement | null>(null);
+    const mobileHistoryNewRunButtonRef = useRef<HTMLButtonElement | null>(null);
 
     const closeMobileHistory = useCallback(() => {
         setMobileHistoryOpen(false);
         openHistoryButtonRef.current?.focus();
     }, []);
+
+    useEffect(() => {
+        if (!isMobileHistoryOpen) return;
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                closeMobileHistory();
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isMobileHistoryOpen, closeMobileHistory]);
 
     const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
     const agentEnsembleRef = useRef<AgentEnsembleHandles>(null);
@@ -977,7 +993,7 @@ const App: React.FC = () => {
             {isMobileHistoryOpen && (
                 <FocusTrap
                     focusTrapOptions={{
-                        initialFocus: '#mobile-history-new-run',
+                        initialFocus: () => mobileHistoryNewRunButtonRef.current!,
                         onDeactivate: () => openHistoryButtonRef.current?.focus(),
                     }}
                 >
@@ -991,6 +1007,7 @@ const App: React.FC = () => {
                             onViewCurrentRun={handleViewCurrentRunAndClose}
                             currentRunStatus={currentRunStatus}
                             className="relative h-full"
+                            newRunButtonRef={mobileHistoryNewRunButtonRef}
                         />
                     </div>
                 </FocusTrap>
