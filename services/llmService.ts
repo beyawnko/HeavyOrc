@@ -3,6 +3,68 @@
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+export const fetchWithRetry = async (
+    input: RequestInfo,
+    init: RequestInit,
+    retries = 3,
+    baseDelayMs = 500,
+): Promise<Response> => {
+    if (retries < 0) {
+        throw new Error("retries must be non-negative");
+    }
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const response = await fetch(input, init);
+            const isServerError = response.status >= 500 && response.status < 600;
+            if (!isServerError) {
+                return response;
+            }
+            if (attempt === retries) {
+                const serviceName = new URL(input.toString()).hostname;
+                throw new Error(`${serviceName} service is temporarily unavailable. Please try again later.`);
+            }
+        } catch (error) {
+            if (attempt === retries) {
+                throw error;
+            }
+        }
+        await sleep(baseDelayMs * Math.pow(2, attempt));
+    }
+};
+
+export const callWithRetry = async <T>(
+    fn: () => Promise<T>,
+    serviceName: string,
+    retries = 3,
+    baseDelayMs = 500,
+): Promise<T> => {
+    if (retries < 0) {
+        throw new Error("retries must be non-negative");
+    }
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            return await fn();
+        } catch (error) {
+            if ((error as { name?: string }).name === 'AbortError') {
+                throw error; // Don't retry aborted requests
+            }
+            const maybeError = error as { status?: number; response?: { status?: number } };
+            const status = maybeError.status ?? maybeError.response?.status;
+            const isRetryable = !status || (status >= 500 && status < 600);
+
+            if (!isRetryable || attempt === retries) {
+                if (isRetryable) {
+                    throw new Error(`${serviceName} service is temporarily unavailable. Please try again later.`);
+                }
+                throw error;
+            }
+        }
+        await sleep(baseDelayMs * Math.pow(2, attempt));
+    }
+};
+
 let geminiClient: GoogleGenAI | undefined;
 let currentGeminiApiKey: string | undefined;
 

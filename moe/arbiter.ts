@@ -1,13 +1,16 @@
 import OpenAI from 'openai';
 import { Draft } from './types';
-import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '@/services/llmService';
+import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey, fetchWithRetry, callWithRetry } from '@/services/llmService';
 import { getAppUrl, getGeminiResponseText } from '@/lib/utils';
 import {
     ARBITER_PERSONA,
     ARBITER_HIGH_REASONING_PROMPT_MODIFIER,
     OPENAI_ARBITER_GPT5_HIGH_REASONING,
+    OPENAI_ARBITER_GPT5_MEDIUM_REASONING,
     GEMINI_PRO_MODEL,
+    GEMINI_FLASH_MODEL,
     OPENAI_ARBITER_MODEL,
+    OPENAI_REASONING_PROMPT_PREFIX,
 } from '@/constants';
 import { GeminiThinkingEffort } from '@/types';
 import { callWithGeminiRetry, handleGeminiError } from '@/services/geminiUtils';
@@ -16,6 +19,14 @@ const GEMINI_PRO_BUDGETS: Record<Extract<GeminiThinkingEffort, 'low' | 'medium' 
     low: 8192,
     medium: 24576,
     high: 32768,
+    dynamic: -1,
+};
+
+const GEMINI_FLASH_BUDGETS: Record<GeminiThinkingEffort, number> = {
+    none: 0,
+    low: 4096,
+    medium: 12288,
+    high: 24576,
     dynamic: -1,
 };
 
@@ -88,70 +99,74 @@ export const arbitrateStream = async (
         ];
         const body = { model: arbiterModel, messages, stream: true };
 
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(body),
-        });
+        const response = await fetchWithRetry(
+            'https://openrouter.ai/api/v1/chat/completions',
+            {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(body),
+            }
+        );
 
         if (!response.ok || !response.body) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(`OpenRouter API Error: ${errorData.error?.message || response.statusText}`);
         }
-        
+
         return openRouterStreamer(response.body);
     }
-    
+
     // OpenAI Logic
     if (arbiterModel.startsWith('gpt-')) {
         const openaiAI = getOpenAIClient();
-        let systemPersona = arbiterModel === OPENAI_ARBITER_GPT5_HIGH_REASONING
-            ? ARBITER_PERSONA + ARBITER_HIGH_REASONING_PROMPT_MODIFIER
-            : ARBITER_PERSONA;
-        
+
+        let systemPersona = ARBITER_PERSONA;
+        if (arbiterModel === OPENAI_ARBITER_GPT5_HIGH_REASONING) {
+            systemPersona = OPENAI_REASONING_PROMPT_PREFIX + systemPersona + ARBITER_HIGH_REASONING_PROMPT_MODIFIER;
+        }
         systemPersona += `\nYour final synthesized response should have a verbosity level of: ${arbiterVerbosity}.`;
 
-        const inputPrompt = `${systemPersona}\n\n${arbiterPrompt}`;
-        const effort = arbiterModel === OPENAI_ARBITER_GPT5_HIGH_REASONING ? 'high' : 'medium';
+        const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+            { role: 'system', content: systemPersona },
+            { role: 'user', content: arbiterPrompt },
+        ];
+
+        const model = (arbiterModel === OPENAI_ARBITER_GPT5_MEDIUM_REASONING || arbiterModel === OPENAI_ARBITER_GPT5_HIGH_REASONING)
+            ? OPENAI_ARBITER_MODEL
+            : arbiterModel;
 
         try {
-            const stream = await openaiAI.responses.create({
-                model: OPENAI_ARBITER_MODEL,
-                input: inputPrompt,
-                reasoning: { effort },
-                stream: true,
-            });
+            const stream = await callWithRetry(
+                () => openaiAI.chat.completions.create({ model, messages, stream: true }),
+                'OpenAI'
+            );
 
             async function* transformStream(): AsyncGenerator<{ text: string }> {
                 for await (const chunk of stream) {
-                    if (chunk.type === 'response.output_text.delta') {
-                        yield { text: chunk.delta };
+                    const text = chunk.choices[0]?.delta?.content;
+                    if (text) {
+                        yield { text };
                     }
                 }
             }
             return transformStream();
-
         } catch (error) {
             console.error("Error calling the OpenAI API for arbiter:", error);
-            if (error instanceof OpenAI.APIError) {
-                 throw new Error(error.message);
-            }
-            if (error instanceof Error) {
-                throw new Error(`An error occurred with the OpenAI Arbiter: ${error.message}`);
-            }
-            throw new Error(`An unknown error occurred while communicating with the OpenAI model for arbitration.`);
+            throw error;
         }
     }
-    
+
     // Gemini Logic for the arbiter.
-    const effortForPro = geminiArbiterEffort === 'none' ? 'dynamic' : geminiArbiterEffort;
-    const budget = GEMINI_PRO_BUDGETS[effortForPro];
+    const model = arbiterModel === GEMINI_FLASH_MODEL ? GEMINI_FLASH_MODEL : GEMINI_PRO_MODEL;
+    const budgets = model === GEMINI_FLASH_MODEL ? GEMINI_FLASH_BUDGETS : GEMINI_PRO_BUDGETS;
+    const effortKey = model === GEMINI_PRO_MODEL && geminiArbiterEffort === 'none' ? 'dynamic' : geminiArbiterEffort;
+    const budget = budgets[effortKey];
 
     const geminiAI = getGeminiClient();
     try {
         const stream = await callWithGeminiRetry(() =>
             geminiAI.models.generateContentStream({
-                model: GEMINI_PRO_MODEL, // Arbiter always uses the Pro model for Gemini
+                model,
                 contents: { parts: [{ text: arbiterPrompt }] },
                 config: {
                     systemInstruction: ARBITER_PERSONA,

@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { GenerateContentParameters, Part } from "@google/genai";
 import { Draft, ExpertDispatch } from './types';
-import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey } from '@/services/llmService';
+import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey, callWithRetry, fetchWithRetry } from '@/services/llmService';
 import { getAppUrl, getGeminiResponseText } from '@/lib/utils';
 import { callWithGeminiRetry, handleGeminiError } from '@/services/geminiUtils';
 import { GEMINI_PRO_MODEL, GEMINI_FLASH_MODEL, OPENAI_REASONING_PROMPT_PREFIX } from '@/constants';
@@ -152,10 +152,13 @@ const runExpertOpenAISingle = async (
         messages.push({ role: 'user', content: prompt });
     }
 
-    const completion = await openaiAI.chat.completions.create({
-        model: expert.model,
-        messages: messages,
-    }, { signal: abortSignal });
+    const completion = await callWithRetry(
+        () => openaiAI.chat.completions.create({
+            model: expert.model,
+            messages: messages,
+        }, { signal: abortSignal }),
+        'OpenAI'
+    );
     return completion.choices[0].message.content || 'No content received.';
 }
 
@@ -238,11 +241,14 @@ const runExpertOpenRouterSingle = async (
         ...config.settings
     };
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-    });
+    const response = await fetchWithRetry(
+        'https://openrouter.ai/api/v1/chat/completions',
+        {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body),
+        }
+    );
 
     if (!response.ok) {
         const errorData = await response.json();
