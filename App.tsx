@@ -780,7 +780,7 @@ const App: React.FC = () => {
     }, [isRunning, error, hasResults, selectedRunId]);
 
     return (
-        <div className="bg-[var(--bg)] text-[var(--text)] font-sans flex w-full overflow-x-hidden" style={{ minHeight: 'calc(var(--vh, 1vh) * 100)' }}>
+        <div className="bg-[var(--bg)] text-[var(--text)] font-sans flex w-full" style={{ minHeight: 'calc(var(--vh, 1vh) * 100)' }}>
             <HistorySidebar
                 history={history}
                 selectedRunId={selectedRunId}
@@ -790,7 +790,7 @@ const App: React.FC = () => {
                 currentRunStatus={currentRunStatus}
                 className="hidden md:flex"
             />
-            <div className="flex-1 flex flex-col h-full">
+            <div className="flex-1 flex flex-col h-full min-w-0">
                 {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
                 <SettingsView
                     isOpen={isSettingsViewOpen}

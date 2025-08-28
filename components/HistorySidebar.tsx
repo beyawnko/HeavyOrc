@@ -98,6 +98,7 @@ const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>((props
                         onClick={() => setIsOpen(!isOpen)}
                         className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-active)] rounded-lg transition-colors"
                         title={isOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+                        aria-label={isOpen ? "Collapse Sidebar" : "Expand Sidebar"}
                     >
                         {isOpen ? <ChevronLeftIcon className="w-6 h-6" aria-hidden="true" /> : <ChevronRightIcon className="w-6 h-6" aria-hidden="true" />}
                     </button>
