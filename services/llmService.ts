@@ -14,15 +14,14 @@ export const fetchWithRetry = async (
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
             const response = await fetch(input, init);
-            if (response.status >= 500 && response.status < 600) {
-                if (attempt < retries) {
-                    await sleep(baseDelayMs * Math.pow(2, attempt));
-                    continue;
-                }
+            const isServerError = response.status >= 500 && response.status < 600;
+            if (!isServerError) {
+                return response;
+            }
+            if (attempt === retries) {
                 const serviceName = new URL(input.toString()).hostname;
                 throw new Error(`${serviceName} service is temporarily unavailable. Please try again later.`);
             }
-            return response;
         } catch (error) {
             if (attempt === retries) {
                 throw error;
@@ -30,7 +29,6 @@ export const fetchWithRetry = async (
         }
         await sleep(baseDelayMs * Math.pow(2, attempt));
     }
-    throw new Error("Retry logic failed unexpectedly.");
 };
 
 export const callWithRetry = async <T>(
@@ -43,6 +41,9 @@ export const callWithRetry = async <T>(
         try {
             return await fn();
         } catch (error) {
+            if ((error as { name?: string }).name === 'AbortError') {
+                throw error; // Don't retry aborted requests
+            }
             const maybeError = error as { status?: number; response?: { status?: number } };
             const status = maybeError.status ?? maybeError.response?.status;
             const isRetryable = !status || (status >= 500 && status < 600);
@@ -56,7 +57,6 @@ export const callWithRetry = async <T>(
         }
         await sleep(baseDelayMs * Math.pow(2, attempt));
     }
-    throw new Error("Retry logic failed unexpectedly.");
 };
 
 let geminiClient: GoogleGenAI | undefined;
