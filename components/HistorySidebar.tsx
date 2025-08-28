@@ -13,6 +13,7 @@ interface HistorySidebarProps {
   onViewCurrentRun: () => void;
   currentRunStatus: CurrentRunStatus;
   className?: string;
+  isMobile?: boolean;
 }
 
 const formatTimestamp = (timestamp: number): string => {
@@ -63,6 +64,7 @@ const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>(({
     onViewCurrentRun,
     currentRunStatus,
     className,
+    isMobile,
 }, newRunButtonRef) => {
     const [isOpen, setIsOpen] = useState(true);
 
@@ -82,7 +84,7 @@ const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>(({
             <div className="flex-shrink-0 p-2">
                 <button
                     ref={newRunButtonRef}
-                    id="new-run-button"
+                    id={isMobile ? 'mobile-history-new-run' : undefined}
                     onClick={onNewRun}
                     className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
                         !selectedRunId ? 'bg-[var(--accent)] text-[#0D1411] hover:brightness-110' : 'bg-[var(--surface-1)] hover:bg-[var(--surface-active)] text-[var(--text)]'
@@ -103,6 +105,7 @@ const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>(({
                                     !selectedRunId ? 'bg-[var(--surface-1)]' : 'hover:bg-[var(--surface-active)]'
                                 }`}
                                 title="View current run"
+                                aria-current={!selectedRunId ? 'page' : undefined}
                             >
                                 <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center">
                                     <StatusIndicator status={currentRunStatus as RunStatus} />

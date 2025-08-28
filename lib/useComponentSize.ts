@@ -12,7 +12,7 @@ const useComponentSize = <T extends HTMLElement>() => {
   const ref = useCallback((node: T | null) => {
     observerRef.current?.disconnect();
 
-    if (node) {
+    if (node && typeof ResizeObserver !== 'undefined') {
       observerRef.current = new ResizeObserver((entries) => {
         const entry = entries[0];
         if (entry) {
