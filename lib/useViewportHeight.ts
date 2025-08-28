@@ -16,13 +16,20 @@ const useViewportHeight = () => {
       setVh(newVh);
     };
 
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const debouncedSetDynamicVh = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(setDynamicVh, 100);
+    };
+
     setDynamicVh();
 
-    window.addEventListener('resize', setDynamicVh);
-    window.visualViewport?.addEventListener('resize', setDynamicVh);
+    window.addEventListener('resize', debouncedSetDynamicVh);
+    window.visualViewport?.addEventListener('resize', debouncedSetDynamicVh);
     return () => {
-      window.removeEventListener('resize', setDynamicVh);
-      window.visualViewport?.removeEventListener('resize', setDynamicVh);
+      window.removeEventListener('resize', debouncedSetDynamicVh);
+      window.visualViewport?.removeEventListener('resize', debouncedSetDynamicVh);
+      clearTimeout(timeoutId);
     };
   }, []);
 

@@ -227,6 +227,19 @@ const App: React.FC = () => {
     const isRunCompletedRef = useRef(false);
     const currentRunDataRef = useRef<Pick<RunRecord, 'prompt' | 'images' | 'agentConfigs' | 'arbiterModel' | 'openAIArbiterVerbosity' | 'geminiArbiterEffort'> | undefined>(undefined);
 
+    useEffect(() => {
+        if (!isMobileHistoryOpen) return;
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setMobileHistoryOpen(false);
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [isMobileHistoryOpen]);
+
     useEffect(() => { finalAnswerRef.current = finalAnswer; }, [finalAnswer]);
     useEffect(() => { agentsRef.current = agents; }, [agents]);
     useEffect(() => { arbiterSwitchWarningRef.current = arbiterSwitchWarning; }, [arbiterSwitchWarning]);
