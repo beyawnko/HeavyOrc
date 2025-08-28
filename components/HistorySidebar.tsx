@@ -81,7 +81,9 @@ const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>((props
     const [isOpen, setIsOpen] = useState(true);
 
     return (
-        <aside className={`bg-[var(--surface-2)] border-r border-[var(--line)] flex flex-col transition-all duration-300 ease-in-out ${isOpen ? 'w-64' : 'w-16'} ${className ?? ''} ${isMobile ? 'z-10' : ''}`}> 
+        <aside
+            className={`bg-[var(--surface-2)] border-r border-[var(--line)] flex flex-col transition-all duration-300 ease-in-out ${isOpen ? 'w-64' : 'w-16'}${className ? ` ${className}` : ''}${isMobile ? ' z-10' : ''}`}
+        >
             <div className="flex-shrink-0 p-2 flex items-center justify-between border-b border-[var(--line)]">
                 {isOpen && <h2 className="text-lg font-semibold ml-2">History</h2>}
                 {isMobile ? (
