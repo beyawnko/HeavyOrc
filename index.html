@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/HeavyOrc/assets/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>HeavyOrc</title>
     <script>
       tailwind.config = {
@@ -47,6 +47,28 @@
       body {
         background-color: var(--bg);
         color: var(--text);
+        padding-top: constant(safe-area-inset-top);
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: constant(safe-area-inset-bottom);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+      }
+      .app-shell {
+        height: calc(var(--vh, 1vh) * 100);
+      }
+      .scrollable-area {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        scroll-padding-top: calc(16px + env(safe-area-inset-top));
+        scroll-padding-bottom: calc(16px + var(--keyboard-height, 0px));
+      }
+      .fixed-header {
+        padding-top: env(safe-area-inset-top);
+      }
+      .fixed-footer {
+        padding-bottom: max(16px, env(safe-area-inset-bottom));
       }
       /* For custom scrollbars to match the dark theme */
       html {
@@ -160,10 +182,10 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="/HeavyOrc/assets/index-Xsdbgv7D.js"></script>
+  <script type="module" crossorigin src="/HeavyOrc/assets/index-BhUK4PpF.js"></script>
 </head>
-  <body class="bg-[var(--bg)] text-[var(--text)]">
+  <body class="app-shell bg-[var(--bg)] text-[var(--text)]">
     <div id="background-effects"></div>
-    <div id="root"></div>
+    <div id="root" class="h-full"></div>
   </body>
 </html>
