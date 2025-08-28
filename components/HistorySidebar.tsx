@@ -76,8 +76,8 @@ const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>((props
         onViewCurrentRun,
         currentRunStatus,
         className,
+        isMobile,
     } = props;
-    const isMobile = props.isMobile;
     const [isOpen, setIsOpen] = useState(true);
 
     return (
