@@ -44,6 +44,14 @@
         --warn: #D7A152;
         --success: #7FBF8A;
       }
+      html {
+        box-sizing: border-box;
+      }
+
+      *, *::before, *::after {
+        box-sizing: inherit;
+      }
+
       body {
         background-color: var(--bg);
         color: var(--text);

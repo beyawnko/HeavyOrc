@@ -5,7 +5,7 @@ import { ChevronLeftIcon, ChevronRightIcon, PlusIcon, CheckCircleIcon, XCircleIc
 
 type CurrentRunStatus = 'IDLE' | RunStatus;
 
-interface HistorySidebarProps {
+interface HistorySidebarBaseProps {
   history: RunRecord[];
   selectedRunId: string | null;
   onSelectRun: (id: string) => void;
@@ -13,8 +13,19 @@ interface HistorySidebarProps {
   onViewCurrentRun: () => void;
   currentRunStatus: CurrentRunStatus;
   className?: string;
-  isMobile?: boolean;
 }
+
+interface MobileHistorySidebarProps extends HistorySidebarBaseProps {
+  isMobile: true;
+  onClose: () => void;
+}
+
+interface DesktopHistorySidebarProps extends HistorySidebarBaseProps {
+  isMobile?: false;
+  onClose?: never;
+}
+
+type HistorySidebarProps = MobileHistorySidebarProps | DesktopHistorySidebarProps;
 
 const formatTimestamp = (timestamp: number): string => {
     const now = new Date();
@@ -56,29 +67,44 @@ const StatusIndicator: React.FC<{ status: RunStatus }> = ({ status }) => {
 };
 
 
-const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>(({
-    history,
-    selectedRunId,
-    onSelectRun,
-    onNewRun,
-    onViewCurrentRun,
-    currentRunStatus,
-    className,
-    isMobile,
-}, newRunButtonRef) => {
+const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>((props, newRunButtonRef) => {
+    const {
+        history,
+        selectedRunId,
+        onSelectRun,
+        onNewRun,
+        onViewCurrentRun,
+        currentRunStatus,
+        className,
+        isMobile,
+    } = props;
     const [isOpen, setIsOpen] = useState(true);
 
     return (
-        <aside className={`bg-[var(--surface-2)] border-r border-[var(--line)] flex flex-col transition-all duration-300 ease-in-out ${isOpen ? 'w-64' : 'w-16'} ${className ?? ''}`}>
+        <aside
+            className={`bg-[var(--surface-2)] border-r border-[var(--line)] flex flex-col transition-all duration-300 ease-in-out ${isOpen ? 'w-64' : 'w-16'}${className ? ` ${className}` : ''}${isMobile ? ' z-10' : ''}`}
+        >
             <div className="flex-shrink-0 p-2 flex items-center justify-between border-b border-[var(--line)]">
                 {isOpen && <h2 className="text-lg font-semibold ml-2">History</h2>}
-                <button
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-active)] rounded-lg transition-colors"
-                    title={isOpen ? "Collapse Sidebar" : "Expand Sidebar"}
-                >
-                    {isOpen ? <ChevronLeftIcon className="w-6 h-6" aria-hidden="true" /> : <ChevronRightIcon className="w-6 h-6" aria-hidden="true" />}
-                </button>
+                {isMobile ? (
+                    <button
+                        onClick={props.onClose}
+                        className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-active)] rounded-lg transition-colors"
+                        title="Close History"
+                        aria-label="Close History"
+                    >
+                        <ChevronLeftIcon className="w-6 h-6" aria-hidden="true" />
+                    </button>
+                ) : (
+                    <button
+                        onClick={() => setIsOpen(!isOpen)}
+                        className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-active)] rounded-lg transition-colors"
+                        title={isOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+                        aria-label={isOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+                    >
+                        {isOpen ? <ChevronLeftIcon className="w-6 h-6" aria-hidden="true" /> : <ChevronRightIcon className="w-6 h-6" aria-hidden="true" />}
+                    </button>
+                )}
             </div>
 
             <div className="flex-shrink-0 p-2">

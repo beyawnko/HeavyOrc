@@ -322,18 +322,17 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
 
     return (
         <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 animate-fade-in-up p-4"
+            className="fixed inset-0 z-50 flex justify-center items-center animate-fade-in-up p-4"
             style={{ animationDuration: '0.3s'}}
-            onClick={onClose}
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-title"
         >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
             <div
                 ref={dialogRef}
                 tabIndex={-1}
-                className="bg-[var(--surface-2)] rounded-xl shadow-2xl border border-[var(--line)] w-full max-w-4xl h-full max-h-[700px] flex flex-col"
-                onClick={e => e.stopPropagation()}
+                className="relative z-10 bg-[var(--surface-2)] rounded-xl shadow-2xl border border-[var(--line)] w-full max-w-4xl h-full max-h-[700px] flex flex-col"
             >
                 {/* --- Header --- */}
                 <header className="flex items-center justify-between p-4 border-b border-[var(--line)] flex-shrink-0">

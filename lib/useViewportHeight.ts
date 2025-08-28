@@ -1,8 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 
-const useViewportHeight = () => {
-  const vhRef = useRef<number>(typeof window !== 'undefined' ? window.innerHeight * 0.01 : 0);
-
+/**
+ * Keeps CSS `--vh` and `--keyboard-height` variables in sync with the viewport
+ * height without triggering re-renders. The hook performs its work via
+ * side-effects and doesn't return a value.
+ */
+const useViewportHeight = (): void => {
   useEffect(() => {
     const setDynamicVh = () => {
       const vv = window.visualViewport;
@@ -13,7 +16,6 @@ const useViewportHeight = () => {
         const keyboard = window.innerHeight - vv.height - vv.offsetTop;
         document.documentElement.style.setProperty('--keyboard-height', `${keyboard}px`);
       }
-      vhRef.current = newVh;
     };
 
     let timeoutId: ReturnType<typeof setTimeout>;
@@ -32,8 +34,6 @@ const useViewportHeight = () => {
       clearTimeout(timeoutId);
     };
   }, []);
-
-  return vhRef;
 };
 
 export default useViewportHeight;
