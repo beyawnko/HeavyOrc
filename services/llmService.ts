@@ -11,6 +11,9 @@ export const fetchWithRetry = async (
     retries = 3,
     baseDelayMs = 500,
 ): Promise<Response> => {
+    if (retries < 0) {
+        throw new Error("retries must be non-negative");
+    }
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
             const response = await fetch(input, init);
@@ -39,6 +42,9 @@ export const callWithRetry = async <T>(
     retries = 3,
     baseDelayMs = 500,
 ): Promise<T> => {
+    if (retries < 0) {
+        throw new Error("retries must be non-negative");
+    }
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
             return await fn();
