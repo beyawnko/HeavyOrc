@@ -17,11 +17,12 @@ import {
     GeminiThinkingEffort,
     RunStatus
 } from '@/types';
-import { 
-    GEMINI_PRO_MODEL, 
+import {
+    GEMINI_PRO_MODEL,
     OPENAI_ARBITER_GPT5_MEDIUM_REASONING,
     OPENAI_ARBITER_GPT5_HIGH_REASONING,
     GEMINI_FLASH_MODEL,
+    OPENAI_GPT5_MINI_MODEL,
     OPENAI_AGENT_MODEL,
     OPENROUTER_GPT_4O,
     OPENROUTER_CLAUDE_3_HAIKU,
@@ -947,10 +948,11 @@ const ArbiterSettings: React.FC<{
     isLoading: boolean;
 }> = ({ arbiterModel, setArbiterModel, openAIArbiterVerbosity, setOpenAIArbiterVerbosity, geminiArbiterEffort, setGeminiArbiterEffort, isLoading }) => {
     const arbiterModelOptions: { label: string; value: ArbiterModel; provider: 'gemini' | 'openai' | 'openrouter'; tooltip: string }[] = [
+        { label: 'Gemini 2.5 Flash', value: GEMINI_FLASH_MODEL, provider: 'gemini', tooltip: 'Google\'s fast and cost-effective model for general arbitration.' },
         { label: 'Gemini 2.5 Pro', value: GEMINI_PRO_MODEL, provider: 'gemini', tooltip: 'Google\'s most capable model, with a large context window and strong reasoning. Recommended for complex synthesis.' },
+        { label: 'GPT-5 Mini', value: OPENAI_GPT5_MINI_MODEL, provider: 'openai', tooltip: 'OpenAI\'s lightweight GPT-5 model for quick arbitration with lower latency.' },
         { label: 'GPT-5 (Med)', value: OPENAI_ARBITER_GPT5_MEDIUM_REASONING, provider: 'openai', tooltip: 'OpenAI\'s powerful GPT-5 model with standard reasoning. A strong, balanced choice for arbitration.' },
         { label: 'GPT-5 (High)', value: OPENAI_ARBITER_GPT5_HIGH_REASONING, provider: 'openai', tooltip: 'GPT-5 with enhanced, step-by-step reasoning. May produce higher quality synthesis for nuanced topics at a higher latency.' },
-        { label: 'OR GPT-4o', value: OPENROUTER_GPT_4O, provider: 'openrouter', tooltip: 'GPT-4o via OpenRouter. Excellent general-purpose model with strong vision capabilities.' },
         { label: 'OR Claude Haiku', value: OPENROUTER_CLAUDE_3_HAIKU, provider: 'openrouter', tooltip: 'Anthropic\'s fastest model via OpenRouter. Ideal for quick, responsive arbitration.' },
     ];
     const openAIVerbosityOptions: { label: string; value: OpenAIVerbosity }[] = [
@@ -963,9 +965,13 @@ const ArbiterSettings: React.FC<{
         { label: 'High', value: 'high' },
         { label: 'Medium', value: 'medium' },
         { label: 'Low', value: 'low' },
+        { label: 'None', value: 'none' },
     ];
     
     const selectedModelOption = arbiterModelOptions.find(opt => opt.value === arbiterModel);
+    const effortOptions = selectedModelOption?.value === GEMINI_FLASH_MODEL
+        ? geminiEffortOptions
+        : geminiEffortOptions.filter(o => o.value !== 'none');
 
     return (
         <>
@@ -995,7 +1001,7 @@ const ArbiterSettings: React.FC<{
                     <label className="block text-sm font-medium text-[var(--text)] mb-2">Thinking Effort</label>
                     <SegmentedControl
                         aria-label="Arbiter Thinking Effort"
-                        options={geminiEffortOptions.filter(o => o.value !== 'none')}
+                        options={effortOptions}
                         value={geminiArbiterEffort}
                         onChange={setGeminiArbiterEffort}
                         disabled={isLoading}
