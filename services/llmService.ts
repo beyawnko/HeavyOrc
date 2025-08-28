@@ -32,6 +32,8 @@ export const fetchWithRetry = async (
         }
         await sleep(baseDelayMs * Math.pow(2, attempt));
     }
+    // This path should be unreachable, but ensures type safety if the loop completes without returning.
+    throw new Error("fetchWithRetry exhausted all retries without success.");
 };
 
 export const callWithRetry = async <T>(
@@ -63,6 +65,8 @@ export const callWithRetry = async <T>(
         }
         await sleep(baseDelayMs * Math.pow(2, attempt));
     }
+    // This path should be unreachable, but ensures type safety if the loop completes without returning.
+    throw new Error("callWithRetry exhausted all retries without success.");
 };
 
 let geminiClient: GoogleGenAI | undefined;
