@@ -15,7 +15,8 @@ import {
 import { GeminiThinkingEffort } from '@/types';
 import { callWithGeminiRetry, handleGeminiError } from '@/services/geminiUtils';
 
-const GEMINI_PRO_BUDGETS: Record<Extract<GeminiThinkingEffort, 'low' | 'medium' | 'high' | 'dynamic'>, number> = {
+const GEMINI_PRO_BUDGETS: Record<GeminiThinkingEffort, number> = {
+    none: 0,
     low: 8192,
     medium: 24576,
     high: 32768,
@@ -159,7 +160,10 @@ export const arbitrateStream = async (
     // Gemini Logic for the arbiter.
     const model = arbiterModel === GEMINI_FLASH_MODEL ? GEMINI_FLASH_MODEL : GEMINI_PRO_MODEL;
     const budgets = model === GEMINI_FLASH_MODEL ? GEMINI_FLASH_BUDGETS : GEMINI_PRO_BUDGETS;
-    const effortKey = model === GEMINI_PRO_MODEL && geminiArbiterEffort === 'none' ? 'dynamic' : geminiArbiterEffort;
+    const effortKey: keyof typeof budgets =
+        model === GEMINI_PRO_MODEL && geminiArbiterEffort === 'none'
+            ? 'dynamic'
+            : geminiArbiterEffort;
     const budget = budgets[effortKey];
 
     const geminiAI = getGeminiClient();
