@@ -780,7 +780,7 @@ const App: React.FC = () => {
     }, [isRunning, error, hasResults, selectedRunId]);
 
     return (
-        <div className="bg-[var(--bg)] text-[var(--text)] font-sans flex" style={{ minHeight: 'calc(var(--vh, 1vh) * 100)' }}>
+        <div className="bg-[var(--bg)] text-[var(--text)] font-sans flex w-full overflow-x-hidden" style={{ minHeight: 'calc(var(--vh, 1vh) * 100)' }}>
             <HistorySidebar
                 history={history}
                 selectedRunId={selectedRunId}
@@ -807,7 +807,7 @@ const App: React.FC = () => {
                     onSelectQuery={handleSelectQuery}
                 />
                 <div className="flex-1 overflow-y-auto scrollable-area">
-                    <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <header className="text-center py-8 relative fixed-header">
                             <div className="absolute top-8 left-0 md:hidden">
                                 <button
