@@ -996,6 +996,7 @@ const App: React.FC = () => {
                             currentRunStatus={currentRunStatus}
                             className="relative h-full"
                             isMobile
+                            onClose={closeMobileHistory}
                         />
                     </div>
                 </FocusTrap>

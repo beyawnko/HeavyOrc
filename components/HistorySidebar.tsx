@@ -14,6 +14,7 @@ interface HistorySidebarProps {
   currentRunStatus: CurrentRunStatus;
   className?: string;
   isMobile?: boolean;
+  onClose?: () => void;
 }
 
 const formatTimestamp = (timestamp: number): string => {
@@ -56,7 +57,7 @@ const StatusIndicator: React.FC<{ status: RunStatus }> = ({ status }) => {
 };
 
 
-const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>(({
+const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>(({ 
     history,
     selectedRunId,
     onSelectRun,
@@ -65,6 +66,7 @@ const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>(({
     currentRunStatus,
     className,
     isMobile,
+    onClose,
 }, newRunButtonRef) => {
     const [isOpen, setIsOpen] = useState(true);
 
@@ -72,13 +74,24 @@ const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>(({
         <aside className={`bg-[var(--surface-2)] border-r border-[var(--line)] flex flex-col transition-all duration-300 ease-in-out ${isOpen ? 'w-64' : 'w-16'} ${className ?? ''}`}>
             <div className="flex-shrink-0 p-2 flex items-center justify-between border-b border-[var(--line)]">
                 {isOpen && <h2 className="text-lg font-semibold ml-2">History</h2>}
-                <button
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-active)] rounded-lg transition-colors"
-                    title={isOpen ? "Collapse Sidebar" : "Expand Sidebar"}
-                >
-                    {isOpen ? <ChevronLeftIcon className="w-6 h-6" aria-hidden="true" /> : <ChevronRightIcon className="w-6 h-6" aria-hidden="true" />}
-                </button>
+                {isMobile ? (
+                    <button
+                        onClick={onClose}
+                        className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-active)] rounded-lg transition-colors"
+                        title="Close History"
+                        aria-label="Close History"
+                    >
+                        <ChevronLeftIcon className="w-6 h-6" aria-hidden="true" />
+                    </button>
+                ) : (
+                    <button
+                        onClick={() => setIsOpen(!isOpen)}
+                        className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-active)] rounded-lg transition-colors"
+                        title={isOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+                    >
+                        {isOpen ? <ChevronLeftIcon className="w-6 h-6" aria-hidden="true" /> : <ChevronRightIcon className="w-6 h-6" aria-hidden="true" />}
+                    </button>
+                )}
             </div>
 
             <div className="flex-shrink-0 p-2">
