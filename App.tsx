@@ -978,7 +978,7 @@ const App: React.FC = () => {
                 <FocusTrap
                     focusTrapOptions={{
                         initialFocus: '#mobile-history-new-run',
-                        onDeactivate: closeMobileHistory,
+                        onDeactivate: () => openHistoryButtonRef.current?.focus(),
                     }}
                 >
                     <div className="fixed inset-0 z-40 flex">
