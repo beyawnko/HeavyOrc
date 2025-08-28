@@ -41,6 +41,7 @@ import FinalAnswerCard from '@/components/FinalAnswerCard';
 import HistorySidebar from '@/components/HistorySidebar';
 import SegmentedControl from '@/components/SegmentedControl';
 import useViewportHeight from '@/lib/useViewportHeight';
+import useKeydown from '@/lib/useKeydown';
 import FocusTrap from 'focus-trap-react';
 
 const OPENAI_API_KEY_STORAGE_KEY = 'openai_api_key';
@@ -221,21 +222,7 @@ const App: React.FC = () => {
         setMobileHistoryOpen(false);
         openHistoryButtonRef.current?.focus();
     }, []);
-
-    useEffect(() => {
-        if (!isMobileHistoryOpen) return;
-
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                closeMobileHistory();
-            }
-        };
-
-        document.addEventListener('keydown', handleKeyDown);
-        return () => {
-            document.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [isMobileHistoryOpen, closeMobileHistory]);
+    useKeydown('Escape', closeMobileHistory, isMobileHistoryOpen);
 
     const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
     const agentEnsembleRef = useRef<AgentEnsembleHandles>(null);
