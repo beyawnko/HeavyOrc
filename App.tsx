@@ -41,6 +41,7 @@ import FinalAnswerCard from '@/components/FinalAnswerCard';
 import HistorySidebar from '@/components/HistorySidebar';
 import SegmentedControl from '@/components/SegmentedControl';
 import useViewportHeight from '@/lib/useViewportHeight';
+import useKeydown from '@/lib/useKeydown';
 import FocusTrap from 'focus-trap-react';
 
 const OPENAI_API_KEY_STORAGE_KEY = 'openai_api_key';
@@ -215,11 +216,13 @@ const App: React.FC = () => {
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [isMobileHistoryOpen, setMobileHistoryOpen] = useState(false);
     const openHistoryButtonRef = useRef<HTMLButtonElement | null>(null);
+    const mobileHistoryNewRunButtonRef = useRef<HTMLButtonElement | null>(null);
 
     const closeMobileHistory = useCallback(() => {
         setMobileHistoryOpen(false);
         openHistoryButtonRef.current?.focus();
     }, []);
+    useKeydown('Escape', closeMobileHistory, isMobileHistoryOpen);
 
     const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
     const agentEnsembleRef = useRef<AgentEnsembleHandles>(null);
@@ -977,13 +980,14 @@ const App: React.FC = () => {
             {isMobileHistoryOpen && (
                 <FocusTrap
                     focusTrapOptions={{
-                        initialFocus: '#mobile-history-new-run',
+                        initialFocus: () => mobileHistoryNewRunButtonRef.current ?? undefined,
                         onDeactivate: () => openHistoryButtonRef.current?.focus(),
                     }}
                 >
                     <div className="fixed inset-0 z-40 flex">
                         <div className="absolute inset-0 bg-black/50" onClick={closeMobileHistory}></div>
                         <HistorySidebar
+                            ref={mobileHistoryNewRunButtonRef}
                             history={history}
                             selectedRunId={selectedRunId}
                             onSelectRun={handleSelectRunAndClose}
