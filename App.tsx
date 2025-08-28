@@ -980,13 +980,14 @@ const App: React.FC = () => {
             {isMobileHistoryOpen && (
                 <FocusTrap
                     focusTrapOptions={{
-                        initialFocus: () => mobileHistoryNewRunButtonRef.current!,
+                        initialFocus: () => mobileHistoryNewRunButtonRef.current ?? undefined,
                         onDeactivate: () => openHistoryButtonRef.current?.focus(),
                     }}
                 >
                     <div className="fixed inset-0 z-40 flex">
                         <div className="absolute inset-0 bg-black/50" onClick={closeMobileHistory}></div>
                         <HistorySidebar
+                            ref={mobileHistoryNewRunButtonRef}
                             history={history}
                             selectedRunId={selectedRunId}
                             onSelectRun={handleSelectRunAndClose}
@@ -994,7 +995,6 @@ const App: React.FC = () => {
                             onViewCurrentRun={handleViewCurrentRunAndClose}
                             currentRunStatus={currentRunStatus}
                             className="relative h-full"
-                            newRunButtonRef={mobileHistoryNewRunButtonRef}
                         />
                     </div>
                 </FocusTrap>

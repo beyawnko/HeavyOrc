@@ -1,12 +1,18 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 const useKeydown = (key: string, callback: (e: KeyboardEvent) => void, active = true) => {
+  const callbackRef = useRef(callback);
+
+  useEffect(() => {
+    callbackRef.current = callback;
+  }, [callback]);
+
   useEffect(() => {
     if (!active) return;
 
     const handler = (event: KeyboardEvent) => {
       if (event.key === key) {
-        callback(event);
+        callbackRef.current(event);
       }
     };
 
@@ -14,7 +20,7 @@ const useKeydown = (key: string, callback: (e: KeyboardEvent) => void, active = 
     return () => {
       document.removeEventListener('keydown', handler);
     };
-  }, [key, callback, active]);
+  }, [key, active]);
 };
 
 export default useKeydown;
