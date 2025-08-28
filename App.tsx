@@ -31,7 +31,7 @@ import { experts } from '@/moe/experts';
 import { runOrchestration } from '@/moe/orchestrator';
 import { Draft, ExpertDispatch } from '@/moe/types';
 import AgentCard from '@/components/AgentCard';
-import { ShieldCheckIcon, CogIcon, DownloadIcon, ExclamationTriangleIcon, XMarkIcon } from '@/components/icons';
+import { ShieldCheckIcon, CogIcon, DownloadIcon, ExclamationTriangleIcon, XMarkIcon, Bars3Icon } from '@/components/icons';
 import SettingsView from '@/components/SettingsView';
 import { setOpenAIApiKey as storeOpenAIApiKey, setGeminiApiKey as storeGeminiApiKey, setOpenRouterApiKey as storeOpenRouterApiKey } from '@/services/llmService';
 import CollapsibleSection from '@/components/CollapsibleSection';
@@ -40,6 +40,9 @@ import PromptInput from '@/components/PromptInput';
 import FinalAnswerCard from '@/components/FinalAnswerCard';
 import HistorySidebar from '@/components/HistorySidebar';
 import SegmentedControl from '@/components/SegmentedControl';
+import useViewportHeight from '@/lib/useViewportHeight';
+import useKeydown from '@/lib/useKeydown';
+import FocusTrap from 'focus-trap-react';
 
 const OPENAI_API_KEY_STORAGE_KEY = 'openai_api_key';
 const GEMINI_API_KEY_STORAGE_KEY = 'gemini_api_key';
@@ -181,6 +184,7 @@ const mapDraftToAgentState = (draft: Draft): AgentState => ({
 });
 
 const App: React.FC = () => {
+    useViewportHeight();
     // Live state
     const [prompt, setPrompt] = useState<string>('');
     const [images, setImages] = useState<ImageState[]>([]);
@@ -210,6 +214,15 @@ const App: React.FC = () => {
     const [isSettingsViewOpen, setIsSettingsViewOpen] = useState<boolean>(false);
     const [queryHistory, setQueryHistory] = useState<string[]>([]);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [isMobileHistoryOpen, setMobileHistoryOpen] = useState(false);
+    const openHistoryButtonRef = useRef<HTMLButtonElement | null>(null);
+    const mobileHistoryNewRunButtonRef = useRef<HTMLButtonElement | null>(null);
+
+    const closeMobileHistory = useCallback(() => {
+        setMobileHistoryOpen(false);
+        openHistoryButtonRef.current?.focus();
+    }, []);
+    useKeydown('Escape', closeMobileHistory, isMobileHistoryOpen);
 
     const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
     const agentEnsembleRef = useRef<AgentEnsembleHandles>(null);
@@ -223,6 +236,7 @@ const App: React.FC = () => {
     const animationFrameId = useRef<number | null>(null);
     const isRunCompletedRef = useRef(false);
     const currentRunDataRef = useRef<Pick<RunRecord, 'prompt' | 'images' | 'agentConfigs' | 'arbiterModel' | 'openAIArbiterVerbosity' | 'geminiArbiterEffort'> | undefined>(undefined);
+
 
     useEffect(() => { finalAnswerRef.current = finalAnswer; }, [finalAnswer]);
     useEffect(() => { agentsRef.current = agents; }, [agents]);
@@ -439,12 +453,31 @@ const App: React.FC = () => {
         handleReset();
     }, [handleReset]);
 
+    const handleViewCurrentRun = useCallback(() => {
+        setSelectedRunId(null);
+    }, []);
+
     const handleSelectRun = useCallback((id: string) => {
         const run = history.find(r => r.id === id);
         if (run) {
             setSelectedRunId(id);
         }
     }, [history]);
+
+    const handleSelectRunAndClose = useCallback((id: string) => {
+        handleSelectRun(id);
+        closeMobileHistory();
+    }, [handleSelectRun, closeMobileHistory]);
+
+    const handleNewRunAndClose = useCallback(() => {
+        handleNewRun();
+        closeMobileHistory();
+    }, [handleNewRun, closeMobileHistory]);
+
+    const handleViewCurrentRunAndClose = useCallback(() => {
+        handleViewCurrentRun();
+        closeMobileHistory();
+    }, [handleViewCurrentRun, closeMobileHistory]);
     
     const handleDuplicateAgent = useCallback((id: string) => {
         setAgentConfigs(prev => {
@@ -581,8 +614,7 @@ const App: React.FC = () => {
 
     useEffect(() => {
         isHistoryViewRef.current = displayData.isHistoryView;
-        agentsRef.current = displayData.agents;
-    }, [displayData]);
+    }, [displayData.isHistoryView]);
 
     const handleSaveAll = async () => {
         const dataToSave = displayData;
@@ -748,17 +780,19 @@ const App: React.FC = () => {
     }, [isRunning, error, hasResults, selectedRunId]);
 
     return (
-        <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] font-sans flex h-screen">
-            <HistorySidebar 
+        <div className="bg-[var(--bg)] text-[var(--text)] font-sans flex" style={{ minHeight: 'calc(var(--vh, 1vh) * 100)' }}>
+            <HistorySidebar
                 history={history}
                 selectedRunId={selectedRunId}
                 onSelectRun={handleSelectRun}
                 onNewRun={handleNewRun}
+                onViewCurrentRun={handleViewCurrentRun}
                 currentRunStatus={currentRunStatus}
+                className="hidden md:flex"
             />
-            <div className="flex-1 flex flex-col h-screen">
+            <div className="flex-1 flex flex-col h-full">
                 {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-                 <SettingsView
+                <SettingsView
                     isOpen={isSettingsViewOpen}
                     onClose={() => setIsSettingsViewOpen(false)}
                     onSaveOpenAIApiKey={handleSaveOpenAIApiKey}
@@ -772,9 +806,19 @@ const App: React.FC = () => {
                     queryHistory={queryHistory}
                     onSelectQuery={handleSelectQuery}
                 />
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto scrollable-area">
                     <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <header className="text-center py-8 relative">
+                        <header className="text-center py-8 relative fixed-header">
+                            <div className="absolute top-8 left-0 md:hidden">
+                                <button
+                                    ref={openHistoryButtonRef}
+                                    onClick={() => setMobileHistoryOpen(true)}
+                                    className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-active)] rounded-lg"
+                                    aria-label="Open history"
+                                >
+                                    <Bars3Icon className="w-6 h-6" aria-hidden="true" />
+                                </button>
+                            </div>
                             <img src={`${import.meta.env.BASE_URL}assets/banner.svg`} alt="HeavyOrc banner" className="mx-auto mb-4 w-full max-w-2xl" />
                             <h1 className="text-4xl sm:text-5xl font-bold text-[var(--text)] flex items-center justify-center gap-3">
                                 <ShieldCheckIcon className="w-10 h-10 text-emerald-400" aria-hidden="true" />
@@ -908,7 +952,7 @@ const App: React.FC = () => {
                     </div>
                 </div>
 
-                <footer className="sticky bottom-0 z-10 bg-[var(--surface-1)] bg-opacity-80 backdrop-blur-lg border-t border-[var(--line)] flex-shrink-0">
+                <footer className="sticky bottom-0 z-10 bg-[var(--surface-1)] bg-opacity-80 backdrop-blur-lg border-t border-[var(--line)] flex-shrink-0 fixed-footer">
                     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3 space-y-3">
                         {isLoading && (
                             <div>
@@ -933,6 +977,28 @@ const App: React.FC = () => {
                     </div>
                 </footer>
             </div>
+            {isMobileHistoryOpen && (
+                <FocusTrap
+                    focusTrapOptions={{
+                        initialFocus: () => mobileHistoryNewRunButtonRef.current ?? undefined,
+                        onDeactivate: () => openHistoryButtonRef.current?.focus(),
+                    }}
+                >
+                    <div className="fixed inset-0 z-40 flex">
+                        <div className="absolute inset-0 bg-black/50" onClick={closeMobileHistory}></div>
+                        <HistorySidebar
+                            ref={mobileHistoryNewRunButtonRef}
+                            history={history}
+                            selectedRunId={selectedRunId}
+                            onSelectRun={handleSelectRunAndClose}
+                            onNewRun={handleNewRunAndClose}
+                            onViewCurrentRun={handleViewCurrentRunAndClose}
+                            currentRunStatus={currentRunStatus}
+                            className="relative h-full"
+                        />
+                    </div>
+                </FocusTrap>
+            )}
         </div>
     );
 };
