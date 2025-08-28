@@ -73,6 +73,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, selectedRunId,
 
             <div className="flex-shrink-0 p-2">
                 <button
+                    id="mobile-history-new-run"
                     onClick={onNewRun}
                     className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
                         !selectedRunId ? 'bg-[var(--accent)] text-[#0D1411] hover:brightness-110' : 'bg-[var(--surface-1)] hover:bg-[var(--surface-active)] text-[var(--text)]'
