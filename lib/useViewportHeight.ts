@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 const useViewportHeight = () => {
-  const [vh, setVh] = useState(typeof window !== 'undefined' ? window.innerHeight * 0.01 : 0);
+  const vhRef = useRef<number>(typeof window !== 'undefined' ? window.innerHeight * 0.01 : 0);
 
   useEffect(() => {
     const setDynamicVh = () => {
@@ -13,7 +13,7 @@ const useViewportHeight = () => {
         const keyboard = window.innerHeight - vv.height - vv.offsetTop;
         document.documentElement.style.setProperty('--keyboard-height', `${keyboard}px`);
       }
-      setVh(newVh);
+      vhRef.current = newVh;
     };
 
     let timeoutId: ReturnType<typeof setTimeout>;
@@ -33,7 +33,7 @@ const useViewportHeight = () => {
     };
   }, []);
 
-  return vh;
+  return vhRef;
 };
 
 export default useViewportHeight;
