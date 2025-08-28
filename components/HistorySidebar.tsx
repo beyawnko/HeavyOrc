@@ -10,7 +10,9 @@ interface HistorySidebarProps {
   selectedRunId: string | null;
   onSelectRun: (id: string) => void;
   onNewRun: () => void;
+  onViewCurrentRun: () => void;
   currentRunStatus: CurrentRunStatus;
+  className?: string;
 }
 
 const formatTimestamp = (timestamp: number): string => {
@@ -53,11 +55,11 @@ const StatusIndicator: React.FC<{ status: RunStatus }> = ({ status }) => {
 };
 
 
-const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, selectedRunId, onSelectRun, onNewRun, currentRunStatus }) => {
+const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, selectedRunId, onSelectRun, onNewRun, onViewCurrentRun, currentRunStatus, className }) => {
     const [isOpen, setIsOpen] = useState(true);
 
     return (
-        <aside className={`bg-[var(--surface-2)] border-r border-[var(--line)] flex flex-col transition-all duration-300 ease-in-out ${isOpen ? 'w-64' : 'w-16'}`}>
+        <aside className={`bg-[var(--surface-2)] border-r border-[var(--line)] flex flex-col transition-all duration-300 ease-in-out ${isOpen ? 'w-64' : 'w-16'} ${className ?? ''}`}>
             <div className="flex-shrink-0 p-2 flex items-center justify-between border-b border-[var(--line)]">
                 {isOpen && <h2 className="text-lg font-semibold ml-2">History</h2>}
                 <button
@@ -86,7 +88,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, selectedRunId,
                      {currentRunStatus !== 'IDLE' && (
                         <li>
                             <button
-                                onClick={() => onNewRun()} // Resets to live view
+                                onClick={onViewCurrentRun} // View current run without resetting
                                 className={`w-full text-left flex items-center gap-3 p-2 rounded-md transition-colors ${
                                     !selectedRunId ? 'bg-[var(--surface-1)]' : 'hover:bg-[var(--surface-active)]'
                                 }`}
