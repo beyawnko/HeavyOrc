@@ -24,8 +24,8 @@ export const isGeminiServerError = (error: unknown): boolean => {
 
 export const callWithGeminiRetry = async <T>(
     fn: () => Promise<T>,
-    retries = 2,
-    baseDelayMs = 1000,
+    retries = 5,
+    baseDelayMs = 2000,
 ): Promise<T> => {
     for (let attempt = 0; ; attempt++) {
         try {

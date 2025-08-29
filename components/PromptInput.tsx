@@ -152,7 +152,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
     const canSubmit = !disabled && (!!prompt.trim() || images.length > 0);
 
     return (
-        <div className="bg-[var(--surface-2)] p-2 rounded-2xl shadow-2xl border border-[var(--line)] flex flex-col gap-2">
+        <div className="w-full bg-[var(--surface-2)] p-2 rounded-2xl shadow-2xl border border-[var(--line)] flex flex-col gap-2">
             {imagePreviews.length > 0 && (
                 <div className="flex flex-wrap gap-2 px-2 pt-1">
                     {imagePreviews.map(img => (
@@ -174,7 +174,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
                     ))}
                 </div>
             )}
-            <div className="flex items-end gap-2">
+            <div className="flex items-end gap-2 w-full">
                  <div className="flex items-center gap-1">
                     <button
                         type="button"
@@ -212,7 +212,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
                     onChange={(e) => onPromptChange(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Ask me anything, or add up to 5 images..."
-                    className="w-full flex-grow bg-transparent text-[var(--text)] placeholder-[var(--text-muted)] text-base resize-none focus:outline-none p-2 min-h-[44px]"
+                    className="flex-1 min-w-0 bg-transparent text-[var(--text)] placeholder-[var(--text-muted)] text-base resize-none focus:outline-none p-2 min-h-[44px]"
                     rows={1}
                     disabled={disabled || isLoading}
                 />
