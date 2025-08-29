@@ -1,4 +1,4 @@
-export const GEMINI_QUOTA_MESSAGE = "Gemini quota exceeded, please wait before retrying.";
+export const GEMINI_QUOTA_MESSAGE = "Gemini quota exceeded, please try again in a few seconds.";
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -24,8 +24,8 @@ export const isGeminiServerError = (error: unknown): boolean => {
 
 export const callWithGeminiRetry = async <T>(
     fn: () => Promise<T>,
-    retries = 5,
-    baseDelayMs = 2000,
+    retries = 3,
+    baseDelayMs = 1000,
 ): Promise<T> => {
     for (let attempt = 0; ; attempt++) {
         try {
