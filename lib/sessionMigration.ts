@@ -151,12 +151,12 @@ export const migrateAgentConfig = (
             const effort: OpenAIReasoningEffort = isOpenAIReasoningEffort(
                 openAISettings.effort,
             )
-                ? openAISettings.effort!
+                ? openAISettings.effort
                 : 'medium';
             const verbosity: OpenAIVerbosity = isOpenAIVerbosity(
                 openAISettings.verbosity,
             )
-                ? openAISettings.verbosity!
+                ? openAISettings.verbosity
                 : 'medium';
             const migratedSettings: OpenAIAgentSettings = {
                 ...migrateCommonSettings(openAISettings),
