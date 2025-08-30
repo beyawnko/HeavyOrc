@@ -5,7 +5,7 @@ import { dispatch } from './dispatcher';
 import { arbitrateStream } from './arbiter';
 import { Draft, ExpertDispatch } from './types';
 import { GEMINI_PRO_MODEL } from '@/constants';
-import { AgentConfig, GeminiThinkingEffort, ImageState } from '@/types';
+import { AgentConfig, GeminiThinkingEffort, ImageState, OpenAIReasoningEffort } from '@/types';
 
 export interface OrchestrationParams {
     prompt: string;
@@ -13,6 +13,7 @@ export interface OrchestrationParams {
     agentConfigs: AgentConfig[];
     arbiterModel: string;
     openAIArbiterVerbosity: 'low' | 'medium' | 'high';
+    openAIArbiterEffort: OpenAIReasoningEffort;
     geminiArbiterEffort: GeminiThinkingEffort;
 }
 
@@ -63,10 +64,11 @@ export const runOrchestration = async (params: OrchestrationParams, callbacks: O
     }
 
     const stream = await arbitrateStream(
-        finalArbiterModel, 
-        params.prompt, 
-        drafts, 
+        finalArbiterModel,
+        params.prompt,
+        drafts,
         params.openAIArbiterVerbosity,
+        params.openAIArbiterEffort,
         params.geminiArbiterEffort
     );
 
