@@ -82,18 +82,18 @@ const CommonAgentSettingsSchema = z.object({
     deepConfEta: z.union([z.literal(10), z.literal(90)]).optional(),
     tau: z.number().optional(),
     groupWindow: z.number().optional(),
-});
+}).strict();
 
 const GeminiAgentSettingsSchema: z.ZodType<Partial<GeminiAgentSettings>> =
     CommonAgentSettingsSchema.extend({
         effort: z.enum(['dynamic', 'high', 'medium', 'low', 'none']).optional(),
-    });
+    }).strict();
 
 const OpenAIAgentSettingsSchema: z.ZodType<Partial<OpenAIAgentSettings>> =
     CommonAgentSettingsSchema.extend({
         effort: z.enum(['medium', 'high']).optional(),
         verbosity: z.enum(['low', 'medium', 'high']).optional(),
-    });
+    }).strict();
 
 const OpenRouterAgentSettingsSchema: z.ZodType<Partial<OpenRouterAgentSettings>> = z.object({
     temperature: z.number().optional(),
@@ -103,7 +103,7 @@ const OpenRouterAgentSettingsSchema: z.ZodType<Partial<OpenRouterAgentSettings>>
     presencePenalty: z.number().optional(),
     repetitionPenalty: z.number().optional(),
     maxTokens: z.number().optional(),
-});
+}).strict();
 
 export interface BaseAgentConfig {
     id: string; // unique instance id
