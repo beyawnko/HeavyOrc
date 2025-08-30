@@ -38,6 +38,7 @@ import { Draft, ExpertDispatch } from '@/moe/types';
 
 // Components
 import { ShieldCheckIcon, CogIcon, DownloadIcon, ExclamationTriangleIcon, XMarkIcon, Bars3Icon } from '@/components/icons';
+import { z } from 'zod';
 import AgentCard from '@/components/AgentCard';
 import SettingsView from '@/components/SettingsView';
 import CollapsibleSection from '@/components/CollapsibleSection';
@@ -68,6 +69,29 @@ const OPENAI_API_KEY_STORAGE_KEY = 'openai_api_key';
 const GEMINI_API_KEY_STORAGE_KEY = 'gemini_api_key';
 const OPENROUTER_API_KEY_STORAGE_KEY = 'openrouter_api_key';
 const MAX_HISTORY_LENGTH = 20;
+
+const SavedAgentConfigSchema = z.object({
+    expertId: z.string(),
+    model: z.string(),
+    provider: z.enum(['gemini', 'openai', 'openrouter']),
+    settings: z.record(z.any()).optional().default({}),
+});
+
+const SessionDataSchema = z.object({
+    version: z.number(),
+    prompt: z.string().default(''),
+    agentConfigs: z.array(SavedAgentConfigSchema),
+    arbiterModel: z.string(),
+    openAIArbiterVerbosity: z.enum(['low', 'medium', 'high']).optional(),
+    openAIArbiterEffort: z.enum(['medium', 'high']).optional(),
+    geminiArbiterEffort: z
+        .enum(['dynamic', 'high', 'medium', 'low', 'none'])
+        .optional(),
+    openAIApiKey: z.string().optional(),
+    geminiApiKey: z.string().optional(),
+    openRouterApiKey: z.string().optional(),
+    queryHistory: z.array(z.string()).optional(),
+});
 
 const containerVariants: Variants = {
     hidden: { opacity: 0 },
@@ -721,63 +745,59 @@ const App: React.FC = () => {
         }
     }, [prompt, agentConfigs, arbiterModel, openAIArbiterVerbosity, openAIArbiterEffort, geminiArbiterEffort, openAIApiKey, geminiApiKey, openRouterApiKey, queryHistory]);
     
-    const handleLoadSession = useCallback((file: File) => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const jsonString = event.target?.result as string;
-                if (!jsonString) {
-                    throw new Error("File is empty or could not be read.");
+    const handleLoadSession = useCallback(
+        (file: File) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const jsonString = event.target?.result as string;
+                    if (!jsonString) {
+                        throw new Error("File is empty or could not be read.");
+                    }
+
+                    const data = SessionDataSchema.parse(JSON.parse(jsonString));
+
+                    if (data.version > SESSION_DATA_VERSION) {
+                        setToast({
+                            message: `This session file is from a newer version (v${data.version}) and cannot be loaded.`,
+                            type: 'error',
+                        });
+                        return;
+                    }
+
+                    const loadedAgentConfigs: AgentConfig[] = data.agentConfigs
+                        .map((savedConfig) => migrateAgentConfig(savedConfig, experts))
+                        .filter((config): config is AgentConfig => config !== null);
+
+                    handleNewRun(); // Clear current state before loading
+                    setPrompt(data.prompt ?? '');
+                    setAgentConfigs(loadedAgentConfigs);
+                    setArbiterModel(data.arbiterModel ?? GEMINI_PRO_MODEL);
+                    setOpenAIArbiterVerbosity(data.openAIArbiterVerbosity ?? 'medium');
+                    setOpenAIArbiterEffort(data.openAIArbiterEffort ?? 'medium');
+                    setGeminiArbiterEffort(data.geminiArbiterEffort ?? 'dynamic');
+                    handleSaveOpenAIApiKey(data.openAIApiKey ?? '');
+                    handleSaveGeminiApiKey(data.geminiApiKey ?? '');
+                    handleSaveOpenRouterApiKey(data.openRouterApiKey ?? '');
+                    setQueryHistory(data.queryHistory ?? []);
+
+                    setIsSettingsViewOpen(false);
+                    setToast({ message: "Session loaded successfully!", type: 'success' });
+                } catch (e) {
+                    console.error("Failed to load session:", e);
+                    const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
+                    setToast({ message: `Error loading session file: ${errorMessage}`, type: 'error' });
                 }
+            };
 
-                const data = JSON.parse(jsonString) as SessionData;
+            reader.onerror = () => {
+                setToast({ message: "Failed to read the session file.", type: 'error' });
+            };
 
-                if (typeof data.version !== 'number') {
-                    setToast({ message: "Invalid session file: missing or invalid version.", type: 'error' });
-                    return;
-                }
-
-                if (data.version > SESSION_DATA_VERSION) {
-                    setToast({ message: `This session file is from a newer version (v${data.version}) and cannot be loaded.`, type: 'error' });
-                    return;
-                }
-
-                if (!Array.isArray(data.agentConfigs)) {
-                    throw new Error("Invalid session file format: agentConfigs is missing or not an array.");
-                }
-
-                const loadedAgentConfigs: AgentConfig[] = data.agentConfigs
-                    .map((savedConfig) => migrateAgentConfig(savedConfig, experts))
-                    .filter((config): config is AgentConfig => config !== null);
-
-                handleNewRun(); // Clear current state before loading
-                setPrompt(data.prompt ?? '');
-                setAgentConfigs(loadedAgentConfigs);
-                setArbiterModel(data.arbiterModel ?? GEMINI_PRO_MODEL);
-                setOpenAIArbiterVerbosity(data.openAIArbiterVerbosity ?? 'medium');
-                setOpenAIArbiterEffort(data.openAIArbiterEffort ?? 'medium');
-                setGeminiArbiterEffort(data.geminiArbiterEffort ?? 'dynamic');
-                handleSaveOpenAIApiKey(data.openAIApiKey ?? '');
-                handleSaveGeminiApiKey(data.geminiApiKey ?? '');
-                handleSaveOpenRouterApiKey(data.openRouterApiKey ?? '');
-                setQueryHistory(data.queryHistory ?? []);
-                
-                setIsSettingsViewOpen(false);
-                setToast({ message: "Session loaded successfully!", type: 'success' });
-
-            } catch (e) {
-                console.error("Failed to load session:", e);
-                const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
-                setToast({ message: `Error loading session file: ${errorMessage}`, type: 'error' });
-            }
-        };
-
-        reader.onerror = () => {
-            setToast({ message: "Failed to read the session file.", type: 'error' });
-        };
-
-        reader.readAsText(file);
-    }, [handleSaveOpenAIApiKey, handleSaveGeminiApiKey, handleSaveOpenRouterApiKey, handleNewRun]);
+            reader.readAsText(file);
+        },
+        [handleSaveOpenAIApiKey, handleSaveGeminiApiKey, handleSaveOpenRouterApiKey, handleNewRun],
+    );
 
     const handleSelectQuery = useCallback((query: string) => {
         setPrompt(query);
