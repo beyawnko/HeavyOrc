@@ -769,29 +769,22 @@ const App: React.FC = () => {
                             tau: partialSettings.tau ?? 0.95,
                             groupWindow: partialSettings.groupWindow ?? 2048,
                         };
-
-                        if (provider === 'gemini') {
-                            const migratedSettings: GeminiAgentSettings = {
+                        const providerSettings =
+                            provider === 'gemini'
+                                ? { effort: partialSettings.effort ?? 'dynamic' }
+                                : {
+                                      effort: partialSettings.effort ?? 'medium',
+                                      verbosity: partialSettings.verbosity ?? 'medium',
+                                  };
+        
+                        return {
+                            ...baseConfig,
+                            provider,
+                            settings: {
                                 ...commonSettings,
-                                effort: partialSettings.effort ?? 'dynamic',
-                            };
-                            return {
-                                ...baseConfig,
-                                provider: 'gemini',
-                                settings: migratedSettings,
-                            } as GeminiAgentConfig;
-                        } else {
-                            const migratedSettings: OpenAIAgentSettings = {
-                                ...commonSettings,
-                                effort: partialSettings.effort ?? 'medium',
-                                verbosity: partialSettings.verbosity ?? 'medium',
-                            };
-                            return {
-                                ...baseConfig,
-                                provider: 'openai',
-                                settings: migratedSettings,
-                            } as OpenAIAgentConfig;
-                        }
+                                ...providerSettings,
+                            },
+                        } as GeminiAgentConfig | OpenAIAgentConfig;
                     } else if (provider === 'openrouter') {
                         const settings = savedConfig.settings as Partial<OpenRouterAgentSettings>;
                         const migratedSettings: OpenRouterAgentSettings = {
