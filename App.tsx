@@ -11,6 +11,8 @@ import {
     GeminiAgentConfig,
     OpenAIAgentConfig,
     OpenRouterAgentConfig,
+    GeminiAgentSettings,
+    OpenAIAgentSettings,
     ArbiterModel,
     OpenAIVerbosity,
     SessionData,
@@ -729,6 +731,11 @@ const App: React.FC = () => {
 
                 const data = JSON.parse(jsonString) as SessionData;
 
+                if (typeof data.version !== 'number') {
+                    setToast({ message: "Invalid session file: missing or invalid version.", type: 'error' });
+                    return;
+                }
+
                 if (data.version > SESSION_DATA_VERSION) {
                     setToast({ message: `This session file is from a newer version (v${data.version}) and cannot be loaded.`, type: 'error' });
                     return;
@@ -752,11 +759,32 @@ const App: React.FC = () => {
                         status: 'PENDING' as const,
                     };
                     if (savedConfig.provider === 'gemini') {
-                        return { ...baseConfig, provider: 'gemini', settings: savedConfig.settings } as GeminiAgentConfig;
+                        const settings = savedConfig.settings as Partial<GeminiAgentSettings>;
+                        const migratedSettings: GeminiAgentSettings = {
+                            effort: settings.effort ?? 'dynamic',
+                            generationStrategy: settings.generationStrategy ?? 'single',
+                            confidenceSource: 'judge',
+                            traceCount: settings.traceCount ?? 8,
+                            deepConfEta: settings.deepConfEta ?? 90,
+                            tau: settings.tau ?? 0.95,
+                            groupWindow: settings.groupWindow ?? 2048,
+                        };
+                        return { ...baseConfig, provider: 'gemini', settings: migratedSettings } as GeminiAgentConfig;
                     } else if (savedConfig.provider === 'openrouter') {
                         return { ...baseConfig, provider: 'openrouter', settings: savedConfig.settings } as OpenRouterAgentConfig;
                     } else {
-                        return { ...baseConfig, provider: 'openai', settings: savedConfig.settings } as OpenAIAgentConfig;
+                        const settings = savedConfig.settings as Partial<OpenAIAgentSettings>;
+                        const migratedSettings: OpenAIAgentSettings = {
+                            effort: settings.effort ?? 'medium',
+                            verbosity: settings.verbosity ?? 'medium',
+                            generationStrategy: settings.generationStrategy ?? 'single',
+                            confidenceSource: 'judge',
+                            traceCount: settings.traceCount ?? 8,
+                            deepConfEta: settings.deepConfEta ?? 90,
+                            tau: settings.tau ?? 0.95,
+                            groupWindow: settings.groupWindow ?? 2048,
+                        };
+                        return { ...baseConfig, provider: 'openai', settings: migratedSettings } as OpenAIAgentConfig;
                     }
                 }).filter((config): config is AgentConfig => config !== null);
 
