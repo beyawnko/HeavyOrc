@@ -73,8 +73,7 @@ export interface OpenRouterAgentSettings {
     maxTokens?: number;
 }
 
-const GeminiAgentSettingsSchema: z.ZodType<Partial<GeminiAgentSettings>> = z.object({
-    effort: z.enum(['dynamic', 'high', 'medium', 'low', 'none']).optional(),
+const CommonAgentSettingsSchema = z.object({
     generationStrategy: z
         .enum(['single', 'deepconf-offline', 'deepconf-online'])
         .optional(),
@@ -85,18 +84,16 @@ const GeminiAgentSettingsSchema: z.ZodType<Partial<GeminiAgentSettings>> = z.obj
     groupWindow: z.number().optional(),
 });
 
-const OpenAIAgentSettingsSchema: z.ZodType<Partial<OpenAIAgentSettings>> = z.object({
-    effort: z.enum(['medium', 'high']).optional(),
-    verbosity: z.enum(['low', 'medium', 'high']).optional(),
-    generationStrategy: z
-        .enum(['single', 'deepconf-offline', 'deepconf-online'])
-        .optional(),
-    confidenceSource: z.literal('judge').optional(),
-    traceCount: z.number().optional(),
-    deepConfEta: z.union([z.literal(10), z.literal(90)]).optional(),
-    tau: z.number().optional(),
-    groupWindow: z.number().optional(),
-});
+const GeminiAgentSettingsSchema: z.ZodType<Partial<GeminiAgentSettings>> =
+    CommonAgentSettingsSchema.extend({
+        effort: z.enum(['dynamic', 'high', 'medium', 'low', 'none']).optional(),
+    });
+
+const OpenAIAgentSettingsSchema: z.ZodType<Partial<OpenAIAgentSettings>> =
+    CommonAgentSettingsSchema.extend({
+        effort: z.enum(['medium', 'high']).optional(),
+        verbosity: z.enum(['low', 'medium', 'high']).optional(),
+    });
 
 const OpenRouterAgentSettingsSchema: z.ZodType<Partial<OpenRouterAgentSettings>> = z.object({
     temperature: z.number().optional(),
