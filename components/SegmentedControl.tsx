@@ -18,7 +18,8 @@ const SegmentedControl = <T extends string>({ options, value, onChange, disabled
   const containerClasses = [
     'flex w-full p-1 bg-[var(--surface-1)] border border-[var(--line)] rounded-lg',
     'overflow-x-auto sm:overflow-x-visible',
-    '[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]',
+    '[scrollbar-width:thin] [scrollbar-color:var(--line)_transparent]',
+    '[&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[var(--line)]',
     disabled ? 'opacity-70 cursor-not-allowed' : '',
   ].join(' ');
 
