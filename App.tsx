@@ -234,57 +234,60 @@ const migrateAgentConfig = (
         status: 'PENDING' as const,
     };
 
-    const provider = (savedConfig as { provider?: string }).provider;
+    const provider = savedConfig.provider;
 
-    if (provider === 'gemini') {
-        const settings = savedConfig.settings as Partial<GeminiAgentSettings>;
-        const migratedSettings: GeminiAgentSettings = {
-            ...migrateCommonSettings(settings),
-            effort: settings.effort ?? 'dynamic',
-        };
-        return {
-            ...baseConfig,
-            provider: 'gemini',
-            settings: migratedSettings,
-        } as GeminiAgentConfig;
+    switch (provider) {
+        case 'gemini': {
+            const settings = (savedConfig.settings || {}) as Partial<GeminiAgentSettings>;
+            const migratedSettings: GeminiAgentSettings = {
+                ...migrateCommonSettings(settings),
+                effort: settings.effort ?? 'dynamic',
+            };
+            return {
+                ...baseConfig,
+                provider: 'gemini',
+                settings: migratedSettings,
+            } as GeminiAgentConfig;
+        }
+
+        case 'openai': {
+            const settings = (savedConfig.settings || {}) as Partial<OpenAIAgentSettings>;
+            const migratedSettings: OpenAIAgentSettings = {
+                ...migrateCommonSettings(settings),
+                effort: settings.effort ?? 'medium',
+                verbosity: settings.verbosity ?? 'medium',
+            };
+            return {
+                ...baseConfig,
+                provider: 'openai',
+                settings: migratedSettings,
+            } as OpenAIAgentConfig;
+        }
+
+        case 'openrouter': {
+            const settings = (savedConfig.settings || {}) as Partial<OpenRouterAgentSettings>;
+            const migratedSettings: OpenRouterAgentSettings = {
+                temperature: settings.temperature ?? 0.7,
+                topP: settings.topP ?? 1,
+                topK: settings.topK ?? 50,
+                frequencyPenalty: settings.frequencyPenalty ?? 0,
+                presencePenalty: settings.presencePenalty ?? 0,
+                repetitionPenalty: settings.repetitionPenalty ?? 1,
+                maxTokens: settings.maxTokens,
+            };
+            return {
+                ...baseConfig,
+                provider: 'openrouter',
+                settings: migratedSettings,
+            } as OpenRouterAgentConfig;
+        }
+
+        default:
+            console.warn(
+                `Unknown provider "${provider}" for expert "${savedConfig.expertId}". Skipping.`,
+            );
+            return null;
     }
-
-    if (provider === 'openai') {
-        const settings = savedConfig.settings as Partial<OpenAIAgentSettings>;
-        const migratedSettings: OpenAIAgentSettings = {
-            ...migrateCommonSettings(settings),
-            effort: settings.effort ?? 'medium',
-            verbosity: settings.verbosity ?? 'medium',
-        };
-        return {
-            ...baseConfig,
-            provider: 'openai',
-            settings: migratedSettings,
-        } as OpenAIAgentConfig;
-    }
-
-    if (provider === 'openrouter') {
-        const settings = savedConfig.settings as Partial<OpenRouterAgentSettings>;
-        const migratedSettings: OpenRouterAgentSettings = {
-            temperature: settings.temperature ?? 0.7,
-            topP: settings.topP ?? 1,
-            topK: settings.topK ?? 50,
-            frequencyPenalty: settings.frequencyPenalty ?? 0,
-            presencePenalty: settings.presencePenalty ?? 0,
-            repetitionPenalty: settings.repetitionPenalty ?? 1,
-            maxTokens: settings.maxTokens,
-        };
-        return {
-            ...baseConfig,
-            provider: 'openrouter',
-            settings: migratedSettings,
-        } as OpenRouterAgentConfig;
-    }
-
-    console.warn(
-        `Unknown provider "${provider}" for expert "${savedConfig.expertId}". Skipping.`,
-    );
-    return null;
 };
 
 const App: React.FC = () => {
