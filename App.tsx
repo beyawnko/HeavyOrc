@@ -761,7 +761,7 @@ const App: React.FC = () => {
                     if (!result.success) {
                         const formatted = result.error.errors
                             .map(
-                                (err) =>
+                                (err: z.ZodIssue) =>
                                     `${err.path.join('.') || '(root)'} - ${err.message}`,
                             )
                             .join('; ');
@@ -783,8 +783,16 @@ const App: React.FC = () => {
                     }
 
                     const loadedAgentConfigs: AgentConfig[] = data.agentConfigs
-                        .map((savedConfig) => migrateAgentConfig(savedConfig, experts))
-                        .filter((config): config is AgentConfig => config !== null);
+                        .map((savedConfig: z.infer<typeof SavedAgentConfigSchema>) =>
+                            migrateAgentConfig(
+                                savedConfig as unknown as SavedAgentConfig,
+                                experts,
+                            ),
+                        )
+                        .filter(
+                            (config: AgentConfig | null): config is AgentConfig =>
+                                config !== null,
+                        );
 
                     handleNewRun(); // Clear current state before loading
                     setPrompt(data.prompt);

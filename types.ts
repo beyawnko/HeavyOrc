@@ -115,7 +115,7 @@ export interface SavedAgentConfig {
     expertId?: string;
     model?: AgentModel;
     provider?: ApiProvider;
-    settings: GeminiAgentSettings | OpenAIAgentSettings | OpenRouterAgentSettings | Record<string, unknown>;
+    settings: GeminiAgentSettings | OpenAIAgentSettings | OpenRouterAgentSettings;
 }
 
 export const SESSION_DATA_VERSION = 2;
