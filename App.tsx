@@ -213,6 +213,42 @@ const VALID_GENERATION_STRATEGIES: GenerationStrategy[] = [
     'deepconf-online',
 ];
 
+const GEMINI_EFFORT_VALUES: readonly GeminiThinkingEffort[] = [
+    'dynamic',
+    'high',
+    'medium',
+    'low',
+    'none',
+];
+const isGeminiThinkingEffort = (value: unknown): value is GeminiThinkingEffort =>
+    typeof value === 'string' &&
+    GEMINI_EFFORT_VALUES.includes(value as GeminiThinkingEffort);
+
+const OPENAI_EFFORT_VALUES: readonly OpenAIReasoningEffort[] = ['medium', 'high'];
+const isOpenAIReasoningEffort = (value: unknown): value is OpenAIReasoningEffort =>
+    typeof value === 'string' &&
+    OPENAI_EFFORT_VALUES.includes(value as OpenAIReasoningEffort);
+
+const OPENAI_VERBOSITY_VALUES: readonly OpenAIVerbosity[] = ['low', 'medium', 'high'];
+const isOpenAIVerbosity = (value: unknown): value is OpenAIVerbosity =>
+    typeof value === 'string' &&
+    OPENAI_VERBOSITY_VALUES.includes(value as OpenAIVerbosity);
+
+const migrateOpenRouterSettings = (
+    partial: Partial<OpenRouterAgentSettings>,
+): OpenRouterAgentSettings => ({
+    temperature: typeof partial.temperature === 'number' ? partial.temperature : 0.7,
+    topP: typeof partial.topP === 'number' ? partial.topP : 1,
+    topK: typeof partial.topK === 'number' ? partial.topK : 50,
+    frequencyPenalty:
+        typeof partial.frequencyPenalty === 'number' ? partial.frequencyPenalty : 0,
+    presencePenalty:
+        typeof partial.presencePenalty === 'number' ? partial.presencePenalty : 0,
+    repetitionPenalty:
+        typeof partial.repetitionPenalty === 'number' ? partial.repetitionPenalty : 1,
+    maxTokens: typeof partial.maxTokens === 'number' ? partial.maxTokens : undefined,
+});
+
 const migrateCommonSettings = (
     partial: Partial<GeminiAgentSettings | OpenAIAgentSettings>,
 ): Pick<
@@ -263,10 +299,8 @@ const migrateAgentConfig = (
                 typeof savedConfig.settings === 'object'
                     ? (savedConfig.settings as Partial<GeminiAgentSettings>)
                     : {};
-            const effort: GeminiThinkingEffort = ['dynamic', 'high', 'medium', 'low', 'none'].includes(
-                rawSettings.effort as GeminiThinkingEffort,
-            )
-                ? (rawSettings.effort as GeminiThinkingEffort)
+            const effort: GeminiThinkingEffort = isGeminiThinkingEffort(rawSettings.effort)
+                ? rawSettings.effort
                 : 'dynamic';
             const migratedSettings: GeminiAgentSettings = {
                 ...migrateCommonSettings(rawSettings),
@@ -291,13 +325,11 @@ const migrateAgentConfig = (
                 typeof savedConfig.settings === 'object'
                     ? (savedConfig.settings as Partial<OpenAIAgentSettings>)
                     : {};
-            const effort = ['medium', 'high'].includes(rawSettings.effort as any)
-                ? (rawSettings.effort as 'medium' | 'high')
+            const effort: OpenAIReasoningEffort = isOpenAIReasoningEffort(rawSettings.effort)
+                ? rawSettings.effort
                 : 'medium';
-            const verbosity: OpenAIVerbosity = ['low', 'medium', 'high'].includes(
-                rawSettings.verbosity as OpenAIVerbosity,
-            )
-                ? (rawSettings.verbosity as OpenAIVerbosity)
+            const verbosity: OpenAIVerbosity = isOpenAIVerbosity(rawSettings.verbosity)
+                ? rawSettings.verbosity
                 : 'medium';
             const migratedSettings: OpenAIAgentSettings = {
                 ...migrateCommonSettings(rawSettings),
@@ -322,30 +354,7 @@ const migrateAgentConfig = (
                 typeof savedConfig.settings === 'object'
                     ? (savedConfig.settings as Partial<OpenRouterAgentSettings>)
                     : {};
-            const migratedSettings: OpenRouterAgentSettings = {
-                temperature:
-                    typeof rawSettings.temperature === 'number'
-                        ? rawSettings.temperature
-                        : 0.7,
-                topP: typeof rawSettings.topP === 'number' ? rawSettings.topP : 1,
-                topK: typeof rawSettings.topK === 'number' ? rawSettings.topK : 50,
-                frequencyPenalty:
-                    typeof rawSettings.frequencyPenalty === 'number'
-                        ? rawSettings.frequencyPenalty
-                        : 0,
-                presencePenalty:
-                    typeof rawSettings.presencePenalty === 'number'
-                        ? rawSettings.presencePenalty
-                        : 0,
-                repetitionPenalty:
-                    typeof rawSettings.repetitionPenalty === 'number'
-                        ? rawSettings.repetitionPenalty
-                        : 1,
-                maxTokens:
-                    typeof rawSettings.maxTokens === 'number'
-                        ? rawSettings.maxTokens
-                        : undefined,
-            };
+            const migratedSettings = migrateOpenRouterSettings(rawSettings);
             return {
                 ...baseConfig,
                 model,
