@@ -729,8 +729,8 @@ const App: React.FC = () => {
 
                 const data = JSON.parse(jsonString) as SessionData;
 
-                if (data.version !== SESSION_DATA_VERSION) {
-                    setToast({ message: `This session file is from a different version (v${data.version}) and cannot be loaded.`, type: 'error' });
+                if (data.version > SESSION_DATA_VERSION) {
+                    setToast({ message: `This session file is from a newer version (v${data.version}) and cannot be loaded.`, type: 'error' });
                     return;
                 }
 
