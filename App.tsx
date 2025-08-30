@@ -90,7 +90,7 @@ const SessionDataSchema = z.object({
     openAIApiKey: z.string().optional(),
     geminiApiKey: z.string().optional(),
     openRouterApiKey: z.string().optional(),
-    queryHistory: z.array(z.string()).optional(),
+    queryHistory: z.array(z.string()).optional().default([]),
 });
 
 const containerVariants: Variants = {
