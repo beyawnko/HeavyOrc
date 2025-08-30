@@ -127,7 +127,7 @@ export const migrateAgentConfig = (
             const effort: GeminiThinkingEffort = isGeminiThinkingEffort(
                 geminiSettings.effort,
             )
-                ? geminiSettings.effort!
+                ? geminiSettings.effort
                 : 'dynamic';
             const migratedSettings: GeminiAgentSettings = {
                 ...migrateCommonSettings(geminiSettings),
