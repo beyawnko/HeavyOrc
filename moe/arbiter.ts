@@ -5,14 +5,11 @@ import { getAppUrl, getGeminiResponseText } from '@/lib/utils';
 import {
     ARBITER_PERSONA,
     ARBITER_HIGH_REASONING_PROMPT_MODIFIER,
-    OPENAI_ARBITER_GPT5_HIGH_REASONING,
-    OPENAI_ARBITER_GPT5_MEDIUM_REASONING,
     GEMINI_PRO_MODEL,
     GEMINI_FLASH_MODEL,
-    OPENAI_ARBITER_MODEL,
     OPENAI_REASONING_PROMPT_PREFIX,
 } from '@/constants';
-import { GeminiThinkingEffort } from '@/types';
+import { GeminiThinkingEffort, OpenAIReasoningEffort } from '@/types';
 import { callWithGeminiRetry, handleGeminiError } from '@/services/geminiUtils';
 
 const GEMINI_PRO_BUDGETS: Record<GeminiThinkingEffort, number> = {
@@ -71,6 +68,7 @@ export const arbitrateStream = async (
     prompt: string,
     drafts: Draft[],
     arbiterVerbosity: 'low' | 'medium' | 'high',
+    openAIArbiterEffort: OpenAIReasoningEffort,
     geminiArbiterEffort: GeminiThinkingEffort
 ): Promise<AsyncGenerator<{ text: string }>> => {
     const successfulDrafts = drafts.filter(d => d.status === 'COMPLETED');
@@ -122,7 +120,7 @@ export const arbitrateStream = async (
         const openaiAI = getOpenAIClient();
 
         let systemPersona = ARBITER_PERSONA;
-        if (arbiterModel === OPENAI_ARBITER_GPT5_HIGH_REASONING) {
+        if (openAIArbiterEffort === 'high') {
             systemPersona = OPENAI_REASONING_PROMPT_PREFIX + systemPersona + ARBITER_HIGH_REASONING_PROMPT_MODIFIER;
         }
         systemPersona += `\nYour final synthesized response should have a verbosity level of: ${arbiterVerbosity}.`;
@@ -132,13 +130,11 @@ export const arbitrateStream = async (
             { role: 'user', content: arbiterPrompt },
         ];
 
-        const model = (arbiterModel === OPENAI_ARBITER_GPT5_MEDIUM_REASONING || arbiterModel === OPENAI_ARBITER_GPT5_HIGH_REASONING)
-            ? OPENAI_ARBITER_MODEL
-            : arbiterModel;
+        const model = arbiterModel;
 
         try {
             const stream = await callWithRetry(
-                () => openaiAI.chat.completions.create({ model, messages, stream: true }),
+                () => openaiAI.chat.completions.create({ model, messages, stream: true, reasoning: { effort: openAIArbiterEffort } }),
                 'OpenAI'
             );
 
