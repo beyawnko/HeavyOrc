@@ -347,7 +347,7 @@ const migrateAgentConfig = (
         case 'openrouter': {
             const model =
                 typeof savedConfig.model === 'string'
-                    ? (savedConfig.model as OpenRouterModel)
+                    ? savedConfig.model
                     : OPENROUTER_GPT_4O;
             const rawSettings =
                 savedConfig.settings &&
