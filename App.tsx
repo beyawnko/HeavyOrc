@@ -292,7 +292,7 @@ const migrateAgentConfig = (
             const model: GeminiModel =
                 savedConfig.model === GEMINI_FLASH_MODEL ||
                 savedConfig.model === GEMINI_PRO_MODEL
-                    ? (savedConfig.model as GeminiModel)
+                    ? savedConfig.model
                     : GEMINI_FLASH_MODEL;
             const rawSettings =
                 savedConfig.settings &&
