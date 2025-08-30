@@ -787,7 +787,7 @@ const App: React.FC = () => {
                         .filter((config): config is AgentConfig => config !== null);
 
                     handleNewRun(); // Clear current state before loading
-                    setPrompt(data.prompt ?? '');
+                    setPrompt(data.prompt);
                     setAgentConfigs(loadedAgentConfigs);
                     setArbiterModel(data.arbiterModel ?? GEMINI_PRO_MODEL);
                     setOpenAIArbiterVerbosity(data.openAIArbiterVerbosity ?? 'medium');
