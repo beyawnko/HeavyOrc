@@ -112,10 +112,10 @@ export type OpenAIVerbosity = 'low' | 'medium' | 'high';
 export type OpenAIReasoningEffort = 'medium' | 'high';
 
 export interface SavedAgentConfig {
-    expertId: string;
-    model: AgentModel;
-    provider: ApiProvider;
-    settings: GeminiAgentSettings | OpenAIAgentSettings | OpenRouterAgentSettings;
+    expertId?: string;
+    model?: AgentModel;
+    provider?: ApiProvider;
+    settings: GeminiAgentSettings | OpenAIAgentSettings | OpenRouterAgentSettings | Record<string, unknown>;
 }
 
 export const SESSION_DATA_VERSION = 2;
