@@ -13,6 +13,7 @@ import {
     OpenRouterAgentConfig,
     GeminiAgentSettings,
     OpenAIAgentSettings,
+    OpenRouterAgentSettings,
     ArbiterModel,
     OpenAIVerbosity,
     SessionData,
@@ -771,7 +772,17 @@ const App: React.FC = () => {
                         };
                         return { ...baseConfig, provider: 'gemini', settings: migratedSettings } as GeminiAgentConfig;
                     } else if (savedConfig.provider === 'openrouter') {
-                        return { ...baseConfig, provider: 'openrouter', settings: savedConfig.settings } as OpenRouterAgentConfig;
+                        const settings = savedConfig.settings as Partial<OpenRouterAgentSettings>;
+                        const migratedSettings: OpenRouterAgentSettings = {
+                            temperature: settings.temperature ?? 0.7,
+                            topP: settings.topP ?? 1,
+                            topK: settings.topK ?? 50,
+                            frequencyPenalty: settings.frequencyPenalty ?? 0,
+                            presencePenalty: settings.presencePenalty ?? 0,
+                            repetitionPenalty: settings.repetitionPenalty ?? 1,
+                            maxTokens: settings.maxTokens,
+                        };
+                        return { ...baseConfig, provider: 'openrouter', settings: migratedSettings } as OpenRouterAgentConfig;
                     } else {
                         const settings = savedConfig.settings as Partial<OpenAIAgentSettings>;
                         const migratedSettings: OpenAIAgentSettings = {
