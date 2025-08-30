@@ -38,6 +38,7 @@ import CollapsibleSection from '@/components/CollapsibleSection';
 import AgentEnsemble, { AgentEnsembleHandles } from '@/components/AgentEnsemble';
 import PromptInput from '@/components/PromptInput';
 import FinalAnswerCard from '@/components/FinalAnswerCard';
+import banner from './.github/assets/banner.png';
 import HistorySidebar from '@/components/HistorySidebar';
 import SegmentedControl from '@/components/SegmentedControl';
 import useViewportHeight from '@/lib/useViewportHeight';
@@ -819,7 +820,13 @@ const App: React.FC = () => {
                                     <Bars3Icon className="w-6 h-6" aria-hidden="true" />
                                 </button>
                             </div>
-                            <img src={`${import.meta.env.BASE_URL}assets/banner.png`} alt="HeavyOrc banner" className="mx-auto mb-4 w-full max-w-2xl h-auto" />
+                            <img
+                                src={banner}
+                                alt="HeavyOrc banner"
+                                width={1200}
+                                height={300}
+                                className="mx-auto mb-4 w-full max-w-2xl h-auto"
+                            />
                             <h1 className="text-4xl sm:text-5xl font-bold text-[var(--text)] flex items-center justify-center gap-3">
                                 <ShieldCheckIcon className="w-10 h-10 text-emerald-400" aria-hidden="true" />
                                 HeavyOrc
