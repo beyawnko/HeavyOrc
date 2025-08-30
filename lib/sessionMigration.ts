@@ -109,6 +109,12 @@ export const migrateAgentConfig = (
     };
 
     const provider = savedConfig.provider;
+    const rawSettings =
+        savedConfig.settings && typeof savedConfig.settings === 'object'
+            ? (savedConfig.settings as Partial<
+                  GeminiAgentSettings | OpenAIAgentSettings | OpenRouterAgentSettings
+              >)
+            : {};
 
     switch (provider) {
         case 'gemini': {
@@ -117,16 +123,14 @@ export const migrateAgentConfig = (
                 savedConfig.model === GEMINI_PRO_MODEL
                     ? savedConfig.model
                     : GEMINI_FLASH_MODEL;
-            const rawSettings =
-                savedConfig.settings &&
-                typeof savedConfig.settings === 'object'
-                    ? (savedConfig.settings as Partial<GeminiAgentSettings>)
-                    : {};
-            const effort: GeminiThinkingEffort = isGeminiThinkingEffort(rawSettings.effort)
-                ? rawSettings.effort
+            const geminiSettings = rawSettings as Partial<GeminiAgentSettings>;
+            const effort: GeminiThinkingEffort = isGeminiThinkingEffort(
+                geminiSettings.effort,
+            )
+                ? geminiSettings.effort!
                 : 'dynamic';
             const migratedSettings: GeminiAgentSettings = {
-                ...migrateCommonSettings(rawSettings),
+                ...migrateCommonSettings(geminiSettings),
                 effort,
             };
             return {
@@ -143,19 +147,19 @@ export const migrateAgentConfig = (
                 savedConfig.model === OPENAI_GPT5_MINI_MODEL
                     ? savedConfig.model
                     : OPENAI_AGENT_MODEL;
-            const rawSettings =
-                savedConfig.settings &&
-                typeof savedConfig.settings === 'object'
-                    ? (savedConfig.settings as Partial<OpenAIAgentSettings>)
-                    : {};
-            const effort: OpenAIReasoningEffort = isOpenAIReasoningEffort(rawSettings.effort)
-                ? rawSettings.effort
+            const openAISettings = rawSettings as Partial<OpenAIAgentSettings>;
+            const effort: OpenAIReasoningEffort = isOpenAIReasoningEffort(
+                openAISettings.effort,
+            )
+                ? openAISettings.effort!
                 : 'medium';
-            const verbosity: OpenAIVerbosity = isOpenAIVerbosity(rawSettings.verbosity)
-                ? rawSettings.verbosity
+            const verbosity: OpenAIVerbosity = isOpenAIVerbosity(
+                openAISettings.verbosity,
+            )
+                ? openAISettings.verbosity!
                 : 'medium';
             const migratedSettings: OpenAIAgentSettings = {
-                ...migrateCommonSettings(rawSettings),
+                ...migrateCommonSettings(openAISettings),
                 effort,
                 verbosity,
             };
@@ -172,12 +176,9 @@ export const migrateAgentConfig = (
                 typeof savedConfig.model === 'string'
                     ? savedConfig.model
                     : OPENROUTER_GPT_4O;
-            const rawSettings =
-                savedConfig.settings &&
-                typeof savedConfig.settings === 'object'
-                    ? (savedConfig.settings as Partial<OpenRouterAgentSettings>)
-                    : {};
-            const migratedSettings = migrateOpenRouterSettings(rawSettings);
+            const openRouterSettings =
+                rawSettings as Partial<OpenRouterAgentSettings>;
+            const migratedSettings = migrateOpenRouterSettings(openRouterSettings);
             return {
                 ...baseConfig,
                 model,
