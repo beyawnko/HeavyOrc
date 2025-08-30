@@ -31,7 +31,7 @@ const SegmentedControl = <T extends string>({ options, value, onChange, disabled
           aria-selected={value === option.value}
           disabled={disabled}
           aria-disabled={disabled}
-          title={option.tooltip}
+          title={option.tooltip ?? option.label}
           className={`relative px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-1)] z-10 whitespace-nowrap flex-none sm:flex-1 max-w-[8rem] truncate
             ${index === 0 ? 'rounded-l-md' : ''}
             ${index === options.length - 1 ? 'rounded-r-md' : ''}

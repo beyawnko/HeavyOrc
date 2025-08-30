@@ -38,7 +38,7 @@ import CollapsibleSection from '@/components/CollapsibleSection';
 import AgentEnsemble, { AgentEnsembleHandles } from '@/components/AgentEnsemble';
 import PromptInput from '@/components/PromptInput';
 import FinalAnswerCard from '@/components/FinalAnswerCard';
-import banner from './.github/assets/banner.png';
+import banner from './assets/banner.png';
 import HistorySidebar from '@/components/HistorySidebar';
 import SegmentedControl from '@/components/SegmentedControl';
 import useViewportHeight from '@/lib/useViewportHeight';
