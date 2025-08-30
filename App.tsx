@@ -20,6 +20,7 @@ import {
     GeminiThinkingEffort,
     RunStatus,
     OpenAIReasoningEffort,
+    SavedAgentConfigSchema,
 } from '@/types';
 import {
     GEMINI_PRO_MODEL,
@@ -69,13 +70,6 @@ const OPENAI_API_KEY_STORAGE_KEY = 'openai_api_key';
 const GEMINI_API_KEY_STORAGE_KEY = 'gemini_api_key';
 const OPENROUTER_API_KEY_STORAGE_KEY = 'openrouter_api_key';
 const MAX_HISTORY_LENGTH = 20;
-
-const SavedAgentConfigSchema = z.object({
-    expertId: z.string().optional(),
-    model: z.string().optional(),
-    provider: z.enum(['gemini', 'openai', 'openrouter']).optional(),
-    settings: z.record(z.unknown()).optional().default({}),
-});
 
 const SessionDataSchema = z.object({
     version: z.number().default(0),
@@ -783,11 +777,8 @@ const App: React.FC = () => {
                     }
 
                     const loadedAgentConfigs: AgentConfig[] = data.agentConfigs
-                        .map((savedConfig: z.infer<typeof SavedAgentConfigSchema>) =>
-                            migrateAgentConfig(
-                                savedConfig as unknown as SavedAgentConfig,
-                                experts,
-                            ),
+                        .map((savedConfig) =>
+                            migrateAgentConfig(savedConfig, experts),
                         )
                         .filter(
                             (config: AgentConfig | null): config is AgentConfig =>

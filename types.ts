@@ -5,6 +5,7 @@ import {
     OPENAI_GPT5_MINI_MODEL,
     OPENAI_ARBITER_MODEL,
 } from './constants';
+import { z } from 'zod';
 
 export type ApiProvider = 'gemini' | 'openai' | 'openrouter';
 export type AgentStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'QUEUED';
@@ -72,6 +73,40 @@ export interface OpenRouterAgentSettings {
     maxTokens?: number;
 }
 
+const GeminiAgentSettingsSchema: z.ZodType<Partial<GeminiAgentSettings>> = z.object({
+    effort: z.enum(['dynamic', 'high', 'medium', 'low', 'none']).optional(),
+    generationStrategy: z
+        .enum(['single', 'deepconf-offline', 'deepconf-online'])
+        .optional(),
+    confidenceSource: z.literal('judge').optional(),
+    traceCount: z.number().optional(),
+    deepConfEta: z.union([z.literal(10), z.literal(90)]).optional(),
+    tau: z.number().optional(),
+    groupWindow: z.number().optional(),
+});
+
+const OpenAIAgentSettingsSchema: z.ZodType<Partial<OpenAIAgentSettings>> = z.object({
+    effort: z.enum(['medium', 'high']).optional(),
+    verbosity: z.enum(['low', 'medium', 'high']).optional(),
+    generationStrategy: z
+        .enum(['single', 'deepconf-offline', 'deepconf-online'])
+        .optional(),
+    confidenceSource: z.literal('judge').optional(),
+    traceCount: z.number().optional(),
+    deepConfEta: z.union([z.literal(10), z.literal(90)]).optional(),
+    tau: z.number().optional(),
+    groupWindow: z.number().optional(),
+});
+
+const OpenRouterAgentSettingsSchema: z.ZodType<Partial<OpenRouterAgentSettings>> = z.object({
+    temperature: z.number().optional(),
+    topP: z.number().optional(),
+    topK: z.number().optional(),
+    frequencyPenalty: z.number().optional(),
+    presencePenalty: z.number().optional(),
+    repetitionPenalty: z.number().optional(),
+    maxTokens: z.number().optional(),
+});
 
 export interface BaseAgentConfig {
     id: string; // unique instance id
@@ -111,12 +146,19 @@ export type ArbiterModel =
 export type OpenAIVerbosity = 'low' | 'medium' | 'high';
 export type OpenAIReasoningEffort = 'medium' | 'high';
 
-export interface SavedAgentConfig {
-    expertId?: string;
-    model?: AgentModel;
-    provider?: ApiProvider;
-    settings: GeminiAgentSettings | OpenAIAgentSettings | OpenRouterAgentSettings;
-}
+export const SavedAgentConfigSchema = z.object({
+    expertId: z.string().optional(),
+    model: z.string().optional(),
+    provider: z.enum(['gemini', 'openai', 'openrouter']).optional(),
+    settings: z
+        .union([
+            GeminiAgentSettingsSchema,
+            OpenAIAgentSettingsSchema,
+            OpenRouterAgentSettingsSchema,
+        ])
+        .optional(),
+});
+export type SavedAgentConfig = z.infer<typeof SavedAgentConfigSchema>;
 
 export const SESSION_DATA_VERSION = 2;
 
