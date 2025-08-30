@@ -71,17 +71,17 @@ const OPENROUTER_API_KEY_STORAGE_KEY = 'openrouter_api_key';
 const MAX_HISTORY_LENGTH = 20;
 
 const SavedAgentConfigSchema = z.object({
-    expertId: z.string(),
-    model: z.string(),
-    provider: z.enum(['gemini', 'openai', 'openrouter']),
+    expertId: z.string().optional(),
+    model: z.string().optional(),
+    provider: z.enum(['gemini', 'openai', 'openrouter']).optional(),
     settings: z.record(z.unknown()).optional().default({}),
 });
 
 const SessionDataSchema = z.object({
-    version: z.number(),
+    version: z.number().default(0),
     prompt: z.string().default(''),
-    agentConfigs: z.array(SavedAgentConfigSchema),
-    arbiterModel: z.string(),
+    agentConfigs: z.array(SavedAgentConfigSchema).optional().default([]),
+    arbiterModel: z.string().optional(),
     openAIArbiterVerbosity: z.enum(['low', 'medium', 'high']).optional(),
     openAIArbiterEffort: z.enum(['medium', 'high']).optional(),
     geminiArbiterEffort: z
@@ -755,7 +755,24 @@ const App: React.FC = () => {
                         throw new Error("File is empty or could not be read.");
                     }
 
-                    const data = SessionDataSchema.parse(JSON.parse(jsonString));
+                    const result = SessionDataSchema.safeParse(
+                        JSON.parse(jsonString),
+                    );
+                    if (!result.success) {
+                        const formatted = result.error.errors
+                            .map(
+                                (err) =>
+                                    `${err.path.join('.') || '(root)'} - ${err.message}`,
+                            )
+                            .join('; ');
+                        setToast({
+                            message: `Error loading session file: Invalid session file: ${formatted}`,
+                            type: 'error',
+                        });
+                        return;
+                    }
+
+                    const data = result.data;
 
                     if (data.version > SESSION_DATA_VERSION) {
                         setToast({
@@ -785,8 +802,21 @@ const App: React.FC = () => {
                     setToast({ message: "Session loaded successfully!", type: 'success' });
                 } catch (e) {
                     console.error("Failed to load session:", e);
-                    const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
-                    setToast({ message: `Error loading session file: ${errorMessage}`, type: 'error' });
+                    let errorMessage = "An unknown error occurred.";
+                    if (e instanceof z.ZodError) {
+                        errorMessage = `Invalid session file: ${e.errors
+                            .map(
+                                (err) =>
+                                    `${err.path.join('.') || '(root)'} - ${err.message}`,
+                            )
+                            .join('; ')}`;
+                    } else if (e instanceof Error) {
+                        errorMessage = e.message;
+                    }
+                    setToast({
+                        message: `Error loading session file: ${errorMessage}`,
+                        type: 'error',
+                    });
                 }
             };
 
