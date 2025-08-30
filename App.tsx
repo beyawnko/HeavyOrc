@@ -57,6 +57,7 @@ import {
 // Hooks
 import useViewportHeight from '@/lib/useViewportHeight';
 import useKeydown from '@/lib/useKeydown';
+import { migrateAgentConfig } from '@/lib/sessionMigration';
 
 // Assets
 import banner from './assets/banner.png';
@@ -199,6 +200,7 @@ const mapDraftToAgentState = (draft: Draft): AgentState => ({
     model: draft.expert.model,
     provider: draft.expert.provider,
 });
+
 
 const App: React.FC = () => {
     useViewportHeight();
@@ -729,8 +731,13 @@ const App: React.FC = () => {
 
                 const data = JSON.parse(jsonString) as SessionData;
 
-                if (data.version !== SESSION_DATA_VERSION) {
-                    setToast({ message: `This session file is from a different version (v${data.version}) and cannot be loaded.`, type: 'error' });
+                if (typeof data.version !== 'number') {
+                    setToast({ message: "Invalid session file: missing or invalid version.", type: 'error' });
+                    return;
+                }
+
+                if (data.version > SESSION_DATA_VERSION) {
+                    setToast({ message: `This session file is from a newer version (v${data.version}) and cannot be loaded.`, type: 'error' });
                     return;
                 }
 
@@ -738,27 +745,9 @@ const App: React.FC = () => {
                     throw new Error("Invalid session file format: agentConfigs is missing or not an array.");
                 }
 
-                const loadedAgentConfigs: AgentConfig[] = data.agentConfigs.map((savedConfig) => {
-                    const expert = experts.find(e => e.id === savedConfig.expertId);
-                    if (!expert) {
-                        console.warn(`Expert with ID "${savedConfig.expertId}" not found. Skipping.`);
-                        return null;
-                    }
-                    const baseConfig = {
-                        id: crypto.randomUUID(),
-                        expert,
-                        model: savedConfig.model,
-                        provider: savedConfig.provider,
-                        status: 'PENDING' as const,
-                    };
-                    if (savedConfig.provider === 'gemini') {
-                        return { ...baseConfig, provider: 'gemini', settings: savedConfig.settings } as GeminiAgentConfig;
-                    } else if (savedConfig.provider === 'openrouter') {
-                        return { ...baseConfig, provider: 'openrouter', settings: savedConfig.settings } as OpenRouterAgentConfig;
-                    } else {
-                        return { ...baseConfig, provider: 'openai', settings: savedConfig.settings } as OpenAIAgentConfig;
-                    }
-                }).filter((config): config is AgentConfig => config !== null);
+                const loadedAgentConfigs: AgentConfig[] = data.agentConfigs
+                    .map((savedConfig) => migrateAgentConfig(savedConfig, experts))
+                    .filter((config): config is AgentConfig => config !== null);
 
                 handleNewRun(); // Clear current state before loading
                 setPrompt(data.prompt ?? '');
