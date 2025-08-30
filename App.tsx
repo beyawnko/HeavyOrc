@@ -759,19 +759,30 @@ const App: React.FC = () => {
                         provider: savedConfig.provider,
                         status: 'PENDING' as const,
                     };
-                    if (savedConfig.provider === 'gemini') {
-                        const settings = savedConfig.settings as Partial<GeminiAgentSettings>;
-                        const migratedSettings: GeminiAgentSettings = {
-                            effort: settings.effort ?? 'dynamic',
-                            generationStrategy: settings.generationStrategy ?? 'single',
-                            confidenceSource: 'judge',
-                            traceCount: settings.traceCount ?? 8,
-                            deepConfEta: settings.deepConfEta ?? 90,
-                            tau: settings.tau ?? 0.95,
-                            groupWindow: settings.groupWindow ?? 2048,
+                    if (savedConfig.provider !== 'openrouter') {
+                        const partialSettings = savedConfig.settings as Partial<GeminiAgentSettings & OpenAIAgentSettings>;
+                        const commonSettings = {
+                            generationStrategy: partialSettings.generationStrategy ?? 'single',
+                            confidenceSource: 'judge' as const,
+                            traceCount: partialSettings.traceCount ?? 8,
+                            deepConfEta: partialSettings.deepConfEta ?? 90,
+                            tau: partialSettings.tau ?? 0.95,
+                            groupWindow: partialSettings.groupWindow ?? 2048,
                         };
-                        return { ...baseConfig, provider: 'gemini', settings: migratedSettings } as GeminiAgentConfig;
-                    } else if (savedConfig.provider === 'openrouter') {
+
+                        if (savedConfig.provider === 'gemini') {
+                            return { ...baseConfig, provider: 'gemini', settings: {
+                                ...commonSettings,
+                                effort: partialSettings.effort ?? 'dynamic',
+                            } } as GeminiAgentConfig;
+                        } else { // OpenAI
+                            return { ...baseConfig, provider: 'openai', settings: {
+                                ...commonSettings,
+                                effort: partialSettings.effort ?? 'medium',
+                                verbosity: partialSettings.verbosity ?? 'medium',
+                            } } as OpenAIAgentConfig;
+                        }
+                    } else { // openrouter
                         const settings = savedConfig.settings as Partial<OpenRouterAgentSettings>;
                         const migratedSettings: OpenRouterAgentSettings = {
                             temperature: settings.temperature ?? 0.7,
@@ -783,19 +794,6 @@ const App: React.FC = () => {
                             maxTokens: settings.maxTokens,
                         };
                         return { ...baseConfig, provider: 'openrouter', settings: migratedSettings } as OpenRouterAgentConfig;
-                    } else {
-                        const settings = savedConfig.settings as Partial<OpenAIAgentSettings>;
-                        const migratedSettings: OpenAIAgentSettings = {
-                            effort: settings.effort ?? 'medium',
-                            verbosity: settings.verbosity ?? 'medium',
-                            generationStrategy: settings.generationStrategy ?? 'single',
-                            confidenceSource: 'judge',
-                            traceCount: settings.traceCount ?? 8,
-                            deepConfEta: settings.deepConfEta ?? 90,
-                            tau: settings.tau ?? 0.95,
-                            groupWindow: settings.groupWindow ?? 2048,
-                        };
-                        return { ...baseConfig, provider: 'openai', settings: migratedSettings } as OpenAIAgentConfig;
                     }
                 }).filter((config): config is AgentConfig => config !== null);
 
