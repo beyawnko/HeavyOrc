@@ -154,7 +154,7 @@ export const migrateAgentConfig = (
         case 'openai': {
             const model: OpenAIModel =
                 typeof savedConfig.model === 'string' &&
-                OPENAI_MODELS.includes(savedConfig.model as OpenAIModel)
+                (OPENAI_MODELS as readonly string[]).includes(savedConfig.model)
                     ? (savedConfig.model as OpenAIModel)
                     : OPENAI_AGENT_MODEL;
             const openAISettings = rawSettings as Partial<OpenAIAgentSettings>;
