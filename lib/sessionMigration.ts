@@ -23,6 +23,16 @@ import {
     OPENROUTER_GPT_4O,
 } from '@/constants';
 
+const GEMINI_MODELS: readonly GeminiModel[] = [
+    GEMINI_FLASH_MODEL,
+    GEMINI_PRO_MODEL,
+];
+
+const OPENAI_MODELS: readonly OpenAIModel[] = [
+    OPENAI_AGENT_MODEL,
+    OPENAI_GPT5_MINI_MODEL,
+];
+
 const VALID_GENERATION_STRATEGIES: GenerationStrategy[] = [
     'single',
     'deepconf-offline',
@@ -119,9 +129,9 @@ export const migrateAgentConfig = (
     switch (provider) {
         case 'gemini': {
             const model: GeminiModel =
-                savedConfig.model === GEMINI_FLASH_MODEL ||
-                savedConfig.model === GEMINI_PRO_MODEL
-                    ? savedConfig.model
+                typeof savedConfig.model === 'string' &&
+                GEMINI_MODELS.includes(savedConfig.model as GeminiModel)
+                    ? (savedConfig.model as GeminiModel)
                     : GEMINI_FLASH_MODEL;
             const geminiSettings = rawSettings as Partial<GeminiAgentSettings>;
             const effort: GeminiThinkingEffort = isGeminiThinkingEffort(
@@ -143,9 +153,9 @@ export const migrateAgentConfig = (
 
         case 'openai': {
             const model: OpenAIModel =
-                savedConfig.model === OPENAI_AGENT_MODEL ||
-                savedConfig.model === OPENAI_GPT5_MINI_MODEL
-                    ? savedConfig.model
+                typeof savedConfig.model === 'string' &&
+                OPENAI_MODELS.includes(savedConfig.model as OpenAIModel)
+                    ? (savedConfig.model as OpenAIModel)
                     : OPENAI_AGENT_MODEL;
             const openAISettings = rawSettings as Partial<OpenAIAgentSettings>;
             const effort: OpenAIReasoningEffort = isOpenAIReasoningEffort(
@@ -173,7 +183,7 @@ export const migrateAgentConfig = (
 
         case 'openrouter': {
             const model =
-                typeof savedConfig.model === 'string'
+                typeof savedConfig.model === 'string' && savedConfig.model.trim() !== ''
                     ? savedConfig.model
                     : OPENROUTER_GPT_4O;
             const openRouterSettings =
