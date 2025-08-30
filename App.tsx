@@ -756,10 +756,10 @@ const App: React.FC = () => {
                         id: crypto.randomUUID(),
                         expert,
                         model: savedConfig.model,
-                        provider: savedConfig.provider,
                         status: 'PENDING' as const,
                     };
-                    if (savedConfig.provider !== 'openrouter') {
+                    const provider = (savedConfig as { provider?: string }).provider;
+                    if (provider === 'gemini') {
                         const partialSettings = savedConfig.settings as Partial<GeminiAgentSettings & OpenAIAgentSettings>;
                         const commonSettings = {
                             generationStrategy: partialSettings.generationStrategy ?? 'single',
@@ -769,20 +769,34 @@ const App: React.FC = () => {
                             tau: partialSettings.tau ?? 0.95,
                             groupWindow: partialSettings.groupWindow ?? 2048,
                         };
-
-                        if (savedConfig.provider === 'gemini') {
-                            return { ...baseConfig, provider: 'gemini', settings: {
+                        return {
+                            ...baseConfig,
+                            provider: 'gemini',
+                            settings: {
                                 ...commonSettings,
                                 effort: partialSettings.effort ?? 'dynamic',
-                            } } as GeminiAgentConfig;
-                        } else { // OpenAI
-                            return { ...baseConfig, provider: 'openai', settings: {
+                            },
+                        } as GeminiAgentConfig;
+                    } else if (provider === 'openai') {
+                        const partialSettings = savedConfig.settings as Partial<GeminiAgentSettings & OpenAIAgentSettings>;
+                        const commonSettings = {
+                            generationStrategy: partialSettings.generationStrategy ?? 'single',
+                            confidenceSource: 'judge' as const,
+                            traceCount: partialSettings.traceCount ?? 8,
+                            deepConfEta: partialSettings.deepConfEta ?? 90,
+                            tau: partialSettings.tau ?? 0.95,
+                            groupWindow: partialSettings.groupWindow ?? 2048,
+                        };
+                        return {
+                            ...baseConfig,
+                            provider: 'openai',
+                            settings: {
                                 ...commonSettings,
                                 effort: partialSettings.effort ?? 'medium',
                                 verbosity: partialSettings.verbosity ?? 'medium',
-                            } } as OpenAIAgentConfig;
-                        }
-                    } else { // openrouter
+                            },
+                        } as OpenAIAgentConfig;
+                    } else if (provider === 'openrouter') {
                         const settings = savedConfig.settings as Partial<OpenRouterAgentSettings>;
                         const migratedSettings: OpenRouterAgentSettings = {
                             temperature: settings.temperature ?? 0.7,
@@ -793,7 +807,16 @@ const App: React.FC = () => {
                             repetitionPenalty: settings.repetitionPenalty ?? 1,
                             maxTokens: settings.maxTokens,
                         };
-                        return { ...baseConfig, provider: 'openrouter', settings: migratedSettings } as OpenRouterAgentConfig;
+                        return {
+                            ...baseConfig,
+                            provider: 'openrouter',
+                            settings: migratedSettings,
+                        } as OpenRouterAgentConfig;
+                    } else {
+                        console.warn(
+                            `Unknown provider "${provider}" for expert "${savedConfig.expertId}". Skipping.`,
+                        );
+                        return null;
                     }
                 }).filter((config): config is AgentConfig => config !== null);
 
