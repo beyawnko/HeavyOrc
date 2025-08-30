@@ -133,8 +133,17 @@ export const arbitrateStream = async (
         const model = arbiterModel;
 
         try {
+            const completionParams: OpenAI.Chat.ChatCompletionCreateParamsStreaming & {
+                reasoning?: { effort: OpenAIReasoningEffort };
+            } = {
+                model,
+                messages,
+                stream: true,
+                reasoning: { effort: openAIArbiterEffort },
+            };
+
             const stream = await callWithRetry(
-                () => openaiAI.chat.completions.create({ model, messages, stream: true, reasoning: { effort: openAIArbiterEffort } }),
+                () => openaiAI.chat.completions.create(completionParams),
                 'OpenAI'
             );
 
