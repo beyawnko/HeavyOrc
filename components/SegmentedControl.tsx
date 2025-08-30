@@ -15,35 +15,55 @@ interface SegmentedControlProps<T extends string> {
 }
 
 const SegmentedControl = <T extends string>({ options, value, onChange, disabled = false, 'aria-label': ariaLabel }: SegmentedControlProps<T>) => {
+  const containerClasses = [
+    'flex w-full p-1 bg-[var(--surface-1)] border border-[var(--line)] rounded-lg',
+    'overflow-x-auto sm:overflow-x-visible',
+    '[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]',
+    disabled ? 'opacity-70 cursor-not-allowed' : '',
+  ].join(' ');
+
+  const baseButtonClasses = [
+    'relative px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none',
+    'focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2',
+    'focus-visible:ring-offset-[var(--surface-1)] z-10 whitespace-nowrap flex-none sm:flex-1 max-w-[8rem] sm:max-w-none truncate',
+  ].join(' ');
+
   return (
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className={`flex w-full p-1 bg-[var(--surface-1)] border border-[var(--line)] rounded-lg overflow-x-auto sm:overflow-x-visible ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
+      aria-orientation="horizontal"
+      className={containerClasses}
     >
-      {options.map((option, index) => (
-        <button
-          key={option.value}
-          onClick={() => !disabled && onChange(option.value)}
-          type="button"
-          role="tab"
-          aria-selected={value === option.value}
-          disabled={disabled}
-          aria-disabled={disabled}
-          title={option.tooltip}
-          className={`relative px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-1)] z-10 whitespace-nowrap flex-none sm:flex-1
-            ${index === 0 ? 'rounded-l-md' : ''}
-            ${index === options.length - 1 ? 'rounded-r-md' : ''}
-            ${value === option.value ? 'text-[#0D1411]' : 'text-[var(--text)] hover:bg-[var(--surface-active)]'}
-            ${disabled ? 'cursor-not-allowed' : ''}
-          `}
-        >
-          {value === option.value && (
-             <span className="absolute inset-0 bg-[var(--accent)] rounded-md -z-10 motion-safe:transition-transform" />
-          )}
-          <span className="relative">{option.label}</span>
-        </button>
-      ))}
+      {options.map((option, index) => {
+        const isSelected = value === option.value;
+        const buttonClasses = [
+          baseButtonClasses,
+          index === 0 ? 'rounded-l-md' : '',
+          index === options.length - 1 ? 'rounded-r-md' : '',
+          isSelected ? 'text-[#0D1411]' : 'text-[var(--text)] hover:bg-[var(--surface-active)]',
+          disabled ? 'cursor-not-allowed' : '',
+        ].join(' ');
+
+        return (
+          <button
+            key={option.value}
+            onClick={() => !disabled && onChange(option.value)}
+            type="button"
+            role="tab"
+            aria-selected={isSelected}
+            disabled={disabled}
+            aria-disabled={disabled}
+            title={option.tooltip ?? option.label}
+            className={buttonClasses}
+          >
+            {isSelected && (
+              <span className="absolute inset-0 bg-[var(--accent)] rounded-md -z-10 motion-safe:transition-transform" />
+            )}
+            <span className="relative">{option.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 };

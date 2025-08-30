@@ -27,10 +27,6 @@ export const OPENROUTER_GPT_4O = "openai/gpt-4o";
 export const OPENROUTER_GEMINI_FLASH_1_5 = "google/gemini-flash-1.5";
 export const OPENROUTER_CLAUDE_3_HAIKU = "anthropic/claude-3-haiku-20240307";
 
-// Hypothetical model names for the UI, mapped to existing OpenAI models.
-export const OPENAI_ARBITER_GPT5_MEDIUM_REASONING = "gpt-5-medium-reasoning";
-export const OPENAI_ARBITER_GPT5_HIGH_REASONING = "gpt-5-high-reasoning";
-
 // Prompt engineering for reasoning
 export const OPENAI_REASONING_PROMPT_PREFIX = "You are a world-class expert. Reason step-by-step before providing your answer. ";
 export const ARBITER_HIGH_REASONING_PROMPT_MODIFIER = `
