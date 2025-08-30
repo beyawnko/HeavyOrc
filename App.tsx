@@ -819,7 +819,7 @@ const App: React.FC = () => {
                                     <Bars3Icon className="w-6 h-6" aria-hidden="true" />
                                 </button>
                             </div>
-                            <img src={`${import.meta.env.BASE_URL}assets/banner.svg`} alt="HeavyOrc banner" className="mx-auto mb-4 w-full max-w-2xl" />
+                            <img src={`${import.meta.env.BASE_URL}assets/banner.png`} alt="HeavyOrc banner" className="mx-auto mb-4 w-full max-w-2xl h-auto" />
                             <h1 className="text-4xl sm:text-5xl font-bold text-[var(--text)] flex items-center justify-center gap-3">
                                 <ShieldCheckIcon className="w-10 h-10 text-emerald-400" aria-hidden="true" />
                                 HeavyOrc
