@@ -74,7 +74,7 @@ const SavedAgentConfigSchema = z.object({
     expertId: z.string(),
     model: z.string(),
     provider: z.enum(['gemini', 'openai', 'openrouter']),
-    settings: z.record(z.any()).optional().default({}),
+    settings: z.record(z.unknown()).optional().default({}),
 });
 
 const SessionDataSchema = z.object({
