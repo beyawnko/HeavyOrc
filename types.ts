@@ -154,6 +154,25 @@ export const SavedAgentConfigSchema = z.object({
             OpenRouterAgentSettingsSchema,
         ])
         .optional(),
+}).superRefine((config, ctx) => {
+    if (!config.provider || !config.settings) return;
+
+    const schema =
+        config.provider === 'gemini'
+            ? GeminiAgentSettingsSchema
+            : config.provider === 'openai'
+            ? OpenAIAgentSettingsSchema
+            : OpenRouterAgentSettingsSchema;
+
+    const result = schema.safeParse(config.settings);
+    if (!result.success) {
+        for (const issue of result.error.issues) {
+            ctx.addIssue({
+                ...issue,
+                path: ['settings', ...issue.path],
+            });
+        }
+    }
 });
 export type SavedAgentConfig = z.infer<typeof SavedAgentConfigSchema>;
 
