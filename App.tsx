@@ -1,11 +1,14 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import JSZip from 'jszip';
 import { motion, Variants } from 'framer-motion';
-import { 
-    AgentState, 
-    ImageState, 
-    AgentConfig, 
-    GeminiAgentConfig, 
+import FocusTrap from 'focus-trap-react';
+
+// Types and constants
+import {
+    AgentState,
+    ImageState,
+    AgentConfig,
+    GeminiAgentConfig,
     OpenAIAgentConfig,
     OpenRouterAgentConfig,
     ArbiterModel,
@@ -27,23 +30,36 @@ import {
     OPENROUTER_GPT_4O,
     OPENROUTER_CLAUDE_3_HAIKU,
 } from '@/constants';
+
+// MoE utilities
 import { experts } from '@/moe/experts';
 import { runOrchestration } from '@/moe/orchestrator';
 import { Draft, ExpertDispatch } from '@/moe/types';
-import AgentCard from '@/components/AgentCard';
+
+// Components
 import { ShieldCheckIcon, CogIcon, DownloadIcon, ExclamationTriangleIcon, XMarkIcon, Bars3Icon } from '@/components/icons';
+import AgentCard from '@/components/AgentCard';
 import SettingsView from '@/components/SettingsView';
-import { setOpenAIApiKey as storeOpenAIApiKey, setGeminiApiKey as storeGeminiApiKey, setOpenRouterApiKey as storeOpenRouterApiKey } from '@/services/llmService';
 import CollapsibleSection from '@/components/CollapsibleSection';
 import AgentEnsemble, { AgentEnsembleHandles } from '@/components/AgentEnsemble';
 import PromptInput from '@/components/PromptInput';
 import FinalAnswerCard from '@/components/FinalAnswerCard';
-import banner from './assets/banner.png';
 import HistorySidebar from '@/components/HistorySidebar';
 import SegmentedControl from '@/components/SegmentedControl';
+
+// Services
+import {
+    setOpenAIApiKey as storeOpenAIApiKey,
+    setGeminiApiKey as storeGeminiApiKey,
+    setOpenRouterApiKey as storeOpenRouterApiKey,
+} from '@/services/llmService';
+
+// Hooks
 import useViewportHeight from '@/lib/useViewportHeight';
 import useKeydown from '@/lib/useKeydown';
-import FocusTrap from 'focus-trap-react';
+
+// Assets
+import banner from './assets/banner.png';
 
 const OPENAI_API_KEY_STORAGE_KEY = 'openai_api_key';
 const GEMINI_API_KEY_STORAGE_KEY = 'gemini_api_key';
