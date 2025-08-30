@@ -318,7 +318,7 @@ const migrateAgentConfig = (
             const model: OpenAIModel =
                 savedConfig.model === OPENAI_AGENT_MODEL ||
                 savedConfig.model === OPENAI_GPT5_MINI_MODEL
-                    ? (savedConfig.model as OpenAIModel)
+                    ? savedConfig.model
                     : OPENAI_AGENT_MODEL;
             const rawSettings =
                 savedConfig.settings &&
