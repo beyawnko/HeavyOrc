@@ -22,7 +22,11 @@ import {
     RunRecord,
     GeminiThinkingEffort,
     RunStatus,
-    OpenAIReasoningEffort
+    OpenAIReasoningEffort,
+    GeminiModel,
+    OpenAIModel,
+    OpenRouterModel,
+    GenerationStrategy
 } from '@/types';
 import {
     GEMINI_PRO_MODEL,
@@ -203,18 +207,30 @@ const mapDraftToAgentState = (draft: Draft): AgentState => ({
     provider: draft.expert.provider,
 });
 
+const VALID_GENERATION_STRATEGIES: GenerationStrategy[] = [
+    'single',
+    'deepconf-offline',
+    'deepconf-online',
+];
+
 const migrateCommonSettings = (
     partial: Partial<GeminiAgentSettings | OpenAIAgentSettings>,
 ): Pick<
     GeminiAgentSettings,
     'generationStrategy' | 'confidenceSource' | 'traceCount' | 'deepConfEta' | 'tau' | 'groupWindow'
 > => ({
-    generationStrategy: partial.generationStrategy ?? 'single',
+    generationStrategy: VALID_GENERATION_STRATEGIES.includes(
+        partial.generationStrategy as GenerationStrategy,
+    )
+        ? (partial.generationStrategy as GenerationStrategy)
+        : 'single',
     confidenceSource: 'judge',
-    traceCount: partial.traceCount ?? 8,
-    deepConfEta: partial.deepConfEta ?? 90,
-    tau: partial.tau ?? 0.95,
-    groupWindow: partial.groupWindow ?? 2048,
+    traceCount:
+        typeof partial.traceCount === 'number' ? partial.traceCount : 8,
+    deepConfEta: partial.deepConfEta === 10 || partial.deepConfEta === 90 ? partial.deepConfEta : 90,
+    tau: typeof partial.tau === 'number' ? partial.tau : 0.95,
+    groupWindow:
+        typeof partial.groupWindow === 'number' ? partial.groupWindow : 2048,
 });
 
 const migrateAgentConfig = (
@@ -230,7 +246,6 @@ const migrateAgentConfig = (
     const baseConfig = {
         id: crypto.randomUUID(),
         expert,
-        model: savedConfig.model,
         status: 'PENDING' as const,
     };
 
@@ -238,45 +253,102 @@ const migrateAgentConfig = (
 
     switch (provider) {
         case 'gemini': {
-            const settings = (savedConfig.settings || {}) as Partial<GeminiAgentSettings>;
+            const model: GeminiModel =
+                savedConfig.model === GEMINI_FLASH_MODEL ||
+                savedConfig.model === GEMINI_PRO_MODEL
+                    ? (savedConfig.model as GeminiModel)
+                    : GEMINI_FLASH_MODEL;
+            const rawSettings =
+                savedConfig.settings &&
+                typeof savedConfig.settings === 'object'
+                    ? (savedConfig.settings as Partial<GeminiAgentSettings>)
+                    : {};
+            const effort: GeminiThinkingEffort = ['dynamic', 'high', 'medium', 'low', 'none'].includes(
+                rawSettings.effort as GeminiThinkingEffort,
+            )
+                ? (rawSettings.effort as GeminiThinkingEffort)
+                : 'dynamic';
             const migratedSettings: GeminiAgentSettings = {
-                ...migrateCommonSettings(settings),
-                effort: settings.effort ?? 'dynamic',
+                ...migrateCommonSettings(rawSettings),
+                effort,
             };
             return {
                 ...baseConfig,
+                model,
                 provider: 'gemini',
                 settings: migratedSettings,
             } as GeminiAgentConfig;
         }
 
         case 'openai': {
-            const settings = (savedConfig.settings || {}) as Partial<OpenAIAgentSettings>;
+            const model: OpenAIModel =
+                savedConfig.model === OPENAI_AGENT_MODEL ||
+                savedConfig.model === OPENAI_GPT5_MINI_MODEL
+                    ? (savedConfig.model as OpenAIModel)
+                    : OPENAI_AGENT_MODEL;
+            const rawSettings =
+                savedConfig.settings &&
+                typeof savedConfig.settings === 'object'
+                    ? (savedConfig.settings as Partial<OpenAIAgentSettings>)
+                    : {};
+            const effort = ['medium', 'high'].includes(rawSettings.effort as any)
+                ? (rawSettings.effort as 'medium' | 'high')
+                : 'medium';
+            const verbosity: OpenAIVerbosity = ['low', 'medium', 'high'].includes(
+                rawSettings.verbosity as OpenAIVerbosity,
+            )
+                ? (rawSettings.verbosity as OpenAIVerbosity)
+                : 'medium';
             const migratedSettings: OpenAIAgentSettings = {
-                ...migrateCommonSettings(settings),
-                effort: settings.effort ?? 'medium',
-                verbosity: settings.verbosity ?? 'medium',
+                ...migrateCommonSettings(rawSettings),
+                effort,
+                verbosity,
             };
             return {
                 ...baseConfig,
+                model,
                 provider: 'openai',
                 settings: migratedSettings,
             } as OpenAIAgentConfig;
         }
 
         case 'openrouter': {
-            const settings = (savedConfig.settings || {}) as Partial<OpenRouterAgentSettings>;
+            const model =
+                typeof savedConfig.model === 'string'
+                    ? (savedConfig.model as OpenRouterModel)
+                    : OPENROUTER_GPT_4O;
+            const rawSettings =
+                savedConfig.settings &&
+                typeof savedConfig.settings === 'object'
+                    ? (savedConfig.settings as Partial<OpenRouterAgentSettings>)
+                    : {};
             const migratedSettings: OpenRouterAgentSettings = {
-                temperature: settings.temperature ?? 0.7,
-                topP: settings.topP ?? 1,
-                topK: settings.topK ?? 50,
-                frequencyPenalty: settings.frequencyPenalty ?? 0,
-                presencePenalty: settings.presencePenalty ?? 0,
-                repetitionPenalty: settings.repetitionPenalty ?? 1,
-                maxTokens: settings.maxTokens,
+                temperature:
+                    typeof rawSettings.temperature === 'number'
+                        ? rawSettings.temperature
+                        : 0.7,
+                topP: typeof rawSettings.topP === 'number' ? rawSettings.topP : 1,
+                topK: typeof rawSettings.topK === 'number' ? rawSettings.topK : 50,
+                frequencyPenalty:
+                    typeof rawSettings.frequencyPenalty === 'number'
+                        ? rawSettings.frequencyPenalty
+                        : 0,
+                presencePenalty:
+                    typeof rawSettings.presencePenalty === 'number'
+                        ? rawSettings.presencePenalty
+                        : 0,
+                repetitionPenalty:
+                    typeof rawSettings.repetitionPenalty === 'number'
+                        ? rawSettings.repetitionPenalty
+                        : 1,
+                maxTokens:
+                    typeof rawSettings.maxTokens === 'number'
+                        ? rawSettings.maxTokens
+                        : undefined,
             };
             return {
                 ...baseConfig,
+                model,
                 provider: 'openrouter',
                 settings: migratedSettings,
             } as OpenRouterAgentConfig;
