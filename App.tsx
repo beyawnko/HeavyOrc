@@ -746,68 +746,81 @@ const App: React.FC = () => {
                     throw new Error("Invalid session file format: agentConfigs is missing or not an array.");
                 }
 
-                const loadedAgentConfigs: AgentConfig[] = data.agentConfigs.map((savedConfig) => {
-                    const expert = experts.find(e => e.id === savedConfig.expertId);
-                    if (!expert) {
-                        console.warn(`Expert with ID "${savedConfig.expertId}" not found. Skipping.`);
-                        return null;
-                    }
-                    const baseConfig = {
-                        id: crypto.randomUUID(),
-                        expert,
-                        model: savedConfig.model,
-                        status: 'PENDING' as const,
-                    };
-                    const provider = (savedConfig as { provider?: string }).provider;
-                    if (provider === 'gemini' || provider === 'openai') {
-                        const partialSettings = savedConfig.settings as Partial<GeminiAgentSettings & OpenAIAgentSettings>;
-                        const commonSettings = {
-                            generationStrategy: partialSettings.generationStrategy ?? 'single',
-                            confidenceSource: 'judge' as const,
-                            traceCount: partialSettings.traceCount ?? 8,
-                            deepConfEta: partialSettings.deepConfEta ?? 90,
-                            tau: partialSettings.tau ?? 0.95,
-                            groupWindow: partialSettings.groupWindow ?? 2048,
+                const migrateCommonSettings = (
+                    partial: Partial<GeminiAgentSettings | OpenAIAgentSettings>,
+                ): Pick<
+                    GeminiAgentSettings,
+                    'generationStrategy' | 'confidenceSource' | 'traceCount' | 'deepConfEta' | 'tau' | 'groupWindow'
+                > => ({
+                    generationStrategy: partial.generationStrategy ?? 'single',
+                    confidenceSource: 'judge',
+                    traceCount: partial.traceCount ?? 8,
+                    deepConfEta: partial.deepConfEta ?? 90,
+                    tau: partial.tau ?? 0.95,
+                    groupWindow: partial.groupWindow ?? 2048,
+                });
+
+                const loadedAgentConfigs: AgentConfig[] = data.agentConfigs
+                    .map((savedConfig) => {
+                        const expert = experts.find(e => e.id === savedConfig.expertId);
+                        if (!expert) {
+                            console.warn(`Expert with ID "${savedConfig.expertId}" not found. Skipping.`);
+                            return null;
+                        }
+                        const baseConfig = {
+                            id: crypto.randomUUID(),
+                            expert,
+                            model: savedConfig.model,
+                            status: 'PENDING' as const,
                         };
-                        const providerSettings =
-                            provider === 'gemini'
-                                ? { effort: partialSettings.effort ?? 'dynamic' }
-                                : {
-                                      effort: partialSettings.effort ?? 'medium',
-                                      verbosity: partialSettings.verbosity ?? 'medium',
-                                  };
-        
-                        return {
-                            ...baseConfig,
-                            provider,
-                            settings: {
-                                ...commonSettings,
-                                ...providerSettings,
-                            },
-                        } as GeminiAgentConfig | OpenAIAgentConfig;
-                    } else if (provider === 'openrouter') {
-                        const settings = savedConfig.settings as Partial<OpenRouterAgentSettings>;
-                        const migratedSettings: OpenRouterAgentSettings = {
-                            temperature: settings.temperature ?? 0.7,
-                            topP: settings.topP ?? 1,
-                            topK: settings.topK ?? 50,
-                            frequencyPenalty: settings.frequencyPenalty ?? 0,
-                            presencePenalty: settings.presencePenalty ?? 0,
-                            repetitionPenalty: settings.repetitionPenalty ?? 1,
-                            maxTokens: settings.maxTokens,
-                        };
-                        return {
-                            ...baseConfig,
-                            provider: 'openrouter',
-                            settings: migratedSettings,
-                        } as OpenRouterAgentConfig;
-                    } else {
-                        console.warn(
-                            `Unknown provider "${provider}" for expert "${savedConfig.expertId}". Skipping.`,
-                        );
-                        return null;
-                    }
-                }).filter((config): config is AgentConfig => config !== null);
+                        const provider = (savedConfig as { provider?: string }).provider;
+                        if (provider === 'gemini') {
+                            const settings = savedConfig.settings as Partial<GeminiAgentSettings>;
+                            const migratedSettings: GeminiAgentSettings = {
+                                ...migrateCommonSettings(settings),
+                                effort: settings.effort ?? 'dynamic',
+                            };
+                            return {
+                                ...baseConfig,
+                                provider: 'gemini',
+                                settings: migratedSettings,
+                            } as GeminiAgentConfig;
+                        } else if (provider === 'openai') {
+                            const settings = savedConfig.settings as Partial<OpenAIAgentSettings>;
+                            const migratedSettings: OpenAIAgentSettings = {
+                                ...migrateCommonSettings(settings),
+                                effort: settings.effort ?? 'medium',
+                                verbosity: settings.verbosity ?? 'medium',
+                            };
+                            return {
+                                ...baseConfig,
+                                provider: 'openai',
+                                settings: migratedSettings,
+                            } as OpenAIAgentConfig;
+                        } else if (provider === 'openrouter') {
+                            const settings = savedConfig.settings as Partial<OpenRouterAgentSettings>;
+                            const migratedSettings: OpenRouterAgentSettings = {
+                                temperature: settings.temperature ?? 0.7,
+                                topP: settings.topP ?? 1,
+                                topK: settings.topK ?? 50,
+                                frequencyPenalty: settings.frequencyPenalty ?? 0,
+                                presencePenalty: settings.presencePenalty ?? 0,
+                                repetitionPenalty: settings.repetitionPenalty ?? 1,
+                                maxTokens: settings.maxTokens,
+                            };
+                            return {
+                                ...baseConfig,
+                                provider: 'openrouter',
+                                settings: migratedSettings,
+                            } as OpenRouterAgentConfig;
+                        } else {
+                            console.warn(
+                                `Unknown provider "${provider}" for expert "${savedConfig.expertId}". Skipping.`,
+                            );
+                            return null;
+                        }
+                    })
+                    .filter((config): config is AgentConfig => config !== null);
 
                 handleNewRun(); // Clear current state before loading
                 setPrompt(data.prompt ?? '');
