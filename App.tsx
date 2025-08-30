@@ -802,17 +802,7 @@ const App: React.FC = () => {
                     setToast({ message: "Session loaded successfully!", type: 'success' });
                 } catch (e) {
                     console.error("Failed to load session:", e);
-                    let errorMessage = "An unknown error occurred.";
-                    if (e instanceof z.ZodError) {
-                        errorMessage = `Invalid session file: ${e.errors
-                            .map(
-                                (err) =>
-                                    `${err.path.join('.') || '(root)'} - ${err.message}`,
-                            )
-                            .join('; ')}`;
-                    } else if (e instanceof Error) {
-                        errorMessage = e.message;
-                    }
+                    const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
                     setToast({
                         message: `Error loading session file: ${errorMessage}`,
                         type: 'error',
