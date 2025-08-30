@@ -130,7 +130,7 @@ export const migrateAgentConfig = (
         case 'gemini': {
             const model: GeminiModel =
                 typeof savedConfig.model === 'string' &&
-                GEMINI_MODELS.includes(savedConfig.model as GeminiModel)
+                (GEMINI_MODELS as readonly string[]).includes(savedConfig.model)
                     ? (savedConfig.model as GeminiModel)
                     : GEMINI_FLASH_MODEL;
             const geminiSettings = rawSettings as Partial<GeminiAgentSettings>;
