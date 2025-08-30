@@ -18,12 +18,12 @@ import {
     SESSION_DATA_VERSION,
     RunRecord,
     GeminiThinkingEffort,
-    RunStatus
+    RunStatus,
+    OpenAIReasoningEffort
 } from '@/types';
 import {
     GEMINI_PRO_MODEL,
-    OPENAI_ARBITER_GPT5_MEDIUM_REASONING,
-    OPENAI_ARBITER_GPT5_HIGH_REASONING,
+    OPENAI_ARBITER_MODEL,
     GEMINI_FLASH_MODEL,
     OPENAI_GPT5_MINI_MODEL,
     OPENAI_AGENT_MODEL,
@@ -208,6 +208,7 @@ const App: React.FC = () => {
     const [agentConfigs, setAgentConfigs] = useState<AgentConfig[]>(createDefaultAgentConfigs());
     const [arbiterModel, setArbiterModel] = useState<ArbiterModel>(GEMINI_PRO_MODEL);
     const [openAIArbiterVerbosity, setOpenAIArbiterVerbosity] = useState<OpenAIVerbosity>('medium');
+    const [openAIArbiterEffort, setOpenAIArbiterEffort] = useState<OpenAIReasoningEffort>('medium');
     const [geminiArbiterEffort, setGeminiArbiterEffort] = useState<GeminiThinkingEffort>('dynamic');
     
     // Results state (for live run)
@@ -252,7 +253,7 @@ const App: React.FC = () => {
     const errorRef = useRef(error);
     const animationFrameId = useRef<number | null>(null);
     const isRunCompletedRef = useRef(false);
-    const currentRunDataRef = useRef<Pick<RunRecord, 'prompt' | 'images' | 'agentConfigs' | 'arbiterModel' | 'openAIArbiterVerbosity' | 'geminiArbiterEffort'> | undefined>(undefined);
+    const currentRunDataRef = useRef<Pick<RunRecord, 'prompt' | 'images' | 'agentConfigs' | 'arbiterModel' | 'openAIArbiterVerbosity' | 'openAIArbiterEffort' | 'geminiArbiterEffort'> | undefined>(undefined);
 
 
     useEffect(() => { finalAnswerRef.current = finalAnswer; }, [finalAnswer]);
@@ -362,6 +363,7 @@ const App: React.FC = () => {
             agentConfigs,
             arbiterModel,
             openAIArbiterVerbosity,
+            openAIArbiterEffort,
             geminiArbiterEffort
         };
         
@@ -401,6 +403,7 @@ const App: React.FC = () => {
                 agentConfigs,
                 arbiterModel,
                 openAIArbiterVerbosity,
+                openAIArbiterEffort,
                 geminiArbiterEffort
             }, { onInitialAgents, onDraftComplete: onDraftUpdate });
             
@@ -448,7 +451,7 @@ const App: React.FC = () => {
             setIsArbiterRunning(false);
             isRunCompletedRef.current = true;
         }
-    }, [prompt, images, isLoading, agentConfigs, arbiterModel, openAIArbiterVerbosity, geminiArbiterEffort, openAIAgentCount, openAIApiKey, openRouterAgentCount, openRouterApiKey, queryHistory, selectedRunId]);
+    }, [prompt, images, isLoading, agentConfigs, arbiterModel, openAIArbiterVerbosity, openAIArbiterEffort, geminiArbiterEffort, openAIAgentCount, openAIApiKey, openRouterAgentCount, openRouterApiKey, queryHistory, selectedRunId]);
     
     const handleReset = useCallback(() => {
         setPrompt('');
@@ -456,6 +459,7 @@ const App: React.FC = () => {
         setAgentConfigs(createDefaultAgentConfigs());
         setArbiterModel(GEMINI_PRO_MODEL);
         setOpenAIArbiterVerbosity('medium');
+        setOpenAIArbiterEffort('medium');
         setGeminiArbiterEffort('dynamic');
         setAgents([]);
         setFinalAnswer('');
@@ -607,6 +611,7 @@ const App: React.FC = () => {
                 agentConfigs: selectedRun.agentConfigs,
                 arbiterModel: selectedRun.arbiterModel,
                 openAIArbiterVerbosity: selectedRun.openAIArbiterVerbosity,
+                openAIArbiterEffort: selectedRun.openAIArbiterEffort,
                 geminiArbiterEffort: selectedRun.geminiArbiterEffort,
                 finalAnswer: selectedRun.finalAnswer,
                 agents: selectedRun.agents,
@@ -620,13 +625,14 @@ const App: React.FC = () => {
             agentConfigs,
             arbiterModel,
             openAIArbiterVerbosity,
+            openAIArbiterEffort,
             geminiArbiterEffort,
             finalAnswer,
             agents,
             arbiterSwitchWarning,
             isHistoryView: false,
         };
-    }, [selectedRun, prompt, images, agentConfigs, arbiterModel, openAIArbiterVerbosity, geminiArbiterEffort, finalAnswer, agents, arbiterSwitchWarning]);
+    }, [selectedRun, prompt, images, agentConfigs, arbiterModel, openAIArbiterVerbosity, openAIArbiterEffort, geminiArbiterEffort, finalAnswer, agents, arbiterSwitchWarning]);
 
 
     useEffect(() => {
@@ -685,6 +691,7 @@ const App: React.FC = () => {
                 agentConfigs: savedAgentConfigs,
                 arbiterModel,
                 openAIArbiterVerbosity,
+                openAIArbiterEffort,
                 geminiArbiterEffort,
                 openAIApiKey,
                 geminiApiKey,
@@ -709,7 +716,7 @@ const App: React.FC = () => {
             console.error("Failed to save session:", e);
             setToast({ message: "An error occurred while trying to save the session.", type: 'error' });
         }
-    }, [prompt, agentConfigs, arbiterModel, openAIArbiterVerbosity, geminiArbiterEffort, openAIApiKey, geminiApiKey, openRouterApiKey, queryHistory]);
+    }, [prompt, agentConfigs, arbiterModel, openAIArbiterVerbosity, openAIArbiterEffort, geminiArbiterEffort, openAIApiKey, geminiApiKey, openRouterApiKey, queryHistory]);
     
     const handleLoadSession = useCallback((file: File) => {
         const reader = new FileReader();
@@ -758,6 +765,7 @@ const App: React.FC = () => {
                 setAgentConfigs(loadedAgentConfigs);
                 setArbiterModel(data.arbiterModel ?? GEMINI_PRO_MODEL);
                 setOpenAIArbiterVerbosity(data.openAIArbiterVerbosity ?? 'medium');
+                setOpenAIArbiterEffort(data.openAIArbiterEffort ?? 'medium');
                 setGeminiArbiterEffort(data.geminiArbiterEffort ?? 'dynamic');
                 handleSaveOpenAIApiKey(data.openAIApiKey ?? '');
                 handleSaveGeminiApiKey(data.geminiApiKey ?? '');
@@ -958,11 +966,13 @@ const App: React.FC = () => {
                                 <div className="border-t border-[var(--line)] pt-4">
                                     <CollapsibleSection title="Arbiter Settings" defaultOpen={true}>
                                         <div className="space-y-4">
-                                            <ArbiterSettings 
+                                            <ArbiterSettings
                                                 arbiterModel={displayData.arbiterModel}
                                                 setArbiterModel={setArbiterModel}
                                                 openAIArbiterVerbosity={displayData.openAIArbiterVerbosity}
                                                 setOpenAIArbiterVerbosity={setOpenAIArbiterVerbosity}
+                                                openAIArbiterEffort={displayData.openAIArbiterEffort}
+                                                setOpenAIArbiterEffort={setOpenAIArbiterEffort}
                                                 geminiArbiterEffort={displayData.geminiArbiterEffort}
                                                 setGeminiArbiterEffort={setGeminiArbiterEffort}
                                                 isLoading={isLoading || displayData.isHistoryView}
@@ -1034,22 +1044,27 @@ const ArbiterSettings: React.FC<{
     setArbiterModel: (model: ArbiterModel) => void;
     openAIArbiterVerbosity: OpenAIVerbosity;
     setOpenAIArbiterVerbosity: (verbosity: OpenAIVerbosity) => void;
+    openAIArbiterEffort: OpenAIReasoningEffort;
+    setOpenAIArbiterEffort: (effort: OpenAIReasoningEffort) => void;
     geminiArbiterEffort: GeminiThinkingEffort;
     setGeminiArbiterEffort: (effort: GeminiThinkingEffort) => void;
     isLoading: boolean;
-}> = ({ arbiterModel, setArbiterModel, openAIArbiterVerbosity, setOpenAIArbiterVerbosity, geminiArbiterEffort, setGeminiArbiterEffort, isLoading }) => {
+}> = ({ arbiterModel, setArbiterModel, openAIArbiterVerbosity, setOpenAIArbiterVerbosity, openAIArbiterEffort, setOpenAIArbiterEffort, geminiArbiterEffort, setGeminiArbiterEffort, isLoading }) => {
     const arbiterModelOptions: { label: string; value: ArbiterModel; provider: 'gemini' | 'openai' | 'openrouter'; tooltip: string }[] = [
         { label: 'Gemini 2.5 Flash', value: GEMINI_FLASH_MODEL, provider: 'gemini', tooltip: 'Google\'s fast and cost-effective model for general arbitration.' },
         { label: 'Gemini 2.5 Pro', value: GEMINI_PRO_MODEL, provider: 'gemini', tooltip: 'Google\'s most capable model, with a large context window and strong reasoning. Recommended for complex synthesis.' },
+        { label: 'GPT-5', value: OPENAI_ARBITER_MODEL, provider: 'openai', tooltip: 'OpenAI\'s flagship model with configurable reasoning effort for balanced arbitration.' },
         { label: 'GPT-5 Mini', value: OPENAI_GPT5_MINI_MODEL, provider: 'openai', tooltip: 'OpenAI\'s lightweight GPT-5 model for quick arbitration with lower latency.' },
-        { label: 'GPT-5 (Med)', value: OPENAI_ARBITER_GPT5_MEDIUM_REASONING, provider: 'openai', tooltip: 'OpenAI\'s powerful GPT-5 model with standard reasoning. A strong, balanced choice for arbitration.' },
-        { label: 'GPT-5 (High)', value: OPENAI_ARBITER_GPT5_HIGH_REASONING, provider: 'openai', tooltip: 'GPT-5 with enhanced, step-by-step reasoning. May produce higher quality synthesis for nuanced topics at a higher latency.' },
         { label: 'OR Claude Haiku', value: OPENROUTER_CLAUDE_3_HAIKU, provider: 'openrouter', tooltip: 'Anthropic\'s fastest model via OpenRouter. Ideal for quick, responsive arbitration.' },
     ];
     const openAIVerbosityOptions: { label: string; value: OpenAIVerbosity }[] = [
         { label: 'Low', value: 'low' },
         { label: 'Medium', value: 'medium' },
         { label: 'High', value: 'high' }
+    ];
+    const openAIEffortOptions: { label: string; value: OpenAIReasoningEffort }[] = [
+        { label: 'Medium', value: 'medium' },
+        { label: 'High', value: 'high' },
     ];
     const geminiEffortOptions: { label: string, value: GeminiThinkingEffort }[] = [
         { label: 'Dynamic', value: 'dynamic' },
@@ -1077,16 +1092,28 @@ const ArbiterSettings: React.FC<{
                 />
             </div>
             {selectedModelOption?.provider === 'openai' ? (
-                <div>
-                    <label className="block text-sm font-medium text-[var(--text)] mb-2">Arbiter Verbosity</label>
-                    <SegmentedControl
-                        aria-label="Arbiter Verbosity"
-                        options={openAIVerbosityOptions}
-                        value={openAIArbiterVerbosity}
-                        onChange={setOpenAIArbiterVerbosity}
-                        disabled={isLoading}
-                    />
-                </div>
+                <>
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text)] mb-2">Arbiter Verbosity</label>
+                        <SegmentedControl
+                            aria-label="Arbiter Verbosity"
+                            options={openAIVerbosityOptions}
+                            value={openAIArbiterVerbosity}
+                            onChange={setOpenAIArbiterVerbosity}
+                            disabled={isLoading}
+                        />
+                    </div>
+                    <div className="mt-4">
+                        <label className="block text-sm font-medium text-[var(--text)] mb-2">Reasoning Effort</label>
+                        <SegmentedControl
+                            aria-label="Arbiter Reasoning Effort"
+                            options={openAIEffortOptions}
+                            value={openAIArbiterEffort}
+                            onChange={setOpenAIArbiterEffort}
+                            disabled={isLoading}
+                        />
+                    </div>
+                </>
             ) : selectedModelOption?.provider === 'gemini' ? (
                  <div>
                     <label className="block text-sm font-medium text-[var(--text)] mb-2">Thinking Effort</label>
