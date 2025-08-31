@@ -64,6 +64,8 @@ const estimateTokens = async (text: string): Promise<number> => {
 const ARBITER_TOKEN_THRESHOLD = 28_000; 
 
 export const runOrchestration = async (params: OrchestrationParams, callbacks: OrchestrationCallbacks) => {
+    const controller = new AbortController();
+
     // 1. Map AgentConfigs to ExpertDispatches (routing is now done by the user)
     const dispatchedExperts: ExpertDispatch[] = params.agentConfigs.map(config => ({
         agentId: config.id,
@@ -76,7 +78,14 @@ export const runOrchestration = async (params: OrchestrationParams, callbacks: O
     callbacks.onInitialAgents(dispatchedExperts);
 
     // 2. Dispatch to experts in parallel
-    const drafts = await dispatch(dispatchedExperts, params.prompt, params.images, params.agentConfigs, callbacks.onDraftComplete);
+    const drafts = await dispatch(
+        dispatchedExperts,
+        params.prompt,
+        params.images,
+        params.agentConfigs,
+        callbacks.onDraftComplete,
+        controller.signal
+    );
     
     // 3. Arbitrate the results
     let finalArbiterModel = params.arbiterModel;
@@ -99,14 +108,35 @@ export const runOrchestration = async (params: OrchestrationParams, callbacks: O
         }
     }
 
-    const stream = await arbitrateStream(
+    const arbiterGenerator = await arbitrateStream(
         finalArbiterModel,
         params.prompt,
         drafts,
         params.openAIArbiterVerbosity,
         params.openAIArbiterEffort,
-        params.geminiArbiterEffort
+        params.geminiArbiterEffort,
+        controller.signal
     );
 
-    return { drafts, stream, switchedArbiter };
+    const stream = new ReadableStream<string>({
+        async start(ctrl) {
+            try {
+                for await (const chunk of arbiterGenerator) {
+                    if (controller.signal.aborted) {
+                        ctrl.error(new DOMException('Aborted', 'AbortError'));
+                        return;
+                    }
+                    ctrl.enqueue(chunk.text);
+                }
+                ctrl.close();
+            } catch (err) {
+                ctrl.error(err as any);
+            }
+        },
+        cancel() {
+            controller.abort();
+        },
+    });
+
+    return { drafts, stream, switchedArbiter, abort: () => controller.abort() };
 };

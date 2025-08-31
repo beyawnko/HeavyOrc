@@ -68,7 +68,8 @@ export const arbitrateStream = async (
     drafts: Draft[],
     arbiterVerbosity: 'low' | 'medium' | 'high',
     openAIArbiterEffort: OpenAIReasoningEffort,
-    geminiArbiterEffort: GeminiThinkingEffort
+    geminiArbiterEffort: GeminiThinkingEffort,
+    abortSignal?: AbortSignal
 ): Promise<AsyncGenerator<{ text: string }>> => {
     const successfulDrafts = drafts.filter(d => d.status === 'COMPLETED');
 
@@ -103,6 +104,7 @@ export const arbitrateStream = async (
                 method: 'POST',
                 headers,
                 body: JSON.stringify(body),
+                signal: abortSignal,
             }
         );
 
@@ -127,14 +129,17 @@ export const arbitrateStream = async (
         try {
             const stream = await callWithRetry(
                 () =>
-                    openaiAI.responses.stream({
-                        model: arbiterModel,
-                        reasoning: { effort: openAIArbiterEffort },
-                        input: [
-                            { role: 'system', content: systemPersona },
-                            { role: 'user', content: arbiterPrompt },
-                        ],
-                    }),
+                    openaiAI.responses.stream(
+                        {
+                            model: arbiterModel,
+                            reasoning: { effort: openAIArbiterEffort },
+                            input: [
+                                { role: 'system', content: systemPersona },
+                                { role: 'user', content: arbiterPrompt },
+                            ],
+                        },
+                        { signal: abortSignal }
+                    ),
                 'OpenAI'
             );
 
@@ -164,17 +169,31 @@ export const arbitrateStream = async (
 
     const geminiAI = getGeminiClient();
     try {
-        const stream = await callWithGeminiRetry((signal) =>
-            geminiAI.models.generateContentStream({
+        const stream = await callWithGeminiRetry((signal) => {
+            let finalSignal: AbortSignal = signal;
+            let onAbort: (() => void) | undefined;
+            if (abortSignal) {
+                const controller = new AbortController();
+                onAbort = () => controller.abort();
+                abortSignal.addEventListener('abort', onAbort);
+                signal.addEventListener('abort', onAbort);
+                finalSignal = controller.signal;
+            }
+            return geminiAI.models.generateContentStream({
                 model,
                 contents: { parts: [{ text: arbiterPrompt }] },
                 config: {
                     systemInstruction: ARBITER_PERSONA,
                     thinkingConfig: { thinkingBudget: budget },
-                    abortSignal: signal,
+                    abortSignal: finalSignal,
                 }
-            })
-        );
+            }).finally(() => {
+                if (abortSignal && onAbort) {
+                    abortSignal.removeEventListener('abort', onAbort);
+                    signal.removeEventListener('abort', onAbort);
+                }
+            });
+        });
 
         async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
             for await (const chunk of stream) {

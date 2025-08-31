@@ -274,6 +274,7 @@ const App: React.FC = () => {
     const errorRef = useRef(error);
     const animationFrameId = useRef<number | null>(null);
     const isRunCompletedRef = useRef(false);
+    const orchestratorAbortRef = useRef<(() => void) | null>(null);
     const currentRunDataRef = useRef<Pick<RunRecord, 'prompt' | 'images' | 'agentConfigs' | 'arbiterModel' | 'openAIArbiterVerbosity' | 'openAIArbiterEffort' | 'geminiArbiterEffort'> | undefined>(undefined);
 
 
@@ -281,6 +282,10 @@ const App: React.FC = () => {
     useEffect(() => { agentsRef.current = agents; }, [agents]);
     useEffect(() => { arbiterSwitchWarningRef.current = arbiterSwitchWarning; }, [arbiterSwitchWarning]);
     useEffect(() => { errorRef.current = error; }, [error]);
+
+    useEffect(() => {
+        return () => orchestratorAbortRef.current?.();
+    }, []);
 
     useEffect(() => {
         if (!isLoading && isRunCompletedRef.current) {
@@ -370,6 +375,8 @@ const App: React.FC = () => {
             return;
         }
 
+        orchestratorAbortRef.current?.();
+        orchestratorAbortRef.current = null;
         setIsLoading(true);
         setError(null);
         setFinalAnswer('');
@@ -418,7 +425,7 @@ const App: React.FC = () => {
                 ));
             };
 
-            const { stream, switchedArbiter } = await runOrchestration({
+            const { stream, switchedArbiter, abort } = await runOrchestration({
                 prompt: finalPrompt,
                 images,
                 agentConfigs,
@@ -427,6 +434,7 @@ const App: React.FC = () => {
                 openAIArbiterEffort,
                 geminiArbiterEffort
             }, { onInitialAgents, onDraftComplete: onDraftUpdate });
+            orchestratorAbortRef.current = abort;
             
             if (switchedArbiter) {
                 setArbiterSwitchWarning('The selected GPT-5 arbiter was automatically switched to Gemini 2.5 Pro due to a large input size to prevent errors. Gemini models support larger context windows.');
@@ -448,8 +456,15 @@ const App: React.FC = () => {
             
             animationFrameId.current = requestAnimationFrame(updateDisplay);
 
-            for await (const chunk of stream) {
-                chunkBuffer += chunk.text;
+            const reader = stream.getReader();
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    chunkBuffer += value;
+                }
+            } finally {
+                reader.releaseLock();
             }
             
             if (animationFrameId.current) {
@@ -462,12 +477,16 @@ const App: React.FC = () => {
             }
 
         } catch (e) {
+            if (e instanceof DOMException && e.name === 'AbortError') {
+                return;
+            }
             console.error(e);
             const errorMessage = e instanceof Error ? e.message : 'An unexpected error occurred.';
             setError(errorMessage);
             setAgents(prev => prev.map(a => ({...a, status: 'FAILED', error: errorMessage})))
             setAgentConfigs(configs => configs.map(c => ({...c, status: 'FAILED' })));
         } finally {
+            orchestratorAbortRef.current = null;
             setIsLoading(false);
             setIsArbiterRunning(false);
             isRunCompletedRef.current = true;
@@ -475,6 +494,7 @@ const App: React.FC = () => {
     }, [prompt, images, isLoading, agentConfigs, arbiterModel, openAIArbiterVerbosity, openAIArbiterEffort, geminiArbiterEffort, openAIAgentCount, openAIApiKey, openRouterAgentCount, openRouterApiKey, queryHistory, selectedRunId]);
     
     const handleReset = useCallback(() => {
+        orchestratorAbortRef.current?.();
         setPrompt('');
         setImages([]);
         setAgentConfigs(createDefaultAgentConfigs());
