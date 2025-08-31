@@ -115,6 +115,45 @@ const runExpertGeminiSingle = async (
     }
 }
 
+const createDeepConfTraceProvider = <C extends AgentConfig>(
+    runFn: (
+        expert: ExpertDispatch,
+        prompt: string,
+        images: ImageState[],
+        config: C,
+        abortSignal?: AbortSignal
+    ) => Promise<string>,
+    expert: ExpertDispatch,
+    images: ImageState[],
+    config: C,
+    orchestrationAbortSignal?: AbortSignal
+): TraceProvider => {
+    const segmenter = globalThis.Intl?.Segmenter
+        ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+        : undefined;
+    return {
+        generate: async (p, signal) => {
+            if (orchestrationAbortSignal?.aborted) {
+                throw new DOMException('Aborted', 'AbortError');
+            }
+            const { signal: finalSignal, cleanup } = combineAbortSignals(signal, orchestrationAbortSignal);
+            try {
+                const text = await runFn(expert, p, images, config, finalSignal);
+                const tokens = segmenter
+                    ? Array.from(segmenter.segment(text), ({ segment }) => segment)
+                    : Array.from(text);
+                const trace: Trace = {
+                    text,
+                    steps: tokens.map(token => ({ token, topK: [] })),
+                };
+                return trace;
+            } finally {
+                cleanup();
+            }
+        }
+    };
+};
+
 const runExpertGeminiDeepConf = async (
     expert: ExpertDispatch,
     prompt: string,
@@ -124,29 +163,7 @@ const runExpertGeminiDeepConf = async (
 ): Promise<string> => {
     const { generationStrategy, traceCount, deepConfEta, tau, groupWindow } = config.settings;
 
-    const createProvider = (): TraceProvider => {
-        return {
-            generate: async (p, signal) => { // p is the prompt string
-                if (abortSignal?.aborted) {
-                    const abortErr = new Error('Aborted');
-                    abortErr.name = 'AbortError';
-                    throw abortErr;
-                }
-                const { signal: finalSignal, cleanup } = combineAbortSignals(signal, abortSignal);
-                try {
-                    const text = await runExpertGeminiSingle(expert, p, images, config, finalSignal);
-                    // Gemini API doesn't give us steps/tokens, so we create a mock Trace
-                    const trace: Trace = {
-                        text,
-                        steps: text.split('').map(char => ({ token: char, topK: [] })), // Mock steps
-                    };
-                    return trace;
-                } finally {
-                    cleanup();
-                }
-            }
-        };
-    };
+    const provider = createDeepConfTraceProvider(runExpertGeminiSingle, expert, images, config, abortSignal);
 
     const extractAnswer = (trace: Trace) => trace.text.trim();
 
@@ -159,10 +176,10 @@ const runExpertGeminiDeepConf = async (
     };
 
     if (generationStrategy === 'deepconf-online') {
-        const { content } = await deepConfOnlineWithJudge(createProvider(), prompt, extractAnswer, config.model, opts);
+        const { content } = await deepConfOnlineWithJudge(provider, prompt, extractAnswer, config.model, opts);
         return content;
     } else { // deepconf-offline
-        const { content } = await deepConfOfflineWithJudge(createProvider(), prompt, extractAnswer, config.model, opts);
+        const { content } = await deepConfOfflineWithJudge(provider, prompt, extractAnswer, config.model, opts);
         return content;
     }
 }
@@ -219,30 +236,7 @@ const runExpertOpenAIDeepConf = async (
 ): Promise<string> => {
     const { generationStrategy, traceCount, deepConfEta, tau, groupWindow } = config.settings;
 
-    const createProvider = (): TraceProvider => {
-        return {
-            generate: async (p, signal) => { // p is the prompt string
-                if (abortSignal?.aborted) {
-                    const abortErr = new Error('Aborted');
-                    abortErr.name = 'AbortError';
-                    throw abortErr;
-                }
-                const { signal: finalSignal, cleanup } = combineAbortSignals(signal, abortSignal);
-                try {
-                    // Since logprobs are not available, we generate the full text and mock the trace.
-                    const text = await runExpertOpenAISingle(expert, p, images, config, finalSignal);
-                    // Mock Trace for judge-based DeepConf
-                    const trace: Trace = {
-                        text,
-                        steps: text.split('').map(char => ({ token: char, topK: [] })), // Mock steps
-                    };
-                    return trace;
-                } finally {
-                    cleanup();
-                }
-            }
-        };
-    };
+    const provider = createDeepConfTraceProvider(runExpertOpenAISingle, expert, images, config, abortSignal);
 
     const extractAnswer = (trace: Trace) => trace.text.trim();
     
@@ -256,10 +250,10 @@ const runExpertOpenAIDeepConf = async (
 
     // Use judge-based DeepConf for OpenAI, similar to Gemini, as logprobs are not available.
     if (generationStrategy === 'deepconf-online') {
-        const { content } = await deepConfOnlineWithJudge(createProvider(), prompt, extractAnswer, config.model, opts);
+        const { content } = await deepConfOnlineWithJudge(provider, prompt, extractAnswer, config.model, opts);
         return content;
     } else { // deepconf-offline
-        const { content } = await deepConfOfflineWithJudge(createProvider(), prompt, extractAnswer, config.model, opts);
+        const { content } = await deepConfOfflineWithJudge(provider, prompt, extractAnswer, config.model, opts);
         return content;
     }
 };
