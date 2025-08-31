@@ -91,6 +91,11 @@ const runExpertGeminiSingle = async (
     try {
         const response = await callWithGeminiRetry(
             (signal) => {
+                if (abortSignal?.aborted) {
+                    const abortErr = new Error('Aborted');
+                    abortErr.name = 'AbortError';
+                    return Promise.reject(abortErr);
+                }
                 const { signal: finalSignal, cleanup } = combineAbortSignals(signal, abortSignal);
                 if (generateContentParams.config) {
                     generateContentParams.config.abortSignal = finalSignal;
@@ -103,8 +108,10 @@ const runExpertGeminiSingle = async (
         );
         return getGeminiResponseText(response);
     } catch (error) {
-        if (error instanceof Error && error.message === 'Gemini request timed out') {
-            throw error;
+        if (error instanceof Error) {
+            if (error.name === 'AbortError' || error.message === 'Gemini request timed out') {
+                throw error;
+            }
         }
         return handleGeminiError(error, 'dispatcher', 'dispatch');
     }
