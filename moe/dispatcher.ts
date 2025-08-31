@@ -123,8 +123,9 @@ const createDeepConfTraceProvider = <C extends AgentConfig>(
     config: C,
     orchestrationAbortSignal?: AbortSignal
 ): TraceProvider => {
-    const segmenter = globalThis.Intl?.Segmenter
-        ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+    const SegmenterCtor = (Intl as any).Segmenter;
+    const segmenter = SegmenterCtor
+        ? new SegmenterCtor(undefined, { granularity: 'grapheme' })
         : undefined;
     return {
         generate: async (p, signal) => {
