@@ -13,3 +13,25 @@ export const getGeminiResponseText = (response: unknown): string => {
     ? textProp.call(response) ?? ''
     : (textProp as string | undefined) ?? '';
 };
+
+export const combineAbortSignals = (
+  ...signals: (AbortSignal | undefined)[]
+): { signal: AbortSignal; cleanup: () => void } => {
+  const defined = signals.filter((s): s is AbortSignal => s != null);
+  if (defined.length <= 1) {
+    return { signal: defined[0] ?? new AbortController().signal, cleanup: () => {} };
+  }
+
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  for (const s of defined) {
+    if (s.aborted) controller.abort();
+    else s.addEventListener('abort', onAbort);
+  }
+  const cleanup = () => {
+    for (const s of defined) {
+      s.removeEventListener('abort', onAbort);
+    }
+  };
+  return { signal: controller.signal, cleanup };
+};

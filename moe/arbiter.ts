@@ -1,6 +1,6 @@
 import { Draft } from './types';
 import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey, fetchWithRetry, callWithRetry } from '@/services/llmService';
-import { getAppUrl, getGeminiResponseText } from '@/lib/utils';
+import { getAppUrl, getGeminiResponseText, combineAbortSignals } from '@/lib/utils';
 import {
     ARBITER_PERSONA,
     ARBITER_HIGH_REASONING_PROMPT_MODIFIER,
@@ -170,29 +170,18 @@ export const arbitrateStream = async (
     const geminiAI = getGeminiClient();
     try {
         const stream = await callWithGeminiRetry((signal) => {
-            let finalSignal: AbortSignal = signal;
-            let onAbort: (() => void) | undefined;
-            if (abortSignal) {
-                const controller = new AbortController();
-                onAbort = () => controller.abort();
-                abortSignal.addEventListener('abort', onAbort);
-                signal.addEventListener('abort', onAbort);
-                finalSignal = controller.signal;
-            }
-            return geminiAI.models.generateContentStream({
-                model,
-                contents: { parts: [{ text: arbiterPrompt }] },
-                config: {
-                    systemInstruction: ARBITER_PERSONA,
-                    thinkingConfig: { thinkingBudget: budget },
-                    abortSignal: finalSignal,
-                }
-            }).finally(() => {
-                if (abortSignal && onAbort) {
-                    abortSignal.removeEventListener('abort', onAbort);
-                    signal.removeEventListener('abort', onAbort);
-                }
-            });
+            const { signal: finalSignal, cleanup } = combineAbortSignals(signal, abortSignal);
+            return geminiAI
+                .models.generateContentStream({
+                    model,
+                    contents: { parts: [{ text: arbiterPrompt }] },
+                    config: {
+                        systemInstruction: ARBITER_PERSONA,
+                        thinkingConfig: { thinkingBudget: budget },
+                        abortSignal: finalSignal,
+                    }
+                })
+                .finally(cleanup);
         });
 
         async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
