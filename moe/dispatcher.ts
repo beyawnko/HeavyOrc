@@ -141,6 +141,7 @@ const createDeepConfTraceProvider = <C extends AgentConfig>(
                 const text = await runFn(expert, p, images, config, finalSignal);
                 const tokens = segmenter
                     ? Array.from(segmenter.segment(text), ({ segment }) => segment)
+                    // Array.from on a string iterates by code point; complex grapheme clusters may split
                     : Array.from(text);
                 const trace: Trace = {
                     text,
