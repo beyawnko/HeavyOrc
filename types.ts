@@ -111,11 +111,7 @@ const ProviderSettingsSchemaMap: Record<ApiProvider, z.ZodTypeAny> = {
     openrouter: OpenRouterAgentSettingsSchema,
 };
 
-export type SavedAgentSettings =
-    | Partial<GeminiAgentSettings>
-    | Partial<OpenAIAgentSettings>
-    | Partial<OpenRouterAgentSettings>
-    | Record<string, unknown>;
+export type SavedAgentSettings = Record<string, unknown>;
 
 const SavedAgentSettingsSchema: z.ZodType<SavedAgentSettings> =
     z.record(z.unknown());
@@ -166,7 +162,10 @@ const SavedAgentConfigSchemaBase = z.object({
 });
 
 export const SavedAgentConfigSchema = SavedAgentConfigSchemaBase.superRefine(
-    (config: z.infer<typeof SavedAgentConfigSchemaBase>, ctx) => {
+    (
+        config: z.infer<typeof SavedAgentConfigSchemaBase>,
+        ctx: z.RefinementCtx,
+    ) => {
         if (!config.provider || !config.settings) return;
 
         const schema = ProviderSettingsSchemaMap[config.provider];

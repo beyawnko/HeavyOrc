@@ -21,6 +21,7 @@ import {
     RunStatus,
     OpenAIReasoningEffort,
     SavedAgentConfigSchema,
+    SavedAgentSettings,
 } from '@/types';
 import {
     GEMINI_PRO_MODEL,
@@ -699,12 +700,14 @@ const App: React.FC = () => {
 
     const handleSaveSession = useCallback(() => {
         try {
-            const savedAgentConfigs: SavedAgentConfig[] = agentConfigs.map(config => ({
-                expertId: config.expert.id,
-                model: config.model,
-                provider: config.provider,
-                settings: config.settings,
-            }));
+            const savedAgentConfigs: SavedAgentConfig[] = agentConfigs.map(
+                (config) => ({
+                    expertId: config.expert.id,
+                    model: config.model,
+                    provider: config.provider,
+                    settings: config.settings as unknown as SavedAgentSettings,
+                }),
+            );
 
             const sessionData: SessionData = {
                 version: SESSION_DATA_VERSION,
