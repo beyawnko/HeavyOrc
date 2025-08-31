@@ -128,6 +128,9 @@ const createDeepConfTraceProvider = <C extends AgentConfig>(
     config: C,
     orchestrationAbortSignal?: AbortSignal
 ): TraceProvider => {
+    const segmenter = globalThis.Intl?.Segmenter
+        ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+        : undefined;
     return {
         generate: async (p, signal) => {
             if (orchestrationAbortSignal?.aborted) {
@@ -136,11 +139,8 @@ const createDeepConfTraceProvider = <C extends AgentConfig>(
             const { signal: finalSignal, cleanup } = combineAbortSignals(signal, orchestrationAbortSignal);
             try {
                 const text = await runFn(expert, p, images, config, finalSignal);
-                const tokens = globalThis.Intl?.Segmenter
-                    ? Array.from(
-                        new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text),
-                        ({ segment }) => segment
-                    )
+                const tokens = segmenter
+                    ? Array.from(segmenter.segment(text), ({ segment }) => segment)
                     : Array.from(text);
                 const trace: Trace = {
                     text,
