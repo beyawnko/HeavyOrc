@@ -46,8 +46,9 @@ export const fetchWithRetry = async (
     throw new Error("fetchWithRetry exhausted all retries without success.");
 };
 
+// callWithRetry now accepts functions that may return a promise or a synchronous value.
 export const callWithRetry = async <T>(
-    fn: () => Promise<T>,
+    fn: () => Promise<T> | T,
     serviceName: string,
     retries = 3,
     baseDelayMs = 500,
