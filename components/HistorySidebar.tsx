@@ -155,29 +155,28 @@ const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>((props
                         data={history}
                         style={{ height: '100%' }}
                         components={{
-                            List: forwardRef<HTMLDivElement>((props, ref) => (
-                                <div {...props} ref={ref} className="space-y-1" />
+                            List: forwardRef<HTMLUListElement>((props, ref) => (
+                                <ul {...props} ref={ref} className="space-y-1" />
                             )),
+                            Item: (props) => <li {...props} />,
                         }}
                         itemContent={(_index: number, run: RunRecord) => (
-                            <div>
-                                <button
-                                    onClick={() => onSelectRun(run.id)}
-                                    className={`w-full text-left flex items-center gap-3 p-2 rounded-md transition-colors ${
-                                        selectedRunId === run.id ? 'bg-[var(--surface-1)]' : 'hover:bg-[var(--surface-active)]'
-                                    }`}
-                                >
-                                    <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center mt-0.5">
-                                        <StatusIndicator status={run.status} />
+                            <button
+                                onClick={() => onSelectRun(run.id)}
+                                className={`w-full text-left flex items-center gap-3 p-2 rounded-md transition-colors ${
+                                    selectedRunId === run.id ? 'bg-[var(--surface-1)]' : 'hover:bg-[var(--surface-active)]'
+                                }`}
+                            >
+                                <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center mt-0.5">
+                                    <StatusIndicator status={run.status} />
+                                </div>
+                                {isOpen && (
+                                    <div className="overflow-hidden">
+                                        <p className="text-sm font-medium text-[var(--text)] truncate">{run.prompt || 'Image-based prompt'}</p>
+                                        <p className="text-xs text-[var(--text-muted)]">{formatTimestamp(run.timestamp)}</p>
                                     </div>
-                                    {isOpen && (
-                                        <div className="overflow-hidden">
-                                            <p className="text-sm font-medium text-[var(--text)] truncate">{run.prompt || 'Image-based prompt'}</p>
-                                            <p className="text-xs text-[var(--text-muted)]">{formatTimestamp(run.timestamp)}</p>
-                                        </div>
-                                    )}
-                                </button>
-                            </div>
+                                )}
+                            </button>
                         )}
                     />
                 )}
