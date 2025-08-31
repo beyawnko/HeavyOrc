@@ -22,26 +22,43 @@ export const isGeminiServerError = (error: unknown): boolean => {
     return typeof status === 'number' && status >= 500;
 };
 
+export interface GeminiRetryOpts {
+    retries?: number;
+    baseDelayMs?: number;
+    timeoutMs?: number;
+}
+
 export const callWithGeminiRetry = async <T>(
-    fn: () => Promise<T>,
-    retries = 3,
-    baseDelayMs = 1000,
+    fn: (signal: AbortSignal) => Promise<T>,
+    { retries = 3, baseDelayMs = 1000, timeoutMs = 10000 }: GeminiRetryOpts = {}
 ): Promise<T> => {
     for (let attempt = 0; ; attempt++) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
         try {
-            return await fn();
+            return await fn(controller.signal);
         } catch (error) {
             if ((isGeminiRateLimitError(error) || isGeminiServerError(error)) && attempt < retries) {
                 await sleep(baseDelayMs * Math.pow(2, attempt));
                 continue;
             }
+            if (error instanceof Error && error.name === 'AbortError') {
+                throw new Error('Gemini request timed out');
+            }
             if (isGeminiRateLimitError(error)) {
                 throw new Error(GEMINI_QUOTA_MESSAGE);
             }
             if (isGeminiServerError(error)) {
+                const maybe = error as { status?: number; response?: { status?: number } };
+                const status = maybe.status ?? maybe.response?.status;
+                if (status === 503) {
+                    throw new Error('Gemini service responded with 503 Service Unavailable after retries.');
+                }
                 throw new Error('Gemini service is temporarily unavailable. Please try again later.');
             }
             throw error;
+        } finally {
+            clearTimeout(timer);
         }
     }
 };

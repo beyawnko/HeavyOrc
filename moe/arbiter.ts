@@ -173,13 +173,14 @@ export const arbitrateStream = async (
 
     const geminiAI = getGeminiClient();
     try {
-        const stream = await callWithGeminiRetry(() =>
+        const stream = await callWithGeminiRetry((signal) =>
             geminiAI.models.generateContentStream({
                 model,
                 contents: { parts: [{ text: arbiterPrompt }] },
                 config: {
                     systemInstruction: ARBITER_PERSONA,
                     thinkingConfig: { thinkingBudget: budget },
+                    abortSignal: signal,
                 }
             })
         );
