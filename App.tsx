@@ -21,7 +21,6 @@ import {
     RunStatus,
     OpenAIReasoningEffort,
     SavedAgentConfigSchema,
-    SavedAgentSettings,
 } from '@/types';
 import {
     GEMINI_PRO_MODEL,
@@ -705,7 +704,7 @@ const App: React.FC = () => {
                     expertId: config.expert.id,
                     model: config.model,
                     provider: config.provider,
-                    settings: config.settings as SavedAgentSettings,
+                    settings: { ...config.settings },
                 }),
             );
 
