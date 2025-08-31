@@ -25,6 +25,46 @@ VITE_APP_URL=https://your-domain.example
 
 Keys are optional; the UI hides providers without keys. `VITE_APP_URL` supplies a referer for server-side deployments.
 
+## Reasoning models and context management
+
+Reasoning models such as GPT‑5 generate internal reasoning tokens before returning a final answer. These tokens count against the model's context window and are billed as output tokens. To avoid incomplete responses:
+
+- Reserve ample room in the context window—OpenAI recommends leaving at least 25,000 tokens for reasoning and output.
+- Use `max_output_tokens` to cap total generated tokens. If the limit is reached, the response status will be `incomplete` with `reason` set to `max_output_tokens`.
+- Monitor `output_tokens_details.reasoning_tokens` in the API response to understand usage.
+
+```javascript
+import OpenAI from "openai";
+
+const openai = new OpenAI();
+
+const prompt = `
+Write a bash script that takes a matrix represented as a string with 
+format '[1,2],[3,4],[5,6]' and prints the transpose in the same format.
+`;
+
+const response = await openai.responses.create({
+    model: "gpt-5",
+    reasoning: { effort: "medium" },
+    input: [
+        { role: "user", content: prompt }
+    ],
+    max_output_tokens: 300,
+});
+
+if (response.status === "incomplete" &&
+    response.incomplete_details.reason === "max_output_tokens") {
+    console.log("Ran out of tokens");
+    if (response.output_text?.length > 0) {
+        console.log("Partial output:", response.output_text);
+    } else {
+        console.log("Ran out of tokens during reasoning");
+    }
+}
+```
+
+When using function calling with a reasoning model, pass back the reasoning items from the previous response. You can either reference the `previous_response_id` or include all output items from the prior response to maintain the model's chain of thought.
+
 ## Development
 
 1. Install dependencies: `npm install`

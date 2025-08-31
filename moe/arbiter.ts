@@ -138,7 +138,7 @@ export const arbitrateStream = async (
                 messages,
                 stream: true,
             };
-            if (model.startsWith('gpt-5')) {
+            if (model === 'gpt-5') {
                 (completionParams as any).reasoning = { effort: openAIArbiterEffort };
             }
 

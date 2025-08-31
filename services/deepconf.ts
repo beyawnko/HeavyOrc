@@ -60,7 +60,7 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
     if (agentModel.startsWith('gpt-') || agentModel.includes('/')) {
         try {
             const openaiAI = getOpenAIClient();
-            // Per user request, use a specific judge model (gpt-5-mini) with high reasoning for OpenAI agents.
+            // Per user request, use a specific judge model (gpt-5-mini) for OpenAI agents.
             const systemPrompt = OPENAI_REASONING_PROMPT_PREFIX + judgeSystem;
             const userPrompt = judgeUserTemplate(prompt, answer);
 
