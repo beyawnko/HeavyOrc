@@ -159,7 +159,7 @@ const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>((props
                                 <div {...props} ref={ref} className="space-y-1" />
                             )),
                         }}
-                        itemContent={(_, run) => (
+                        itemContent={(_index: number, run: RunRecord) => (
                             <div>
                                 <button
                                     onClick={() => onSelectRun(run.id)}

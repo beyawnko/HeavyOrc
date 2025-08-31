@@ -74,28 +74,29 @@ export const runOrchestration = (
     callbacks: OrchestrationCallbacks
 ) => {
     const controller = new AbortController();
+    // 1. Map AgentConfigs to ExpertDispatches (routing is now done by the user)
+    const dispatchedExperts: ExpertDispatch[] = params.agentConfigs.map(config => ({
+        agentId: config.id,
+        id: config.expert.id,
+        name: config.expert.name,
+        persona: config.expert.persona,
+        provider: config.provider,
+        model: config.model,
+    }));
+    callbacks.onInitialAgents(dispatchedExperts);
+
+    // 2. Dispatch to experts in parallel
+    const dispatchPromise = dispatch(
+        dispatchedExperts,
+        params.prompt,
+        params.images,
+        params.agentConfigs,
+        callbacks.onDraftComplete,
+        controller.signal
+    );
 
     const promise: Promise<OrchestrationPromiseResult> = (async () => {
-        // 1. Map AgentConfigs to ExpertDispatches (routing is now done by the user)
-        const dispatchedExperts: ExpertDispatch[] = params.agentConfigs.map(config => ({
-            agentId: config.id,
-            id: config.expert.id,
-            name: config.expert.name,
-            persona: config.expert.persona,
-            provider: config.provider,
-            model: config.model,
-        }));
-        callbacks.onInitialAgents(dispatchedExperts);
-
-        // 2. Dispatch to experts in parallel
-        const drafts = await dispatch(
-            dispatchedExperts,
-            params.prompt,
-            params.images,
-            params.agentConfigs,
-            callbacks.onDraftComplete,
-            controller.signal
-        );
+        const drafts = await dispatchPromise;
 
         // 3. Arbitrate the results
         let finalArbiterModel = params.arbiterModel;

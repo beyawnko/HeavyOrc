@@ -36,6 +36,9 @@ export const fetchWithRetry = async (
                 throw new Error(`${serviceName} service is temporarily unavailable. Please try again later.`);
             }
         } catch (error) {
+            if ((error as { name?: string }).name === 'AbortError') {
+                throw error; // don't retry aborted requests
+            }
             if (attempt === retries) {
                 throw error;
             }
