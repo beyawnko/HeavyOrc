@@ -111,6 +111,15 @@ const ProviderSettingsSchemaMap: Record<ApiProvider, z.ZodTypeAny> = {
     openrouter: OpenRouterAgentSettingsSchema,
 };
 
+type SavedAgentSettings =
+    | GeminiAgentSettings
+    | OpenAIAgentSettings
+    | OpenRouterAgentSettings
+    | Record<string, unknown>;
+
+const SavedAgentSettingsSchema: z.ZodType<SavedAgentSettings> =
+    z.record(z.unknown());
+
 export interface BaseAgentConfig {
     id: string; // unique instance id
     expert: Expert;
@@ -153,7 +162,7 @@ export const SavedAgentConfigSchema = z.object({
     expertId: z.string().optional(),
     model: z.string().optional(),
     provider: z.enum(['gemini', 'openai', 'openrouter']).optional(),
-    settings: z.record(z.unknown()).optional(),
+    settings: SavedAgentSettingsSchema.optional(),
 }).superRefine((config, ctx) => {
     if (!config.provider || !config.settings) return;
 
