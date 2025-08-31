@@ -6,7 +6,7 @@ const THEME_STORAGE_KEY = 'heavyorc-theme';
 const THEMES: readonly ThemeName[] = ['forest', 'desert', 'ocean', 'midnight'];
 
 const isValidTheme = (t: string | null): t is ThemeName =>
-  THEMES.includes((t ?? '') as ThemeName);
+  !!t && (THEMES as readonly string[]).includes(t);
 
 interface ThemeContextValue {
   theme: ThemeName;
@@ -18,8 +18,13 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<ThemeName>(() => {
     if (typeof window === 'undefined') return 'forest';
-    const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-    return isValidTheme(storedTheme) ? storedTheme : 'forest';
+    try {
+      const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+      return isValidTheme(storedTheme) ? storedTheme : 'forest';
+    } catch (e) {
+      console.warn('Failed to read theme from localStorage', e);
+      return 'forest';
+    }
   });
 
   useEffect(() => {

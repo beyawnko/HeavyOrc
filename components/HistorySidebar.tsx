@@ -156,9 +156,11 @@ const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>((props
                         style={{ height: '100%' }}
                         components={{
                             List: forwardRef<HTMLDivElement, ListProps>((props, ref) => (
-                                <ul {...props} ref={ref as unknown as React.Ref<HTMLUListElement>} className="space-y-1" />
+                                <ul {...(props as any)} ref={ref as unknown as React.Ref<HTMLUListElement>} className="space-y-1" />
                             )),
-                            Item: (props: React.LiHTMLAttributes<HTMLLIElement>) => <li {...props} />,
+                            Item: forwardRef<HTMLLIElement, React.ComponentProps<'li'>>((props, ref) => (
+                                <li {...props} ref={ref} />
+                            )),
                         }}
                         itemContent={(_index: number, run: RunRecord) => (
                             <button
