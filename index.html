@@ -5,6 +5,7 @@
     <link rel="icon" type="image/svg+xml" href="%BASE_URL%assets/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>HeavyOrc</title>
+    <link rel="stylesheet" href="%BASE_URL%theme.css" />
     <script>
       tailwind.config = {
         darkMode: 'class',
@@ -26,41 +27,12 @@
     </script>
     <script src="https://cdn.tailwindcss.com" defer></script>
     <style>
-      :root {
-        color-scheme: dark;
-        --bg: #071D10;
-        --surface-1: #0A2A16;
-        --surface-2: #0D361D;
-        --surface-active: #104224;
-        --primary: #14532D;
-
-        --text: #E8EEEA;
-        --text-muted: #ADC3B6;
-        --line: #123722;
-
-        --accent: #C6A15B;
-        --accent-2: #2FA899;
-        --danger: #B2513B;
-        --warn: #D7A152;
-        --success: #7FBF8A;
-      }
       html {
         box-sizing: border-box;
       }
 
       *, *::before, *::after {
         box-sizing: inherit;
-      }
-
-      body {
-        background-color: var(--bg);
-        color: var(--text);
-        padding-top: constant(safe-area-inset-top);
-        padding-top: env(safe-area-inset-top);
-        padding-bottom: constant(safe-area-inset-bottom);
-        padding-bottom: env(safe-area-inset-bottom);
-        padding-left: env(safe-area-inset-left);
-        padding-right: env(safe-area-inset-right);
       }
       .app-shell {
         height: calc(var(--vh, 1vh) * 100);

@@ -38,7 +38,7 @@ import { runOrchestration } from '@/moe/orchestrator';
 import { Draft, ExpertDispatch } from '@/moe/types';
 
 // Components
-import { ShieldCheckIcon, CogIcon, DownloadIcon, ExclamationTriangleIcon, XMarkIcon, Bars3Icon } from '@/components/icons';
+import { CogIcon, DownloadIcon, ExclamationTriangleIcon, XMarkIcon, Bars3Icon } from '@/components/icons';
 import { z } from 'zod';
 import AgentCard from '@/components/AgentCard';
 import SettingsView from '@/components/SettingsView';
@@ -882,10 +882,6 @@ const App: React.FC = () => {
                                 height={300}
                                 className="mx-auto mb-4 w-full max-w-2xl h-auto"
                             />
-                            <h1 className="text-4xl sm:text-5xl font-bold text-[var(--text)] flex items-center justify-center gap-3">
-                                <ShieldCheckIcon className="w-10 h-10 text-emerald-400" aria-hidden="true" />
-                                HeavyOrc
-                            </h1>
                             <div className="absolute top-8 right-0 flex items-center gap-2">
                                 <button
                                     onClick={handleSaveAll}
@@ -1016,7 +1012,7 @@ const App: React.FC = () => {
                     </div>
                 </div>
 
-                <footer className="sticky bottom-0 z-10 bg-[var(--surface-1)] bg-opacity-80 backdrop-blur-lg border-t border-[var(--line)] flex-shrink-0 fixed-footer">
+                <footer className="sticky bottom-0 z-10 bg-transparent backdrop-blur-lg border-t border-[var(--line)] flex-shrink-0 fixed-footer">
                     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3 space-y-3">
                         {isLoading && (
                             <div>

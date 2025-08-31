@@ -9,7 +9,6 @@ import {
 import { ImageState } from '@/types';
 
 const MAX_IMAGES = 5;
-const MAX_TEXTAREA_HEIGHT = 200; // Max height in pixels before scrolling
 
 interface PromptInputProps {
     prompt: string;
@@ -50,6 +49,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = inputRef || useRef<HTMLTextAreaElement>(null);
+    const MAX_TEXTAREA_HEIGHT = useMemo(() => Math.min(200, window.innerHeight * 0.25), []);
 
     const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
@@ -152,7 +152,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
     const canSubmit = !disabled && (!!prompt.trim() || images.length > 0);
 
     return (
-        <div className="w-full bg-[var(--surface-2)] p-2 rounded-2xl shadow-2xl border border-[var(--line)] flex flex-col gap-2">
+        <div className="w-full bg-[var(--surface-1)/60] backdrop-blur-xl p-2 rounded-2xl shadow-lg flex flex-col gap-2">
             {imagePreviews.length > 0 && (
                 <div className="flex flex-wrap gap-2 px-2 pt-1">
                     {imagePreviews.map(img => (
