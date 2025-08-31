@@ -705,7 +705,7 @@ const App: React.FC = () => {
                     expertId: config.expert.id,
                     model: config.model,
                     provider: config.provider,
-                    settings: config.settings as unknown as SavedAgentSettings,
+                    settings: config.settings as SavedAgentSettings,
                 }),
             );
 
