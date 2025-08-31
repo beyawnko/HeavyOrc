@@ -8,5 +8,5 @@ export async function wasmSupportsSimd(): Promise<boolean> {
 }
 
 export async function wasmSupportsThreads(): Promise<boolean> {
-  return crossOriginIsolated && await threadsPromise;
+  return globalThis.crossOriginIsolated === true && await threadsPromise;
 }
