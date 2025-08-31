@@ -126,7 +126,7 @@ const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>((props
                 {currentRunStatus !== 'IDLE' && (
                     <div className="mb-1">
                         <button
-                            onClick={onViewCurrentRun} // View current run without resetting
+                            onClick={onViewCurrentRun}
                             className={`w-full text-left flex items-center gap-3 p-2 rounded-md transition-colors ${
                                 !selectedRunId ? 'bg-[var(--surface-1)]' : 'hover:bg-[var(--surface-active)]'
                             }`}
