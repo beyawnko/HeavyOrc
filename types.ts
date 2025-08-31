@@ -111,10 +111,10 @@ const ProviderSettingsSchemaMap: Record<ApiProvider, z.ZodTypeAny> = {
     openrouter: OpenRouterAgentSettingsSchema,
 };
 
-type SavedAgentSettings =
-    | GeminiAgentSettings
-    | OpenAIAgentSettings
-    | OpenRouterAgentSettings
+export type SavedAgentSettings =
+    | Partial<GeminiAgentSettings>
+    | Partial<OpenAIAgentSettings>
+    | Partial<OpenRouterAgentSettings>
     | Record<string, unknown>;
 
 const SavedAgentSettingsSchema: z.ZodType<SavedAgentSettings> =
@@ -158,26 +158,30 @@ export type ArbiterModel =
 export type OpenAIVerbosity = 'low' | 'medium' | 'high';
 export type OpenAIReasoningEffort = 'medium' | 'high';
 
-export const SavedAgentConfigSchema = z.object({
+const SavedAgentConfigSchemaBase = z.object({
     expertId: z.string().optional(),
     model: z.string().optional(),
     provider: z.enum(['gemini', 'openai', 'openrouter']).optional(),
     settings: SavedAgentSettingsSchema.optional(),
-}).superRefine((config, ctx) => {
-    if (!config.provider || !config.settings) return;
-
-    const schema = ProviderSettingsSchemaMap[config.provider];
-
-    const result = schema.safeParse(config.settings);
-    if (!result.success) {
-        for (const issue of result.error.issues) {
-            ctx.addIssue({
-                ...issue,
-                path: ['settings', ...issue.path],
-            });
-        }
-    }
 });
+
+export const SavedAgentConfigSchema = SavedAgentConfigSchemaBase.superRefine(
+    (config: z.infer<typeof SavedAgentConfigSchemaBase>, ctx) => {
+        if (!config.provider || !config.settings) return;
+
+        const schema = ProviderSettingsSchemaMap[config.provider];
+
+        const result = schema.safeParse(config.settings);
+        if (!result.success) {
+            for (const issue of result.error.issues) {
+                ctx.addIssue({
+                    ...issue,
+                    path: ['settings', ...issue.path],
+                });
+            }
+        }
+    },
+);
 export type SavedAgentConfig = z.infer<typeof SavedAgentConfigSchema>;
 
 export const SESSION_DATA_VERSION = 2;

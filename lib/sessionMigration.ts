@@ -7,6 +7,7 @@ import {
     OpenAIAgentSettings,
     OpenRouterAgentSettings,
     SavedAgentConfig,
+    SavedAgentSettings,
     GeminiThinkingEffort,
     OpenAIReasoningEffort,
     OpenAIVerbosity,
@@ -119,11 +120,9 @@ export const migrateAgentConfig = (
     };
 
     const provider = savedConfig.provider;
-    const rawSettings =
+    const rawSettings: SavedAgentSettings =
         savedConfig.settings && typeof savedConfig.settings === 'object'
-            ? (savedConfig.settings as Partial<
-                  GeminiAgentSettings | OpenAIAgentSettings | OpenRouterAgentSettings
-              >)
+            ? savedConfig.settings
             : {};
 
     switch (provider) {
