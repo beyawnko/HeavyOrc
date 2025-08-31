@@ -474,15 +474,15 @@ const App: React.FC = () => {
             }
 
         } catch (e) {
-            if (e instanceof DOMException && e.name === 'AbortError') {
+            if ((e as { name?: string })?.name === 'AbortError') {
                 currentRunDataRef.current = undefined;
                 return;
             }
             console.error(e);
             const errorMessage = e instanceof Error ? e.message : 'An unexpected error occurred.';
             setError(errorMessage);
-            setAgents(prev => prev.map(a => ({...a, status: 'FAILED', error: errorMessage})))
-            setAgentConfigs(configs => configs.map(c => ({...c, status: 'FAILED' })));
+            setAgents(prev => prev.map(a => ({ ...a, status: 'FAILED', error: errorMessage })))
+            setAgentConfigs(configs => configs.map(c => ({ ...c, status: 'FAILED' })));
         } finally {
             if (animationFrameId.current) {
                 cancelAnimationFrame(animationFrameId.current);
