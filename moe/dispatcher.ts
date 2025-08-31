@@ -29,9 +29,14 @@ const GEMINI_FLASH_BUDGETS: Record<Extract<GeminiThinkingEffort, 'none' | 'low' 
     dynamic: -1,
 };
 
-const GEMINI_RETRY_COUNT = Number(process.env.GEMINI_RETRY_COUNT ?? '3');
-const GEMINI_BACKOFF_MS = Number(process.env.GEMINI_BACKOFF_MS ?? '1000');
-const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS ?? '10000');
+const parseEnvInt = (value: string | undefined, fallback: number) => {
+    const parsed = parseInt(value ?? '', 10);
+    return Number.isNaN(parsed) ? fallback : parsed;
+};
+
+const GEMINI_RETRY_COUNT = parseEnvInt(process.env.GEMINI_RETRY_COUNT, 3);
+const GEMINI_BACKOFF_MS = parseEnvInt(process.env.GEMINI_BACKOFF_MS, 1000);
+const GEMINI_TIMEOUT_MS = parseEnvInt(process.env.GEMINI_TIMEOUT_MS, 10000);
 
 const runExpertGeminiSingle = async (
     expert: ExpertDispatch,
@@ -76,6 +81,11 @@ const runExpertGeminiSingle = async (
     try {
         const response = await callWithGeminiRetry(
             (signal) => {
+                if (abortSignal?.aborted) {
+                    const abortErr = new Error('Aborted');
+                    abortErr.name = 'AbortError';
+                    return Promise.reject(abortErr);
+                }
                 let finalSignal: AbortSignal = signal;
                 let onAbort: (() => void) | undefined;
                 if (abortSignal) {
