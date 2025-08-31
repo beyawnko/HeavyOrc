@@ -703,7 +703,7 @@ const App: React.FC = () => {
                 expertId: config.expert.id,
                 model: config.model,
                 provider: config.provider,
-                settings: config.settings,
+                settings: config.settings as unknown as Record<string, unknown>,
             }));
 
             const sessionData: SessionData = {
@@ -777,7 +777,7 @@ const App: React.FC = () => {
                     }
 
                     const loadedAgentConfigs: AgentConfig[] = data.agentConfigs
-                        .map((savedConfig) =>
+                        .map((savedConfig: SavedAgentConfig) =>
                             migrateAgentConfig(savedConfig, experts),
                         )
                         .filter(
