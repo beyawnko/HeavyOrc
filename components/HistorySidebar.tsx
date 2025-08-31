@@ -155,8 +155,13 @@ const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>((props
                         data={history}
                         style={{ height: '100%' }}
                         components={{
+                            // react-virtuoso's List component is typed for a div; cast to render a semantic <ul>
                             List: forwardRef<HTMLDivElement, ListProps>((props, ref) => (
-                                <ul {...(props as any)} ref={ref as unknown as React.Ref<HTMLUListElement>} className="space-y-1" />
+                                <ul
+                                    {...(props as any)}
+                                    ref={ref as unknown as React.Ref<HTMLUListElement>}
+                                    className="space-y-1"
+                                />
                             )),
                             Item: forwardRef<HTMLLIElement, React.ComponentProps<'li'>>((props, ref) => (
                                 <li {...props} ref={ref} />
