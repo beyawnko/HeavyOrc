@@ -133,21 +133,41 @@ const runExpertGeminiDeepConf = async (
     prompt: string,
     images: ImageState[],
     config: GeminiAgentConfig,
-    _abortSignal?: AbortSignal
+    abortSignal?: AbortSignal
 ): Promise<string> => {
-    void _abortSignal;
     const { generationStrategy, traceCount, deepConfEta, tau, groupWindow } = config.settings;
-    
+
     const createProvider = (): TraceProvider => {
         return {
             generate: async (p, signal) => { // p is the prompt string
-                const text = await runExpertGeminiSingle(expert, p, images, config, signal);
-                // Gemini API doesn't give us steps/tokens, so we create a mock Trace
-                const trace: Trace = {
-                    text,
-                    steps: text.split('').map(char => ({ token: char, topK: [] })), // Mock steps
-                };
-                return trace;
+                if (abortSignal?.aborted) {
+                    const abortErr = new Error('Aborted');
+                    abortErr.name = 'AbortError';
+                    throw abortErr;
+                }
+                let finalSignal: AbortSignal = signal;
+                let onAbort: (() => void) | undefined;
+                if (abortSignal) {
+                    const controller = new AbortController();
+                    onAbort = () => controller.abort();
+                    abortSignal.addEventListener('abort', onAbort);
+                    signal.addEventListener('abort', onAbort);
+                    finalSignal = controller.signal;
+                }
+                try {
+                    const text = await runExpertGeminiSingle(expert, p, images, config, finalSignal);
+                    // Gemini API doesn't give us steps/tokens, so we create a mock Trace
+                    const trace: Trace = {
+                        text,
+                        steps: text.split('').map(char => ({ token: char, topK: [] })), // Mock steps
+                    };
+                    return trace;
+                } finally {
+                    if (abortSignal && onAbort) {
+                        abortSignal.removeEventListener('abort', onAbort);
+                        signal.removeEventListener('abort', onAbort);
+                    }
+                }
             }
         };
     };
@@ -219,22 +239,42 @@ const runExpertOpenAIDeepConf = async (
     prompt: string,
     images: ImageState[],
     config: OpenAIAgentConfig,
-    _abortSignal?: AbortSignal
+    abortSignal?: AbortSignal
 ): Promise<string> => {
-    void _abortSignal;
     const { generationStrategy, traceCount, deepConfEta, tau, groupWindow } = config.settings;
-    
+
     const createProvider = (): TraceProvider => {
         return {
             generate: async (p, signal) => { // p is the prompt string
-                // Since logprobs are not available, we generate the full text and mock the trace.
-                const text = await runExpertOpenAISingle(expert, p, images, config, signal);
-                // Mock Trace for judge-based DeepConf
-                const trace: Trace = {
-                    text,
-                    steps: text.split('').map(char => ({ token: char, topK: [] })), // Mock steps
-                };
-                return trace;
+                if (abortSignal?.aborted) {
+                    const abortErr = new Error('Aborted');
+                    abortErr.name = 'AbortError';
+                    throw abortErr;
+                }
+                let finalSignal: AbortSignal = signal;
+                let onAbort: (() => void) | undefined;
+                if (abortSignal) {
+                    const controller = new AbortController();
+                    onAbort = () => controller.abort();
+                    abortSignal.addEventListener('abort', onAbort);
+                    signal.addEventListener('abort', onAbort);
+                    finalSignal = controller.signal;
+                }
+                try {
+                    // Since logprobs are not available, we generate the full text and mock the trace.
+                    const text = await runExpertOpenAISingle(expert, p, images, config, finalSignal);
+                    // Mock Trace for judge-based DeepConf
+                    const trace: Trace = {
+                        text,
+                        steps: text.split('').map(char => ({ token: char, topK: [] })), // Mock steps
+                    };
+                    return trace;
+                } finally {
+                    if (abortSignal && onAbort) {
+                        abortSignal.removeEventListener('abort', onAbort);
+                        signal.removeEventListener('abort', onAbort);
+                    }
+                }
             }
         };
     };
