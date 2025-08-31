@@ -136,10 +136,10 @@ const createDeepConfTraceProvider = <C extends AgentConfig>(
             const { signal: finalSignal, cleanup } = combineAbortSignals(signal, orchestrationAbortSignal);
             try {
                 const text = await runFn(expert, p, images, config, finalSignal);
-                const tokens = typeof (Intl as any).Segmenter === 'function'
+                const tokens = globalThis.Intl?.Segmenter
                     ? Array.from(
-                        new (Intl as any).Segmenter(undefined, { granularity: 'grapheme' }).segment(text),
-                        ({ segment }: { segment: string }) => segment
+                        new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text),
+                        ({ segment }) => segment
                     )
                     : Array.from(text);
                 const trace: Trace = {
