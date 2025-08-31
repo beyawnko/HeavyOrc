@@ -108,7 +108,10 @@ const runExpertGeminiSingle = async (
         );
         return getGeminiResponseText(response);
     } catch (error) {
-        if (error instanceof Error && error.message === 'Gemini request timed out') {
+        if (
+            error instanceof Error &&
+            (error.name === 'AbortError' || error.message === 'Gemini request timed out')
+        ) {
             throw error;
         }
         return handleGeminiError(error, 'dispatcher', 'dispatch');
@@ -133,9 +136,6 @@ const createDeepConfTraceProvider = <C extends AgentConfig>(
         : undefined;
     return {
         generate: async (p, signal) => {
-            if (orchestrationAbortSignal?.aborted) {
-                throw new DOMException('Aborted', 'AbortError');
-            }
             const { signal: finalSignal, cleanup } = combineAbortSignals(signal, orchestrationAbortSignal);
             try {
                 const text = await runFn(expert, p, images, config, finalSignal);
@@ -412,20 +412,22 @@ export const dispatch = async (
         draftPromises.push(promise);
     });
 
-    // Run all OpenAI experts sequentially with a delay to avoid rate limits
-    for (const { expert, config } of openAIExperts) {
-        const promise = runExpert(expert, prompt, images, config, abortSignal).then(draft => {
-            onDraftComplete(draft);
-            return draft;
-        });
-        draftPromises.push(promise);
-        await promise;
-        if (abortSignal?.aborted) {
-            throw new DOMException('Aborted', 'AbortError');
+    try {
+        // Run all OpenAI experts sequentially with a delay to avoid rate limits
+        for (const { expert, config } of openAIExperts) {
+            const promise = runExpert(expert, prompt, images, config, abortSignal).then(draft => {
+                onDraftComplete(draft);
+                return draft;
+            });
+            draftPromises.push(promise);
+            await promise;
+            if (config.settings.generationStrategy === 'single') {
+                await delay(OPENAI_REQUEST_DELAY_MS);
+            }
         }
-        if (config.settings.generationStrategy === 'single') {
-            await delay(OPENAI_REQUEST_DELAY_MS);
-        }
+        return await Promise.all(draftPromises);
+    } finally {
+        // Ensure all expert promises settle to avoid unhandled rejections when dispatch is aborted
+        await Promise.allSettled(draftPromises);
     }
-    return Promise.all(draftPromises);
 };
