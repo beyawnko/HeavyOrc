@@ -366,7 +366,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
             <div
                 ref={dialogRef}
                 tabIndex={-1}
-                className="relative z-10 bg-[var(--surface-2)] rounded-xl shadow-2xl border border-[var(--line)] w-full max-w-4xl h-full max-h-[700px] flex flex-col"
+                className="relative z-10 bg-[var(--surface-2)] panel-pattern rounded-xl shadow-2xl border border-[var(--line)] w-full max-w-4xl h-full max-h-[700px] flex flex-col"
             >
                 {/* --- Header --- */}
                 <header className="flex items-center justify-between p-4 border-b border-[var(--line)] flex-shrink-0">
