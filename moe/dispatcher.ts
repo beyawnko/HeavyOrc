@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import { GenerateContentParameters, Part } from "@google/genai";
 import { Draft, ExpertDispatch } from './types';
 import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey, callWithRetry, fetchWithRetry } from '@/services/llmService';
@@ -13,6 +12,17 @@ import {
     deepConfOfflineWithJudge,
     TraceProvider
 } from '@/services/deepconf';
+
+interface OpenRouterContentPart {
+    type: 'text' | 'image_url';
+    text?: string;
+    image_url?: { url: string };
+}
+
+interface OpenRouterMessage {
+    role: 'system' | 'user';
+    content: string | OpenRouterContentPart[];
+}
 
 const GEMINI_PRO_BUDGETS: Record<Extract<GeminiThinkingEffort, 'low' | 'medium' | 'high' | 'dynamic'>, number> = {
     low: 8192,
@@ -167,36 +177,39 @@ const runExpertOpenAISingle = async (
     abortSignal?: AbortSignal
 ): Promise<string> => {
     const openaiAI = getOpenAIClient();
-    
+
     let systemMessage = expert.persona;
     systemMessage += `\nYour response verbosity should be ${config.settings.verbosity}.`;
     if (config.settings.effort === 'high') {
         systemMessage = OPENAI_REASONING_PROMPT_PREFIX + systemMessage;
     }
 
-    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [{ role: 'system', content: systemMessage }];
-
-    if (images.length > 0) {
-        const userContent: OpenAI.Chat.ChatCompletionContentPart[] = [{ type: 'text', text: prompt }];
-        images.forEach(img => {
-            userContent.push({
-                type: 'image_url',
+    const userContent: any = images.length > 0
+        ? [
+            { type: 'input_text', text: prompt },
+            ...images.map(img => ({
+                type: 'input_image',
                 image_url: { url: `data:${img.file.type};base64,${img.base64}` },
-            });
-        });
-        messages.push({ role: 'user', content: userContent });
-    } else {
-        messages.push({ role: 'user', content: prompt });
-    }
+            }))
+        ]
+        : prompt;
 
-    const completion = await callWithRetry(
-        () => openaiAI.chat.completions.create({
-            model: expert.model,
-            messages: messages,
-        }, { signal: abortSignal }),
+    const response = await callWithRetry(
+        () =>
+            openaiAI.responses.create(
+                {
+                    model: expert.model,
+                    reasoning: { effort: config.settings.effort },
+                    input: [
+                        { role: 'system', content: systemMessage },
+                        { role: 'user', content: userContent },
+                    ],
+                },
+                { signal: abortSignal }
+            ),
         'OpenAI'
     );
-    return completion.choices[0].message.content || 'No content received.';
+    return response.output_text || 'No content received.';
 }
 
 const runExpertOpenAIDeepConf = async (
@@ -258,9 +271,9 @@ const runExpertOpenRouterSingle = async (
         'X-Title': 'HeavyOrc',
     };
 
-    const messages: any[] = [{ role: 'system', content: expert.persona }];
-     if (images.length > 0) {
-        const userContent: any[] = [{ type: 'text', text: prompt }];
+    const messages: OpenRouterMessage[] = [{ role: 'system', content: expert.persona }];
+    if (images.length > 0) {
+        const userContent: OpenRouterContentPart[] = [{ type: 'text', text: prompt }];
         images.forEach(img => {
             userContent.push({
                 type: 'image_url',
@@ -389,22 +402,17 @@ export const dispatch = async (
         draftPromises.push(promise);
     });
 
-    // Chain all OpenAI experts sequentially with a delay to avoid rate limits
-    let openAIPromiseChain = Promise.resolve();
-    openAIExperts.forEach(({ expert, config }) => {
-        openAIPromiseChain = openAIPromiseChain.then(async () => {
-            const promise = runExpert(expert, prompt, images, config).then(draft => {
-                onDraftComplete(draft);
-                return draft;
-            });
-            draftPromises.push(promise);
-            if (config.settings.generationStrategy === 'single') {
-                 await delay(OPENAI_REQUEST_DELAY_MS);
-            }
+    // Run all OpenAI experts sequentially with a delay to avoid rate limits
+    for (const { expert, config } of openAIExperts) {
+        const promise = runExpert(expert, prompt, images, config).then(draft => {
+            onDraftComplete(draft);
+            return draft;
         });
-    });
-    
-    await openAIPromiseChain;
-
+        draftPromises.push(promise);
+        await promise;
+        if (config.settings.generationStrategy === 'single') {
+            await delay(OPENAI_REQUEST_DELAY_MS);
+        }
+    }
     return Promise.all(draftPromises);
 };

@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import { Draft } from './types';
 import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey, fetchWithRetry, callWithRetry } from '@/services/llmService';
 import { getAppUrl, getGeminiResponseText } from '@/lib/utils';
@@ -116,7 +115,7 @@ export const arbitrateStream = async (
     }
 
     // OpenAI Logic
-    if (arbiterModel.startsWith('gpt-')) {
+    if (arbiterModel.startsWith('gpt-5')) {
         const openaiAI = getOpenAIClient();
 
         let systemPersona = ARBITER_PERSONA;
@@ -125,39 +124,31 @@ export const arbitrateStream = async (
         }
         systemPersona += `\nYour final synthesized response should have a verbosity level of: ${arbiterVerbosity}.`;
 
-        const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-            { role: 'system', content: systemPersona },
-            { role: 'user', content: arbiterPrompt },
-        ];
-
-        const model = arbiterModel;
-
         try {
-            const completionParams: OpenAI.Chat.ChatCompletionCreateParamsStreaming & {
-                reasoning?: { effort: OpenAIReasoningEffort };
-            } = {
-                model,
-                messages,
-                stream: true,
-                reasoning: { effort: openAIArbiterEffort },
-            };
-
             const stream = await callWithRetry(
-                () => openaiAI.chat.completions.create(completionParams),
+                () =>
+                    openaiAI.responses.stream({
+                        model: arbiterModel,
+                        reasoning: { effort: openAIArbiterEffort },
+                        input: [
+                            { role: 'system', content: systemPersona },
+                            { role: 'user', content: arbiterPrompt },
+                        ],
+                    }),
                 'OpenAI'
             );
 
             async function* transformStream(): AsyncGenerator<{ text: string }> {
-                for await (const chunk of stream) {
-                    const text = chunk.choices[0]?.delta?.content;
-                    if (text) {
-                        yield { text };
+                for await (const event of stream) {
+                    if (event.type === 'response.output_text.delta') {
+                        yield { text: event.delta };
                     }
                 }
             }
+
             return transformStream();
         } catch (error) {
-            console.error("Error calling the OpenAI API for arbiter:", error);
+            console.error('Error calling the OpenAI API for arbiter:', error);
             throw error;
         }
     }
