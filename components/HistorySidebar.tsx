@@ -1,6 +1,6 @@
 
 import React, { useState, forwardRef } from 'react';
-import { Virtuoso } from 'react-virtuoso';
+import { Virtuoso, ListProps } from 'react-virtuoso';
 import { RunRecord, RunStatus } from '@/types';
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon, CheckCircleIcon, XCircleIcon } from '@/components/icons';
 
@@ -155,10 +155,10 @@ const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>((props
                         data={history}
                         style={{ height: '100%' }}
                         components={{
-                            List: forwardRef<HTMLUListElement>((props, ref) => (
-                                <ul {...props} ref={ref} className="space-y-1" />
+                            List: forwardRef<HTMLDivElement, ListProps>((props, ref) => (
+                                <ul {...props} ref={ref as unknown as React.Ref<HTMLUListElement>} className="space-y-1" />
                             )),
-                            Item: (props) => <li {...props} />,
+                            Item: (props: React.LiHTMLAttributes<HTMLLIElement>) => <li {...props} />,
                         }}
                         itemContent={(_index: number, run: RunRecord) => (
                             <button
