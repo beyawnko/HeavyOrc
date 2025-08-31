@@ -38,17 +38,19 @@ export const callWithGeminiRetry = async <T>(
         try {
             return await fn(controller.signal);
         } catch (error) {
-            if ((isGeminiRateLimitError(error) || isGeminiServerError(error)) && attempt < retries) {
+            const isRateLimit = isGeminiRateLimitError(error);
+            const isServerErr = isGeminiServerError(error);
+            if ((isRateLimit || isServerErr) && attempt < retries) {
                 await sleep(baseDelayMs * Math.pow(2, attempt));
                 continue;
             }
             if (error instanceof Error && error.name === 'AbortError') {
                 throw new Error('Gemini request timed out');
             }
-            if (isGeminiRateLimitError(error)) {
+            if (isRateLimit) {
                 throw new Error(GEMINI_QUOTA_MESSAGE);
             }
-            if (isGeminiServerError(error)) {
+            if (isServerErr) {
                 const maybe = error as { status?: number; response?: { status?: number } };
                 const status = maybe.status ?? maybe.response?.status;
                 if (status === 503) {
