@@ -20,6 +20,8 @@ import {
     GeminiThinkingEffort,
     RunStatus,
     OpenAIReasoningEffort,
+    SavedAgentConfigSchema,
+    SavedAgentSettings,
 } from '@/types';
 import {
     GEMINI_PRO_MODEL,
@@ -69,13 +71,6 @@ const OPENAI_API_KEY_STORAGE_KEY = 'openai_api_key';
 const GEMINI_API_KEY_STORAGE_KEY = 'gemini_api_key';
 const OPENROUTER_API_KEY_STORAGE_KEY = 'openrouter_api_key';
 const MAX_HISTORY_LENGTH = 20;
-
-const SavedAgentConfigSchema = z.object({
-    expertId: z.string().optional(),
-    model: z.string().optional(),
-    provider: z.enum(['gemini', 'openai', 'openrouter']).optional(),
-    settings: z.record(z.unknown()).optional().default({}),
-});
 
 const SessionDataSchema = z.object({
     version: z.number().default(0),
@@ -705,12 +700,14 @@ const App: React.FC = () => {
 
     const handleSaveSession = useCallback(() => {
         try {
-            const savedAgentConfigs: SavedAgentConfig[] = agentConfigs.map(config => ({
-                expertId: config.expert.id,
-                model: config.model,
-                provider: config.provider,
-                settings: config.settings,
-            }));
+            const savedAgentConfigs: SavedAgentConfig[] = agentConfigs.map(
+                (config) => ({
+                    expertId: config.expert.id,
+                    model: config.model,
+                    provider: config.provider,
+                    settings: config.settings as SavedAgentSettings,
+                }),
+            );
 
             const sessionData: SessionData = {
                 version: SESSION_DATA_VERSION,
@@ -761,7 +758,7 @@ const App: React.FC = () => {
                     if (!result.success) {
                         const formatted = result.error.errors
                             .map(
-                                (err) =>
+                                (err: z.ZodIssue) =>
                                     `${err.path.join('.') || '(root)'} - ${err.message}`,
                             )
                             .join('; ');
@@ -783,8 +780,13 @@ const App: React.FC = () => {
                     }
 
                     const loadedAgentConfigs: AgentConfig[] = data.agentConfigs
-                        .map((savedConfig) => migrateAgentConfig(savedConfig, experts))
-                        .filter((config): config is AgentConfig => config !== null);
+                        .map((savedConfig: SavedAgentConfig) =>
+                            migrateAgentConfig(savedConfig, experts),
+                        )
+                        .filter(
+                            (config: AgentConfig | null): config is AgentConfig =>
+                                config !== null,
+                        );
 
                     handleNewRun(); // Clear current state before loading
                     setPrompt(data.prompt);
