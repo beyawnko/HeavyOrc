@@ -136,9 +136,15 @@ const createDeepConfTraceProvider = <C extends AgentConfig>(
             const { signal: finalSignal, cleanup } = combineAbortSignals(signal, orchestrationAbortSignal);
             try {
                 const text = await runFn(expert, p, images, config, finalSignal);
+                const tokens = typeof (Intl as any).Segmenter === 'function'
+                    ? Array.from(
+                        new (Intl as any).Segmenter(undefined, { granularity: 'grapheme' }).segment(text),
+                        ({ segment }: { segment: string }) => segment
+                    )
+                    : Array.from(text);
                 const trace: Trace = {
                     text,
-                    steps: Array.from(text).map(char => ({ token: char, topK: [] })),
+                    steps: tokens.map(token => ({ token, topK: [] })),
                 };
                 return trace;
             } finally {
