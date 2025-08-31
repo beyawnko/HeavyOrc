@@ -23,15 +23,16 @@ export const combineAbortSignals = (
   }
 
   const controller = new AbortController();
-  const onAbort = () => controller.abort();
-  for (const s of defined) {
-    if (s.aborted) controller.abort();
-    else s.addEventListener('abort', onAbort);
+  if (defined.some(s => s.aborted)) {
+    controller.abort();
+    return { signal: controller.signal, cleanup: () => {} };
   }
+
+  const onAbort = () => controller.abort();
+  defined.forEach(s => s.addEventListener('abort', onAbort));
+
   const cleanup = () => {
-    for (const s of defined) {
-      s.removeEventListener('abort', onAbort);
-    }
+    defined.forEach(s => s.removeEventListener('abort', onAbort));
   };
   return { signal: controller.signal, cleanup };
 };
