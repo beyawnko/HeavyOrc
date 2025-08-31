@@ -468,18 +468,13 @@ const App: React.FC = () => {
             } finally {
                 reader.releaseLock();
             }
-            
-            if (animationFrameId.current) {
-                cancelAnimationFrame(animationFrameId.current);
-            }
-            
             if (chunkBuffer) {
                 fullText += chunkBuffer;
                 setFinalAnswer(fullText);
             }
 
         } catch (e) {
-            if (e instanceof DOMException && e.name === 'AbortError') {
+            if (e instanceof Error && e.name === 'AbortError') {
                 return;
             }
             console.error(e);
@@ -488,6 +483,9 @@ const App: React.FC = () => {
             setAgents(prev => prev.map(a => ({...a, status: 'FAILED', error: errorMessage})))
             setAgentConfigs(configs => configs.map(c => ({...c, status: 'FAILED' })));
         } finally {
+            if (animationFrameId.current) {
+                cancelAnimationFrame(animationFrameId.current);
+            }
             orchestratorAbortRef.current = null;
             setIsLoading(false);
             setIsArbiterRunning(false);
