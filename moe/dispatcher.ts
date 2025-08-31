@@ -108,10 +108,11 @@ const runExpertGeminiSingle = async (
         );
         return getGeminiResponseText(response);
     } catch (error) {
-        if (error instanceof Error) {
-            if (error.name === 'AbortError' || error.message === 'Gemini request timed out') {
-                throw error;
-            }
+        if (
+            error instanceof Error &&
+            (error.name === 'AbortError' || error.message === 'Gemini request timed out')
+        ) {
+            throw error;
         }
         return handleGeminiError(error, 'dispatcher', 'dispatch');
     }
@@ -130,9 +131,8 @@ const createDeepConfTraceProvider = <C extends AgentConfig>(
     config: C,
     orchestrationAbortSignal?: AbortSignal
 ): TraceProvider => {
-    const SegmenterCtor = (Intl as any).Segmenter;
-    const segmenter = SegmenterCtor
-        ? new SegmenterCtor(undefined, { granularity: 'grapheme' })
+    const segmenter = globalThis.Intl?.Segmenter
+        ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
         : undefined;
     return {
         generate: async (p, signal) => {
