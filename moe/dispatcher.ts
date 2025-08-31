@@ -128,19 +128,23 @@ const createDeepConfTraceProvider = <C extends AgentConfig>(
     config: C,
     orchestrationAbortSignal?: AbortSignal
 ): TraceProvider => {
+    const segmenter = globalThis.Intl?.Segmenter
+        ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+        : undefined;
     return {
         generate: async (p, signal) => {
             if (orchestrationAbortSignal?.aborted) {
-                const abortErr = new Error('Aborted');
-                abortErr.name = 'AbortError';
-                throw abortErr;
+                throw new DOMException('Aborted', 'AbortError');
             }
             const { signal: finalSignal, cleanup } = combineAbortSignals(signal, orchestrationAbortSignal);
             try {
                 const text = await runFn(expert, p, images, config, finalSignal);
+                const tokens = segmenter
+                    ? Array.from(segmenter.segment(text), ({ segment }) => segment)
+                    : Array.from(text);
                 const trace: Trace = {
                     text,
-                    steps: text.split('').map(char => ({ token: char, topK: [] })),
+                    steps: tokens.map(token => ({ token, topK: [] })),
                 };
                 return trace;
             } finally {
