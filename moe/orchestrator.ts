@@ -6,7 +6,7 @@ import { arbitrateStream } from './arbiter';
 import { Draft, ExpertDispatch } from './types';
 import { GEMINI_PRO_MODEL } from '@/constants';
 import { AgentConfig, GeminiThinkingEffort, ImageState, OpenAIReasoningEffort } from '@/types';
-import { init, Tiktoken } from '@dqbd/tiktoken/lite/init';
+import type { Tiktoken } from '@dqbd/tiktoken/lite/init';
 import wasm from '@dqbd/tiktoken/lite/tiktoken_bg.wasm?url';
 import model from '@dqbd/tiktoken/encoders/cl100k_base.json';
 
@@ -30,7 +30,8 @@ let encoderPromise: Promise<Tiktoken> | null = null;
 const loadEncoder = () => {
     if (!encoderPromise) {
         encoderPromise = (async () => {
-            await init(async (imports: WebAssembly.Imports) => {
+            const { default: init, Tiktoken } = await import('@dqbd/tiktoken/lite/init');
+            await (init as unknown as (cb: (imports: WebAssembly.Imports) => Promise<any>) => Promise<any>)(async (imports: WebAssembly.Imports) => {
                 const response = await fetch(wasm);
                 const bytes = await response.arrayBuffer();
                 return WebAssembly.instantiate(bytes, imports);
