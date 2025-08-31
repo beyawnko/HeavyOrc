@@ -9,6 +9,7 @@ import { AgentConfig, GeminiThinkingEffort, ImageState, OpenAIReasoningEffort } 
 import type { Tiktoken } from '@dqbd/tiktoken/lite/init';
 import wasm from '@dqbd/tiktoken/lite/tiktoken_bg.wasm?url';
 import model from '@dqbd/tiktoken/encoders/cl100k_base.json';
+import { wasmSupportsSimd, wasmSupportsThreads } from '@/lib/wasmFeatures';
 
 export interface OrchestrationParams {
     prompt: string;
@@ -26,10 +27,21 @@ export interface OrchestrationCallbacks {
 }
 
 // More accurate token estimator using tiktoken's cl100k_base encoding
-let encoderPromise: Promise<Tiktoken> | null = null;
+let encoderPromise: Promise<Tiktoken | null> | null = null;
 const loadEncoder = () => {
     if (!encoderPromise) {
         encoderPromise = (async () => {
+            const [simdSupported, threadsSupported] = await Promise.all([
+                wasmSupportsSimd(),
+                wasmSupportsThreads(),
+            ]);
+            if (!simdSupported) {
+                console.warn('WASM SIMD not supported; using fallback token estimator.');
+                return null;
+            }
+            if (!threadsSupported) {
+                console.warn('WASM threads unsupported; proceeding without multithreading.');
+            }
             const { default: init, Tiktoken } = await import('@dqbd/tiktoken/lite/init');
             await (init as unknown as (cb: (imports: WebAssembly.Imports) => Promise<any>) => Promise<any>)(async (imports: WebAssembly.Imports) => {
                 const response = await fetch(wasm);
@@ -41,7 +53,13 @@ const loadEncoder = () => {
     }
     return encoderPromise;
 };
-const estimateTokens = async (text: string): Promise<number> => (await loadEncoder()).encode(text).length;
+const estimateTokens = async (text: string): Promise<number> => {
+    const encoder = await loadEncoder();
+    if (!encoder) {
+        return Math.ceil(text.length / 4);
+    }
+    return encoder.encode(text).length;
+};
 // Lowered from 300k to 28k to stay under the observed 30k TPM limit for the gpt-5 model.
 const ARBITER_TOKEN_THRESHOLD = 28_000; 
 

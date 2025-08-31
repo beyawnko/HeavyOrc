@@ -152,7 +152,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
     const canSubmit = !disabled && (!!prompt.trim() || images.length > 0);
 
     return (
-        <div className="w-full bg-[var(--surface-1)/60] backdrop-blur-xl p-2 rounded-2xl shadow-lg flex flex-col gap-2">
+        <div className="w-full bg-[color-mix(in_srgb,var(--surface-1)_60%,transparent)] backdrop-blur-xl p-2 rounded-2xl shadow-lg flex flex-col gap-2">
             {imagePreviews.length > 0 && (
                 <div className="flex flex-wrap gap-2 px-2 pt-1">
                     {imagePreviews.map(img => (
