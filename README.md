@@ -27,7 +27,7 @@ Keys are optional; the UI hides providers without keys. `VITE_APP_URL` supplies 
 
 ## Reasoning models and context management
 
-Reasoning models such as GPT‑5 generate internal reasoning tokens before returning a final answer. These tokens count against the model's context window and are billed as output tokens. To avoid incomplete responses:
+Reasoning models such as GPT‑5 and GPT‑5‑mini generate internal reasoning tokens before returning a final answer. These tokens count against the model's context window and are billed as output tokens. To avoid incomplete responses:
 
 - Reserve ample room in the context window—OpenAI recommends leaving at least 25,000 tokens for reasoning and output.
 - Use `max_output_tokens` to cap total generated tokens. If the limit is reached, the response status will be `incomplete` with `reason` set to `max_output_tokens`.
@@ -39,7 +39,7 @@ import OpenAI from "openai";
 const openai = new OpenAI();
 
 const prompt = `
-Write a bash script that takes a matrix represented as a string with 
+Write a bash script that takes a matrix represented as a string with
 format '[1,2],[3,4],[5,6]' and prints the transpose in the same format.
 `;
 
@@ -62,6 +62,8 @@ if (response.status === "incomplete" &&
     }
 }
 ```
+
+All `gpt-5` family models, including `gpt-5-mini`, accept the `reasoning` parameter when accessed via the Responses API.
 
 When using function calling with a reasoning model, pass back the reasoning items from the previous response. You can either reference the `previous_response_id` or include all output items from the prior response to maintain the model's chain of thought.
 
