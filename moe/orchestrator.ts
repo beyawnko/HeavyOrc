@@ -61,82 +61,95 @@ const estimateTokens = async (text: string): Promise<number> => {
     return encoder.encode(text).length;
 };
 // Lowered from 300k to 28k to stay under the observed 30k TPM limit for the gpt-5 model.
-const ARBITER_TOKEN_THRESHOLD = 28_000; 
+const ARBITER_TOKEN_THRESHOLD = 28_000;
 
-export const runOrchestration = async (params: OrchestrationParams, callbacks: OrchestrationCallbacks) => {
+interface OrchestrationPromiseResult {
+    drafts: Draft[];
+    stream: ReadableStream<string>;
+    switchedArbiter: boolean;
+}
+
+export const runOrchestration = (
+    params: OrchestrationParams,
+    callbacks: OrchestrationCallbacks
+) => {
     const controller = new AbortController();
 
-    // 1. Map AgentConfigs to ExpertDispatches (routing is now done by the user)
-    const dispatchedExperts: ExpertDispatch[] = params.agentConfigs.map(config => ({
-        agentId: config.id,
-        id: config.expert.id,
-        name: config.expert.name,
-        persona: config.expert.persona,
-        provider: config.provider,
-        model: config.model,
-    }));
-    callbacks.onInitialAgents(dispatchedExperts);
+    const promise: Promise<OrchestrationPromiseResult> = (async () => {
+        // 1. Map AgentConfigs to ExpertDispatches (routing is now done by the user)
+        const dispatchedExperts: ExpertDispatch[] = params.agentConfigs.map(config => ({
+            agentId: config.id,
+            id: config.expert.id,
+            name: config.expert.name,
+            persona: config.expert.persona,
+            provider: config.provider,
+            model: config.model,
+        }));
+        callbacks.onInitialAgents(dispatchedExperts);
 
-    // 2. Dispatch to experts in parallel
-    const drafts = await dispatch(
-        dispatchedExperts,
-        params.prompt,
-        params.images,
-        params.agentConfigs,
-        callbacks.onDraftComplete,
-        controller.signal
-    );
-    
-    // 3. Arbitrate the results
-    let finalArbiterModel = params.arbiterModel;
-    let switchedArbiter = false;
+        // 2. Dispatch to experts in parallel
+        const drafts = await dispatch(
+            dispatchedExperts,
+            params.prompt,
+            params.images,
+            params.agentConfigs,
+            callbacks.onDraftComplete,
+            controller.signal
+        );
 
-    const successfulDrafts = drafts.filter(d => d.status === 'COMPLETED');
-    const isGptModel = finalArbiterModel.startsWith('gpt-');
-    const isOpenRouterModel = finalArbiterModel.includes('/');
+        // 3. Arbitrate the results
+        let finalArbiterModel = params.arbiterModel;
+        let switchedArbiter = false;
 
-    if (successfulDrafts.length > 0 && (isGptModel || isOpenRouterModel)) {
-        const arbiterPrompt = `The original user question is:\n"${params.prompt}"\n\nHere are ${successfulDrafts.length} candidate answers from different expert agents. Please synthesize them into the best possible single answer.\n\n${successfulDrafts
-            .map((d, i) => `### Draft from Agent ${i + 1} (Provider: ${d.expert.provider}, Persona: ${d.expert.name})\n${d.content}`)
-            .join("\n\n---\n\n")}`;
-        
-        const estimatedTokens = await estimateTokens(arbiterPrompt);
-        
-        if (estimatedTokens > ARBITER_TOKEN_THRESHOLD) {
-            finalArbiterModel = GEMINI_PRO_MODEL; // Switch to Gemini Pro
-            switchedArbiter = true;
-        }
-    }
+        const successfulDrafts = drafts.filter(d => d.status === 'COMPLETED');
+        const isGptModel = finalArbiterModel.startsWith('gpt-');
+        const isOpenRouterModel = finalArbiterModel.includes('/');
 
-    const arbiterGenerator = await arbitrateStream(
-        finalArbiterModel,
-        params.prompt,
-        drafts,
-        params.openAIArbiterVerbosity,
-        params.openAIArbiterEffort,
-        params.geminiArbiterEffort,
-        controller.signal
-    );
+        if (successfulDrafts.length > 0 && (isGptModel || isOpenRouterModel)) {
+            const arbiterPrompt = `The original user question is:\n"${params.prompt}"\n\nHere are ${successfulDrafts.length} candidate answers from different expert agents. Please synthesize them into the best possible single answer.\n\n${successfulDrafts
+                .map((d, i) => `### Draft from Agent ${i + 1} (Provider: ${d.expert.provider}, Persona: ${d.expert.name})\n${d.content}`)
+                .join("\n\n---\n\n")}`;
 
-    const stream = new ReadableStream<string>({
-        async start(ctrl) {
-            try {
-                for await (const chunk of arbiterGenerator) {
-                    if (controller.signal.aborted) {
-                        ctrl.error(new DOMException('Aborted', 'AbortError'));
-                        return;
-                    }
-                    ctrl.enqueue(chunk.text);
-                }
-                ctrl.close();
-            } catch (err) {
-                ctrl.error(err as any);
+            const estimatedTokens = await estimateTokens(arbiterPrompt);
+
+            if (estimatedTokens > ARBITER_TOKEN_THRESHOLD) {
+                finalArbiterModel = GEMINI_PRO_MODEL; // Switch to Gemini Pro
+                switchedArbiter = true;
             }
-        },
-        cancel() {
-            controller.abort();
-        },
-    });
+        }
 
-    return { drafts, stream, switchedArbiter, abort: () => controller.abort() };
+        const arbiterGenerator = await arbitrateStream(
+            finalArbiterModel,
+            params.prompt,
+            drafts,
+            params.openAIArbiterVerbosity,
+            params.openAIArbiterEffort,
+            params.geminiArbiterEffort,
+            controller.signal
+        );
+
+        const stream = new ReadableStream<string>({
+            async start(ctrl) {
+                try {
+                    for await (const chunk of arbiterGenerator) {
+                        if (controller.signal.aborted) {
+                            ctrl.error(new DOMException('Aborted', 'AbortError'));
+                            return;
+                        }
+                        ctrl.enqueue(chunk.text);
+                    }
+                    ctrl.close();
+                } catch (err) {
+                    ctrl.error(err as any);
+                }
+            },
+            cancel() {
+                controller.abort();
+            },
+        });
+
+        return { drafts, stream, switchedArbiter };
+    })();
+
+    return { promise, abort: () => controller.abort() };
 };

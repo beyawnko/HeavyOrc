@@ -425,7 +425,7 @@ const App: React.FC = () => {
                 ));
             };
 
-            const { stream, switchedArbiter, abort } = await runOrchestration({
+            const { promise, abort } = runOrchestration({
                 prompt: finalPrompt,
                 images,
                 agentConfigs,
@@ -435,7 +435,9 @@ const App: React.FC = () => {
                 geminiArbiterEffort
             }, { onInitialAgents, onDraftComplete: onDraftUpdate });
             orchestratorAbortRef.current = abort;
-            
+
+            const { stream, switchedArbiter } = await promise;
+
             if (switchedArbiter) {
                 setArbiterSwitchWarning('The selected GPT-5 arbiter was automatically switched to Gemini 2.5 Pro due to a large input size to prevent errors. Gemini models support larger context windows.');
             }
