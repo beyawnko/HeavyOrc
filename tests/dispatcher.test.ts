@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { Mock } from 'vitest';
 import { ExpertDispatch } from '@/moe/types';
 import { GEMINI_FLASH_MODEL } from '@/constants';
 import type { GeminiAgentConfig } from '@/types';
@@ -31,7 +32,7 @@ describe('dispatcher Gemini failure handling', () => {
       .mockRejectedValueOnce({ status: 503 })
       .mockResolvedValueOnce({ text: () => 'ok' });
 
-    (getGeminiClient as unknown as vi.Mock).mockReturnValue({
+    (getGeminiClient as unknown as Mock).mockReturnValue({
       models: { generateContent },
     });
     const { dispatch } = await import('@/moe/dispatcher');
