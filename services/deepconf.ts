@@ -108,7 +108,7 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
         const judgeModel = agentModel === GEMINI_PRO_MODEL ? GEMINI_PRO_MODEL : GEMINI_FLASH_MODEL;
         
         const geminiAI = getGeminiClient();
-        const response = await callWithGeminiRetry(() =>
+        const response = await callWithGeminiRetry((signal) =>
             geminiAI.models.generateContent({
                 model: judgeModel,
                 contents: { parts: [{ text: judgeUserTemplate(prompt, answer) }] },
@@ -127,6 +127,7 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
                         propertyOrdering: ["score", "reasons"],
                     },
                     temperature: 0, // deterministic judging
+                    abortSignal: signal,
                 },
             })
         );
