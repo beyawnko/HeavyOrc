@@ -12,6 +12,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@dqbd/tiktoken": "^1.0.22",
     "@google/genai": "^1.15.0",
     "focus-trap-react": "^11.0.4",
     "framer-motion": "^11.3.12",

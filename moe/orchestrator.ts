@@ -6,6 +6,7 @@ import { arbitrateStream } from './arbiter';
 import { Draft, ExpertDispatch } from './types';
 import { GEMINI_PRO_MODEL } from '@/constants';
 import { AgentConfig, GeminiThinkingEffort, ImageState, OpenAIReasoningEffort } from '@/types';
+import { get_encoding } from '@dqbd/tiktoken';
 
 export interface OrchestrationParams {
     prompt: string;
@@ -22,8 +23,9 @@ export interface OrchestrationCallbacks {
     onDraftComplete: (draft: Draft) => void;
 }
 
-// A simple token estimator. 1 token ~= 4 chars in English.
-const estimateTokens = (text: string): number => Math.ceil(text.length / 4);
+// More accurate token estimator using tiktoken's cl100k_base encoding
+const encoder = get_encoding('cl100k_base');
+const estimateTokens = (text: string): number => encoder.encode(text).length;
 // Lowered from 300k to 28k to stay under the observed 30k TPM limit for the gpt-5 model.
 const ARBITER_TOKEN_THRESHOLD = 28_000; 
 

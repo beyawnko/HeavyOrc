@@ -14,6 +14,17 @@ import {
     TraceProvider
 } from '@/services/deepconf';
 
+interface OpenRouterContentPart {
+    type: 'text' | 'image_url';
+    text?: string;
+    image_url?: { url: string };
+}
+
+interface OpenRouterMessage {
+    role: 'system' | 'user';
+    content: string | OpenRouterContentPart[];
+}
+
 const GEMINI_PRO_BUDGETS: Record<Extract<GeminiThinkingEffort, 'low' | 'medium' | 'high' | 'dynamic'>, number> = {
     low: 8192,
     medium: 24576,
@@ -258,9 +269,9 @@ const runExpertOpenRouterSingle = async (
         'X-Title': 'HeavyOrc',
     };
 
-    const messages: any[] = [{ role: 'system', content: expert.persona }];
-     if (images.length > 0) {
-        const userContent: any[] = [{ type: 'text', text: prompt }];
+    const messages: OpenRouterMessage[] = [{ role: 'system', content: expert.persona }];
+    if (images.length > 0) {
+        const userContent: OpenRouterContentPart[] = [{ type: 'text', text: prompt }];
         images.forEach(img => {
             userContent.push({
                 type: 'image_url',
@@ -389,22 +400,17 @@ export const dispatch = async (
         draftPromises.push(promise);
     });
 
-    // Chain all OpenAI experts sequentially with a delay to avoid rate limits
-    let openAIPromiseChain = Promise.resolve();
-    openAIExperts.forEach(({ expert, config }) => {
-        openAIPromiseChain = openAIPromiseChain.then(async () => {
-            const promise = runExpert(expert, prompt, images, config).then(draft => {
-                onDraftComplete(draft);
-                return draft;
-            });
-            draftPromises.push(promise);
-            if (config.settings.generationStrategy === 'single') {
-                 await delay(OPENAI_REQUEST_DELAY_MS);
-            }
+    // Run all OpenAI experts sequentially with a delay to avoid rate limits
+    for (const { expert, config } of openAIExperts) {
+        const promise = runExpert(expert, prompt, images, config).then(draft => {
+            onDraftComplete(draft);
+            return draft;
         });
-    });
-    
-    await openAIPromiseChain;
-
+        draftPromises.push(promise);
+        await promise;
+        if (config.settings.generationStrategy === 'single') {
+            await delay(OPENAI_REQUEST_DELAY_MS);
+        }
+    }
     return Promise.all(draftPromises);
 };

@@ -133,14 +133,14 @@ export const arbitrateStream = async (
         const model = arbiterModel;
 
         try {
-            const completionParams: OpenAI.Chat.ChatCompletionCreateParamsStreaming & {
-                reasoning?: { effort: OpenAIReasoningEffort };
-            } = {
+            const completionParams: OpenAI.Chat.ChatCompletionCreateParamsStreaming = {
                 model,
                 messages,
                 stream: true,
-                reasoning: { effort: openAIArbiterEffort },
             };
+            if (model.startsWith('gpt-5')) {
+                (completionParams as any).reasoning = { effort: openAIArbiterEffort };
+            }
 
             const stream = await callWithRetry(
                 () => openaiAI.chat.completions.create(completionParams),
