@@ -6,7 +6,8 @@ import { arbitrateStream } from './arbiter';
 import { Draft, ExpertDispatch } from './types';
 import { GEMINI_PRO_MODEL } from '@/constants';
 import { AgentConfig, GeminiThinkingEffort, ImageState, OpenAIReasoningEffort } from '@/types';
-import { init, Tiktoken } from '@dqbd/tiktoken/lite/init';
+// @ts-ignore - WASM init default export has no types
+import init, { Tiktoken } from '@dqbd/tiktoken/lite/init';
 import wasm from '@dqbd/tiktoken/lite/tiktoken_bg.wasm?url';
 // @ts-ignore - JSON import for encoder ranks
 import model from '@dqbd/tiktoken/encoders/cl100k_base.json';
@@ -31,7 +32,8 @@ let encoderPromise: Promise<Tiktoken> | null = null;
 const loadEncoder = () => {
     if (!encoderPromise) {
         encoderPromise = (async () => {
-            await init(async imports => {
+            // @ts-ignore - init is untyped
+            await init(async (imports: WebAssembly.Imports) => {
                 const response = await fetch(wasm);
                 const bytes = await response.arrayBuffer();
                 return WebAssembly.instantiate(bytes, imports);
