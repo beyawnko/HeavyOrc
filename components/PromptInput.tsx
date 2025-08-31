@@ -49,13 +49,21 @@ const PromptInput: React.FC<PromptInputProps> = ({
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = inputRef || useRef<HTMLTextAreaElement>(null);
-    const [maxTextareaHeight, setMaxTextareaHeight] = useState(() => Math.min(200, window.innerHeight * 0.25));
+    const calculateMaxHeight = useCallback(() => Math.min(200, window.innerHeight * 0.25), []);
+    const [maxTextareaHeight, setMaxTextareaHeight] = useState(calculateMaxHeight);
 
     useEffect(() => {
-        const handleResize = () => setMaxTextareaHeight(Math.min(200, window.innerHeight * 0.25));
+        let resizeTimeout: ReturnType<typeof setTimeout>;
+        const handleResize = () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => setMaxTextareaHeight(calculateMaxHeight()), 150);
+        };
         window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+        return () => {
+            clearTimeout(resizeTimeout);
+            window.removeEventListener('resize', handleResize);
+        };
+    }, [calculateMaxHeight]);
 
     const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
