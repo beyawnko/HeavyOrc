@@ -43,7 +43,6 @@ export type GeminiThinkingEffort = 'dynamic' | 'high' | 'medium' | 'low' | 'none
 export type GenerationStrategy = 'single' | 'deepconf-offline' | 'deepconf-online';
 
 export interface GeminiAgentSettings {
-    [key: string]: unknown;
     effort: GeminiThinkingEffort;
     generationStrategy: GenerationStrategy;
     confidenceSource: 'judge';
@@ -54,7 +53,6 @@ export interface GeminiAgentSettings {
 }
 
 export interface OpenAIAgentSettings {
-    [key: string]: unknown;
     effort: 'medium' | 'high';
     verbosity: 'low' | 'medium' | 'high';
     generationStrategy: GenerationStrategy;
@@ -66,7 +64,6 @@ export interface OpenAIAgentSettings {
 }
 
 export interface OpenRouterAgentSettings {
-    [key: string]: unknown;
     temperature: number;
     topP: number;
     topK: number;
