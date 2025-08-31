@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/sync-doc-assets.mjs",
+    "predev": "node scripts/install-missing-deps.mjs && node scripts/sync-doc-assets.mjs",
     "dev": "vite",
-    "prebuild": "node scripts/sync-doc-assets.mjs",
+    "prebuild": "node scripts/install-missing-deps.mjs && node scripts/sync-doc-assets.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest"
