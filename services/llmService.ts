@@ -22,7 +22,17 @@ export const fetchWithRetry = async (
                 return response;
             }
             if (attempt === retries) {
-                const serviceName = new URL(input.toString()).hostname;
+                let url: string;
+                if (typeof input === 'string') {
+                    url = input;
+                } else if (input instanceof URL) {
+                    url = input.toString();
+                } else if (input instanceof Request) {
+                    url = input.url;
+                } else {
+                    url = String(input);
+                }
+                const serviceName = new URL(url).hostname;
                 throw new Error(`${serviceName} service is temporarily unavailable. Please try again later.`);
             }
         } catch (error) {

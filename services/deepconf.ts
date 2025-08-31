@@ -60,20 +60,21 @@ export const judgeAnswer = async (prompt: string, answer: string, agentModel: st
     if (agentModel.startsWith('gpt-') || agentModel.includes('/')) {
         try {
             const openaiAI = getOpenAIClient();
-            // Per user request, use a specific judge model (gpt-5-mini) with high reasoning for OpenAI agents.
+            // Per user request, use a specific judge model (gpt-5-mini) for OpenAI agents.
             const systemPrompt = OPENAI_REASONING_PROMPT_PREFIX + judgeSystem;
             const userPrompt = judgeUserTemplate(prompt, answer);
 
-            const completion = await openaiAI.chat.completions.create({
+            const completion = await openaiAI.responses.create({
                 model: OPENAI_JUDGE_MODEL,
-                messages: [
+                reasoning: { effort: 'medium' },
+                input: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userPrompt }
                 ],
-                temperature: 0, // Deterministic judging
+                temperature: 0,
             });
 
-            const jsonString = completion.choices[0].message.content;
+            const jsonString = completion.output_text;
             if (!jsonString) {
                 return { score: 0, reasons: ["Judge model returned an empty response."] };
             }
