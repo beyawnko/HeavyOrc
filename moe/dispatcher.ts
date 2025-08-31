@@ -131,16 +131,14 @@ const createDeepConfTraceProvider = <C extends AgentConfig>(
     return {
         generate: async (p, signal) => {
             if (orchestrationAbortSignal?.aborted) {
-                const abortErr = new Error('Aborted');
-                abortErr.name = 'AbortError';
-                throw abortErr;
+                throw new DOMException('Aborted', 'AbortError');
             }
             const { signal: finalSignal, cleanup } = combineAbortSignals(signal, orchestrationAbortSignal);
             try {
                 const text = await runFn(expert, p, images, config, finalSignal);
                 const trace: Trace = {
                     text,
-                    steps: text.split('').map(char => ({ token: char, topK: [] })),
+                    steps: Array.from(text).map(char => ({ token: char, topK: [] })),
                 };
                 return trace;
             } finally {
