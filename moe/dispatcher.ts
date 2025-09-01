@@ -56,7 +56,7 @@ const formatTimeoutError = (expertName: string, timeoutMs: number, elapsed: numb
 interface ExpertResult {
     content: string;
     isPartial: boolean;
-    error?: Error | { message: string };
+    error?: Error;
 }
 
 const processGeminiStream = async (
@@ -66,7 +66,7 @@ const processGeminiStream = async (
     start: number,
     timeoutMs: number
 ): Promise<ExpertResult> => {
-    const ensureWithinTimeout = () => {
+    const ensureWithinTimeout = (): void => {
         if (timeoutController.signal.aborted) {
             const elapsed = performance.now() - start;
             throw new Error(formatTimeoutError(expert.name, timeoutMs, elapsed));
@@ -95,7 +95,7 @@ const processGeminiStream = async (
             return {
                 content: result,
                 isPartial: true,
-                error: streamError instanceof Error ? streamError : { message: String(streamError) },
+                error: streamError instanceof Error ? streamError : new Error(String(streamError)),
             };
         }
         throw streamError;
@@ -460,11 +460,7 @@ const runExpert = async (
             content: result.content,
             status: 'COMPLETED',
             isPartial: result.isPartial,
-            error: result.error instanceof Error
-                ? result.error.message
-                : result.error !== undefined
-                    ? String(result.error)
-                    : undefined,
+            error: result.error?.message,
         };
 
     } catch (error) {
