@@ -22,7 +22,7 @@ export default {
     // Borders & Rounded corners
     'border',
     { pattern: /rounded(-(md|lg|2xl))?/ },
-    { pattern: /border-(gray|neutral)-200/ },
+    { pattern: /border(-(gray|neutral)-200)?/ },
 
     // Backgrounds
     { pattern: /bg-(white|gray-50|gray-100|neutral-50)/ },
