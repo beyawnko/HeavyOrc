@@ -20,11 +20,18 @@ const sampleRun: RunRecord = {
 
 const originalFetch = global.fetch;
 const VALID_CSP_HEADER = {
-  'Content-Security-Policy': "default-src 'none'",
+  'Content-Security-Policy':
+    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'",
 };
-const INVALID_CSP_HEADER = { 'Content-Security-Policy': "default-src *" };
+const WILDCARD_CSP_HEADER = {
+  'Content-Security-Policy': "default-src 'none'; connect-src *",
+};
 const UNSAFE_CSP_HEADER = {
-  'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'",
+  'Content-Security-Policy': "default-src 'none'; connect-src 'self'; script-src 'unsafe-inline'",
+};
+const DANGEROUS_CSP_HEADER = {
+  'Content-Security-Policy':
+    "default-src 'none'; connect-src 'self'; object-src *; base-uri *",
 };
 const MEMORIES_RESPONSE = { memories: [{ id: '1', content: 'note' }] };
 
@@ -56,8 +63,9 @@ describe('cipherService', () => {
   });
 
   it.each([
-    { name: 'wildcard', headers: INVALID_CSP_HEADER },
+    { name: 'wildcard', headers: WILDCARD_CSP_HEADER },
     { name: 'unsafe', headers: UNSAFE_CSP_HEADER },
+    { name: 'dangerous', headers: DANGEROUS_CSP_HEADER },
   ])('throws when CSP header is $name', async ({ headers }) => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
@@ -124,8 +132,9 @@ describe('cipherService', () => {
 
   it.each([
     { name: 'missing', headers: undefined },
-    { name: 'invalid', headers: INVALID_CSP_HEADER },
+    { name: 'invalid', headers: WILDCARD_CSP_HEADER },
     { name: 'unsafe', headers: UNSAFE_CSP_HEADER },
+    { name: 'dangerous', headers: DANGEROUS_CSP_HEADER },
   ])(
     'returns empty array when CSP header is $name and enforcement enabled',
     async ({ headers }) => {
@@ -151,7 +160,7 @@ describe('cipherService', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(
-        new Response(JSON.stringify(MEMORIES_RESPONSE), { status: 200, headers: INVALID_CSP_HEADER })
+        new Response(JSON.stringify(MEMORIES_RESPONSE), { status: 200, headers: WILDCARD_CSP_HEADER })
       );
     global.fetch = fetchMock as any;
     const { fetchRelevantMemories } = await import('@/services/cipherService');
