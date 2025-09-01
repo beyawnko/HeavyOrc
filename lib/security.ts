@@ -17,6 +17,7 @@ const BASE64_SHORT = /^[A-Za-z0-9+/]{16,}={0,2}$/;
 
 function isSensitiveString(value: string): boolean {
   return (
+    SENSITIVE_PATTERNS.some(p => p.test(value)) ||
     (value.length >= 20 && BASE64_VALUE.test(value)) ||
     BASE64_SHORT.test(value)
   );
@@ -29,9 +30,7 @@ function isSensitiveString(value: string): boolean {
  */
 function sanitize(data: unknown): unknown {
   if (Array.isArray(data)) {
-    return data.map(item =>
-      item && typeof item === 'object' ? sanitize(item) : '[REDACTED]'
-    );
+    return data.map(item => sanitize(item));
   }
 
   if (data && typeof data === 'object' && data !== null) {
