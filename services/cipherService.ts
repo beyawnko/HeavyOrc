@@ -1,7 +1,6 @@
 import { RunRecord } from '@/types';
 import { fetchWithRetry } from '@/services/llmService';
 import { sanitizeErrorResponse } from '@/lib/security';
-import escapeHtml from 'escape-html';
 import * as ipaddr from 'ipaddr.js';
 
 export interface MemoryEntry {
@@ -30,8 +29,8 @@ async function consumeToken(): Promise<boolean> {
     tokens -= 1;
     return true;
   };
-  if (typeof navigator !== 'undefined' && (navigator as any).locks) {
-    return (navigator as any).locks.request('cipher-rate', exec);
+  if (typeof navigator !== 'undefined' && 'locks' in navigator && navigator.locks) {
+    return navigator.locks.request('cipher-rate', exec);
   }
   return exec();
 }
@@ -54,8 +53,8 @@ function isPrivateOrLocalhost(hostname: string): boolean {
   if (host === 'localhost') return true;
   if (ipaddr.isValid(host)) {
     let parsed = ipaddr.parse(host);
-    if (parsed.kind && parsed.kind() === 'ipv6' && (parsed as any).isIPv4MappedAddress()) {
-      parsed = (parsed as any).toIPv4Address();
+    if (parsed.kind() === 'ipv6' && (parsed as ipaddr.IPv6).isIPv4MappedAddress()) {
+      parsed = (parsed as ipaddr.IPv6).toIPv4Address();
     }
     const range = parsed.range();
     return ['loopback', 'linkLocal', 'uniqueLocal', 'private', 'unspecified'].includes(range);
@@ -63,31 +62,21 @@ function isPrivateOrLocalhost(hostname: string): boolean {
   return false;
 }
 
-function sanitizeRun(run: RunRecord): RunRecord {
-  return {
-    ...run,
-    prompt: escapeHtml(run.prompt),
-    finalAnswer: escapeHtml(run.finalAnswer),
-    agents: run.agents.map(a => ({
-      ...a,
-      content: escapeHtml(a.content),
-      error: a.error ? escapeHtml(a.error) : null,
-    })),
-  };
-}
-
 export const storeRunRecord = async (run: RunRecord): Promise<void> => {
   if (!useCipher || !baseUrl) return;
-  const safeRun = sanitizeRun(run);
-  if (safeRun.prompt.length > MAX_MEMORY_LENGTH || safeRun.finalAnswer.length > MAX_MEMORY_LENGTH) {
-    console.warn('Run record exceeds memory size limit');
+  if (
+    run.prompt.length > MAX_MEMORY_LENGTH ||
+    run.finalAnswer.length > MAX_MEMORY_LENGTH ||
+    run.agents.some(a => a.content.length > MAX_MEMORY_LENGTH)
+  ) {
+    console.warn('Run record exceeds memory size limit and will not be stored.');
     return;
   }
   try {
     const response = await fetchWithRetry(`${baseUrl}/memories`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ run: safeRun }),
+      body: JSON.stringify({ run }),
     });
     const csp = response.headers.get('Content-Security-Policy');
     const valid =

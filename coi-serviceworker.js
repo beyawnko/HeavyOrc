@@ -90,6 +90,8 @@ if (typeof window === 'undefined') {
     // In some environments (e.g. Chrome incognito mode) this won't be available
     if (n.serviceWorker) {
       const registrationUrl = window.document?.currentScript?.src || import.meta.url;
+      // Note: using the root scope requires the origin server to enforce a strict
+      // Content-Security-Policy to mitigate the broader SW control surface.
       n.serviceWorker.register(registrationUrl, { scope: '/' }).then(
         (registration) => {
           !coi.quiet && console.log('COOP/COEP Service Worker registered', registration.scope);

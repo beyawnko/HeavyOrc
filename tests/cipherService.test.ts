@@ -40,6 +40,31 @@ describe('cipherService', () => {
     expect(fetchMock).toHaveBeenCalledWith('http://cipher/memories', expect.any(Object));
   });
 
+  it('skips storing run record when an agent content exceeds limit', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as any;
+    const { storeRunRecord } = await import('@/services/cipherService');
+    const big = 'x'.repeat(5000);
+    await storeRunRecord({
+      ...sampleRun,
+      agents: [
+        {
+          id: 'a',
+          name: 'n',
+          persona: '',
+          status: 'COMPLETED',
+          content: big,
+          error: null,
+          model: 'm',
+          provider: 'openai',
+        },
+      ],
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('fetches memories when enabled', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');

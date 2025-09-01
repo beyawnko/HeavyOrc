@@ -61,6 +61,7 @@ import { storeRunRecord, fetchRelevantMemories } from '@/services/cipherService'
 import useViewportHeight from '@/lib/useViewportHeight';
 import useKeydown from '@/lib/useKeydown';
 import { escapeHtml } from '@/lib/utils';
+import { formatErrorMessage } from '@/lib/errors';
 
 // Session migration
 import { migrateAgentConfig } from '@/lib/sessionMigration';
@@ -308,7 +309,7 @@ const App: React.FC = () => {
                 setHistory(prev => [newRun, ...prev]);
                 storeRunRecord(newRun).catch(err =>
                     setToast({
-                        message: `Failed to store run record: ${err instanceof Error ? escapeHtml(err.message) : 'Unknown error'}`,
+                        message: `Failed to store run record: ${formatErrorMessage(err)}`,
                         type: 'error',
                     })
                 );
