@@ -55,6 +55,7 @@ import {
     setGeminiApiKey as storeGeminiApiKey,
     setOpenRouterApiKey as storeOpenRouterApiKey,
 } from '@/services/llmService';
+import { storeRunRecord, fetchRelevantMemories } from '@/services/cipherService';
 
 // Hooks
 import useViewportHeight from '@/lib/useViewportHeight';
@@ -304,6 +305,7 @@ const App: React.FC = () => {
                     arbiterSwitchWarning: arbiterSwitchWarningRef.current,
                 };
                 setHistory(prev => [newRun, ...prev]);
+                void storeRunRecord(newRun);
                 currentRunDataRef.current = undefined; // Clear after use
             }
         }
@@ -355,7 +357,7 @@ const App: React.FC = () => {
             setSelectedRunId(null);
         }
 
-        const finalPrompt = prompt.trim() || (images.length > 0 ? `Analyze these ${images.length} image(s) and provide a detailed description.` : "");
+        let finalPrompt = prompt.trim() || (images.length > 0 ? `Analyze these ${images.length} image(s) and provide a detailed description.` : "");
 
         if (!finalPrompt || isLoading || agentConfigs.length === 0) return;
 
@@ -373,6 +375,16 @@ const App: React.FC = () => {
             setError("Please set your OpenRouter API key in the settings to use OpenRouter models.");
             setIsSettingsViewOpen(true);
             return;
+        }
+
+        try {
+            const memories = await fetchRelevantMemories(finalPrompt);
+            if (memories.length > 0) {
+                const memoryText = memories.map(m => m.content).join('\n');
+                finalPrompt = `${memoryText}\n\n${finalPrompt}`;
+            }
+        } catch {
+            /* ignore memory errors */
         }
 
         orchestratorAbortRef.current?.();

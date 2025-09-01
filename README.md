@@ -34,6 +34,23 @@ Keys are optional; the UI hides providers without keys. `VITE_APP_URL` supplies 
 
 The application reads the Gemini key from `GEMINI_API_KEY` (falling back to a legacy `API_KEY` if present).
 
+## Persistent memory (Cipher)
+
+HeavyOrc can persist run history by connecting to a [Cipher](https://www.npmjs.com/package/@byterover/cipher) memory server. During development, start the server in API mode:
+
+```bash
+npm run cipher
+```
+
+The server defaults to an in-memory vector store (`VECTOR_STORE_TYPE=in-memory`), which requires no additional setup but loses data on restart. To enable persistence in the UI, configure the following environment variables:
+
+```env
+VITE_USE_CIPHER_MEMORY=true
+VITE_CIPHER_SERVER_URL=http://localhost:3000
+```
+
+If the server is not running, HeavyOrc continues to operate with ephemeral in-memory history. Cipher speaks the Model Context Protocol, so the same memory store can be shared with other tools in the future.
+
 ## Reasoning models and context management
 
 Reasoning models such as GPT‑5 and GPT‑5‑mini generate internal reasoning tokens before returning a final answer. These tokens count against the model's context window and are billed as output tokens. To avoid incomplete responses:

@@ -9,9 +9,11 @@
     "prebuild": "node scripts/install-missing-deps.mjs && node scripts/sync-doc-assets.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "cipher": "cipher --mode api"
   },
   "dependencies": {
+    "@byterover/cipher": "^0.3.0",
     "@dqbd/tiktoken": "^1.0.22",
     "@google/genai": "^1.15.0",
     "focus-trap-react": "^11.0.4",
