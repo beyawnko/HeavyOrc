@@ -28,9 +28,9 @@
   --line: #123722;
   --accent: #C6A15B;
   --accent-2: #2FA899;
-  --danger: #B2513B;
-  --warn: #D7A152;
-  --success: #7FBF8A;
+  --danger: 178 81 59;
+  --warn: 215 161 82;
+  --success: 127 191 138;
 }
 
 /* Desert palette */
@@ -45,9 +45,9 @@
   --line: #5E4123;
   --accent: #D49A6A;
   --accent-2: #E1C16E;
-  --danger: #B65D2E;
-  --warn: #E2B160;
-  --success: #C2A97D;
+  --danger: 182 93 46;
+  --warn: 226 177 96;
+  --success: 194 169 125;
 }
 
 /* Ocean palette */
@@ -62,9 +62,9 @@
   --line: #1A3A57;
   --accent: #4FB0C6;
   --accent-2: #3A8FB7;
-  --danger: #C74E4E;
-  --warn: #E0A85C;
-  --success: #6BBF94;
+  --danger: 199 78 78;
+  --warn: 224 168 92;
+  --success: 107 191 148;
 }
 
 /* Midnight palette */
@@ -79,9 +79,9 @@
   --line: #2E2E4D;
   --accent: #9B6DFF;
   --accent-2: #6D9BFF;
-  --danger: #D96A6A;
-  --warn: #E3B872;
-  --success: #8BD3C7;
+  --danger: 217 106 106;
+  --warn: 227 184 114;
+  --success: 139 211 199;
 }
 
 /* Typography */

@@ -53,13 +53,13 @@ const StatusIndicator: React.FC<{ status: RunStatus }> = ({ status }) => {
         case 'COMPLETED':
             return (
                 <div title="Completed">
-                    <CheckCircleIcon className="w-4 h-4 text-[var(--success)]" aria-hidden="true" />
+                    <CheckCircleIcon className="w-4 h-4 text-success" aria-hidden="true" />
                 </div>
             );
         case 'FAILED':
             return (
                 <div title="Failed">
-                    <XCircleIcon className="w-4 h-4 text-[var(--danger)]" aria-hidden="true" />
+                    <XCircleIcon className="w-4 h-4 text-danger" aria-hidden="true" />
                 </div>
             );
         default:
