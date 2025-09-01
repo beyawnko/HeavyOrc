@@ -7,21 +7,22 @@
 ## Tech Stack
 - TypeScript + React 18
 - Vite 5 bundler with Tailwind CSS for styling
-- Node.js tooling
+- Node.js 18+ tooling
 - Vitest for unit tests
 
 ## Coding Guidelines
 - Use TypeScript with strict typings and React function components.
 - Keep modules focused:
   - `components/` for UI elements
-  - `services/` for provider integrations and DeepConf logic
+  - `services/` for provider integrations, API clients, retry logic, and DeepConf strategies
   - `moe/` for dispatcher, arbiter and orchestrator
   - `lib/` for utilities and hooks
 - Centralize constants in `constants.ts` and shared types in `types.ts`.
 - When calling external APIs, always use retry/timeout helpers (`fetchWithRetry`, `callWithRetry`, `callWithGeminiRetry`).
+- Retry helpers default to 3 attempts with exponential backoff (500ms base delay for `fetchWithRetry`/`callWithRetry`, 1s for `callWithGeminiRetry` with a 10s timeout).
 - Handle rate limits, server errors, and aborted requests gracefully; prefer user-friendly error messages.
 - Maintain consistent formatting (ES modules, 2-space indent, semicolons, matching quote style with surrounding code).
-- Update README.md or SPECS.md whenever behavior, deps, or architecture changes.
+- Update README.md, SPECS.md, or AGENTS.md whenever behavior, deps, or architecture changes.
 
 ## Commit Conventions
 - Use short, imperative messages prefixed with type: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`.
@@ -33,8 +34,21 @@
 - Verify build when modifying tooling (`npm run build`).
 
 ## Environment
+- Node.js 18+ required.
 - Development workflow: `npm install`, configure `.env`, then `npm run dev`.
-- Required env vars: `GEMINI_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`; optional `VITE_APP_URL`.
+- Store secrets outside version control (see `.env.example`); prefer a secure secrets manager for production.
+- Required env vars (see `.env.example`):
+  - `GEMINI_API_KEY`  # Gemini API authentication
+  - `OPENAI_API_KEY`  # OpenAI API authentication
+  - `OPENROUTER_API_KEY`  # OpenRouter API authentication
+  Optional:
+  - `VITE_APP_URL`  # Application URL.
+
+## Security Best Practices
+- Validate and sanitize all user input and outputs.
+- Rate limit upstream API calls and user requests.
+- Store secrets outside version control and rotate keys regularly.
+
 
 ## Known Friction Points
 - Past issues center on Gemini timeouts, streaming, and error typing. Mitigation tips:
