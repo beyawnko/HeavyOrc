@@ -6,9 +6,12 @@ permissions:
   contents: write
 jobs:
   build:
-    runs-on: ubuntu-latest
-    steps:
+      - name: Verify package-lock.json integrity
+        run: |
+          echo "Verifying package-lock.json integrity..."
+          sha256sum -c package-lock.json.sha256 || (echo "ERROR: package-lock.json integrity check failed!" && exit 1)
       - uses: actions/checkout@v4
+      - run: sha256sum -c package-lock.json.sha256
       - uses: actions/setup-node@v4
         with:
           node-version: 18
