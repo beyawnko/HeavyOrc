@@ -51,7 +51,8 @@ VITE_CIPHER_SERVER_URL=http://localhost:3000
 
 If the server is not running, HeavyOrc continues to operate with ephemeral in-memory history. Cipher speaks the Model Context Protocol, so the same memory store can be shared with other tools in the future.
 
-Fetched memory snippets are HTML-escaped before being included in prompts, and error responses are recursively redacted so logs don't leak tokens, passwords, or other secrets.
+Fetched memory snippets are HTML-escaped with [`escape-html`](https://www.npmjs.com/package/escape-html), replacing characters like `&`, `<`, `>`, `"` and `'` before including them in prompts. Error responses are recursively redacted: keys such as `token`, `password`, `secret`, `apiKey` and other credential-like fields—or string values that match those patterns or appear base64-encoded—are replaced with `[REDACTED]`. Redaction patterns are currently hardcoded in [`lib/security.ts`](./lib/security.ts) and can be customized there if needed.
+Review and update these patterns regularly to catch newly emerging sensitive data types.
 
 ## Reasoning models and context management
 

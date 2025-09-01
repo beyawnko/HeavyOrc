@@ -45,9 +45,7 @@ function isSensitiveString(value: string): boolean {
  */
 function sanitize(data: unknown): unknown {
   if (Array.isArray(data)) {
-    return data.map(item =>
-      item && typeof item === 'object' ? sanitize(item) : '[REDACTED]'
-    );
+    return data.map((item): unknown => sanitize(item));
   }
 
   if (data && typeof data === 'object' && data !== null) {
