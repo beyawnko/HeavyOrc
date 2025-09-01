@@ -96,6 +96,14 @@ describe('cipherService', () => {
     expect(res).toEqual([]);
   });
 
+  it('propagates network errors when storing run record', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    global.fetch = vi.fn().mockRejectedValue(new Error('network')) as any;
+    const { storeRunRecord } = await import('@/services/cipherService');
+    await expect(storeRunRecord(sampleRun)).rejects.toThrow('network');
+  });
+
   it('redacts sensitive info in error responses', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
@@ -123,7 +131,7 @@ describe('cipherService', () => {
     global.fetch = fetchMock as any;
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { storeRunRecord } = await import('@/services/cipherService');
-    await storeRunRecord(sampleRun);
+    await expect(storeRunRecord(sampleRun)).rejects.toThrow('Failed to store run record with status 400');
     const logged = consoleSpy.mock.calls[0][1] as any;
     expect(logged.body).toBe(
       '{"token":"[REDACTED]","Password":"[REDACTED]","certificate":"[REDACTED]","connection-string":"[REDACTED]","private_key":"[REDACTED]","session_id":"[REDACTED]","encoded":"[REDACTED]","shortEncoded":"[REDACTED]"}'
@@ -148,7 +156,7 @@ describe('cipherService', () => {
     global.fetch = fetchMock as any;
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { storeRunRecord } = await import('@/services/cipherService');
-    await storeRunRecord(sampleRun);
+    await expect(storeRunRecord(sampleRun)).rejects.toThrow('Failed to store run record with status 400');
     const logged = consoleSpy.mock.calls[0][1] as any;
     expect(logged.body).toBe('[{"token":"[REDACTED]"},"[REDACTED]"]');
     consoleSpy.mockRestore();
@@ -177,7 +185,7 @@ describe('cipherService', () => {
     global.fetch = fetchMock as any;
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { storeRunRecord } = await import('@/services/cipherService');
-    await storeRunRecord(sampleRun);
+    await expect(storeRunRecord(sampleRun)).rejects.toThrow('Failed to store run record with status 400');
     const logged = consoleSpy.mock.calls[0][1] as any;
     expect(logged.body).toBe('{"details":{"token":"[REDACTED]","items":["[REDACTED]",{"password":"[REDACTED]"}]}}');
     consoleSpy.mockRestore();
