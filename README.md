@@ -47,6 +47,10 @@ The server defaults to an in-memory vector store (`VECTOR_STORE_TYPE=in-memory`)
 ```env
 VITE_USE_CIPHER_MEMORY=true
 VITE_CIPHER_SERVER_URL=http://localhost:3000
+# Optionally enforce Content-Security-Policy headers from the memory server
+# Set this only if the server exposes "Content-Security-Policy" via CORS
+# (see Access-Control-Expose-Headers)
+VITE_ENFORCE_CIPHER_CSP=false
 ```
 
 If the server is not running, HeavyOrc continues to operate with ephemeral in-memory history. Cipher speaks the Model Context Protocol, so the same memory store can be shared with other tools in the future.
