@@ -1,0 +1,16 @@
+import { describe, expect, test } from 'vitest';
+import { sanitizeErrorResponse } from '@/lib/security';
+
+describe('sanitizeErrorResponse arrays', () => {
+  test('retains non-sensitive array items', () => {
+    const input = JSON.stringify([1, 'alpha', true, null]);
+    const output = sanitizeErrorResponse(input);
+    expect(JSON.parse(output)).toEqual([1, 'alpha', true, null]);
+  });
+
+  test('redacts sensitive array items', () => {
+    const input = JSON.stringify(['token123', { password: 'secret' }]);
+    const output = sanitizeErrorResponse(input);
+    expect(JSON.parse(output)).toEqual(['[REDACTED]', { password: '[REDACTED]' }]);
+  });
+});
