@@ -78,7 +78,7 @@ const ImageInput: React.FC<ImageInputProps> = ({ image, onImageChange, disabled 
                         <button
                             onClick={handleRemoveImage}
                             disabled={disabled}
-                            className="p-2 bg-[var(--danger)] bg-opacity-80 text-[var(--text)] rounded-full hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[var(--danger)] focus:ring-offset-2 focus:ring-offset-[var(--surface-1)] disabled:opacity-50"
+                            className="p-2 bg-danger/80 text-[var(--text)] rounded-full hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-2 focus:ring-offset-[var(--surface-1)] disabled:opacity-50"
                             aria-label="Remove image"
                         >
                             <XCircleIcon className="w-6 h-6" aria-hidden="true" />

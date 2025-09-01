@@ -19,9 +19,9 @@ const getStatusIndicator = (status: AgentStatus): React.ReactNode => {
         case 'RUNNING':
             return <LoadingSpinner className="h-5 w-5 text-[var(--accent-2)] animate-spin" aria-hidden="true" />;
         case 'COMPLETED':
-            return <CheckCircleIcon className="h-5 w-5 text-[var(--success)]" aria-hidden="true" />;
+            return <CheckCircleIcon className="h-5 w-5 text-success" aria-hidden="true" />;
         case 'FAILED':
-            return <XCircleIcon className="h-5 w-5 text-[var(--danger)]" aria-hidden="true" />;
+            return <XCircleIcon className="h-5 w-5 text-danger" aria-hidden="true" />;
         case 'PENDING':
         case 'QUEUED':
         default:
@@ -34,9 +34,9 @@ const getBorderColor = (status: AgentStatus): string => {
         case 'RUNNING':
             return 'border-[var(--accent-2)] ring-2 ring-[var(--accent-2)] ring-opacity-50';
         case 'COMPLETED':
-            return 'border-[var(--success)]';
+            return 'border-success';
         case 'FAILED':
-            return 'border-[var(--danger)]';
+            return 'border-danger';
         case 'PENDING':
         case 'QUEUED':
         default:
@@ -140,7 +140,7 @@ const AgentConfigCard: React.FC<AgentConfigCardProps> = ({ config, onUpdate, onR
                 <button 
                     onClick={() => onRemove(config.id)} 
                     disabled={disabled} 
-                    className="p-1 text-[var(--text-muted)] hover:text-[var(--danger)] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-1 text-[var(--text-muted)] hover:text-danger disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Remove Agent"
                 >
                     <XCircleIcon className="w-5 h-5" aria-hidden="true" />
