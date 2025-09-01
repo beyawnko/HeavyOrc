@@ -46,12 +46,42 @@ const parseEnvInt = (value: string | undefined, fallback: number) => {
 
 const GEMINI_RETRY_COUNT = parseEnvInt(process.env.GEMINI_RETRY_COUNT, 2);
 const GEMINI_BACKOFF_MS = parseEnvInt(process.env.GEMINI_BACKOFF_MS, 2000);
+const MIN_GEMINI_TIMEOUT_MS = 5000;
+const normalizeGeminiTimeout = (
+    timeoutMs: number,
+    defaultTimeoutMs: number,
+    context: { expertName?: string; source?: string } = {}
+) => {
+    if (timeoutMs < MIN_GEMINI_TIMEOUT_MS || timeoutMs > MAX_GEMINI_TIMEOUT_MS) {
+        console.warn({
+            message: 'Invalid Gemini timeout; falling back to default',
+            ...context,
+            originalTimeout: timeoutMs,
+            newTimeout: defaultTimeoutMs,
+            minTimeoutMs: MIN_GEMINI_TIMEOUT_MS,
+            maxTimeoutMs: MAX_GEMINI_TIMEOUT_MS,
+        });
+        return defaultTimeoutMs;
+    }
+    if (context.expertName && timeoutMs !== defaultTimeoutMs) {
+        console.debug({
+            message: 'Using custom Gemini timeout',
+            expertName: context.expertName,
+            timeoutMs,
+            defaultTimeoutMs,
+        });
+    }
+    return timeoutMs;
+};
 // Default timeout for Gemini requests; individual experts can override this via config.
-const DEFAULT_GEMINI_TIMEOUT_MS = parseEnvInt(process.env.GEMINI_TIMEOUT_MS, 30000);
-const MIN_GEMINI_TIMEOUT_MS = 1000;
+const DEFAULT_GEMINI_TIMEOUT_MS = normalizeGeminiTimeout(
+    parseEnvInt(process.env.GEMINI_TIMEOUT_MS, 30000),
+    30000,
+    { source: 'env' }
+);
 
-const formatTimeoutError = (expertName: string, timeoutMs: number, elapsed: number) =>
-    `Expert "${expertName}" exceeded the configured timeout of ${Math.round(timeoutMs / 1000)} seconds after ${Math.round(elapsed / 1000)} seconds.`;
+const formatTimeoutError = (expertName: string, model: string, timeoutMs: number, elapsed: number) =>
+    `Expert "${expertName}" using model "${model}" exceeded the configured timeout of ${Math.round(timeoutMs / 1000)} seconds after ${Math.round(elapsed / 1000)} seconds.`;
 
 interface ExpertResult {
     content: string;
@@ -62,6 +92,7 @@ interface ExpertResult {
 const processGeminiStream = async (
     stream: AsyncGenerator<any, void, unknown>,
     expert: ExpertDispatch,
+    model: string,
     timeoutController: AbortController,
     start: number,
     timeoutMs: number
@@ -69,7 +100,7 @@ const processGeminiStream = async (
     const ensureWithinTimeout = (): void => {
         if (timeoutController.signal.aborted) {
             const elapsed = performance.now() - start;
-            throw new Error(formatTimeoutError(expert.name, timeoutMs, elapsed));
+            throw new Error(formatTimeoutError(expert.name, model, timeoutMs, elapsed));
         }
     };
 
@@ -149,24 +180,7 @@ const runExpertGeminiSingle = async (
         throw new Error(`Gemini API key is missing or invalid. Please check your API key in settings.`);
     }
     let timeoutMs = config.settings.timeoutMs ?? DEFAULT_GEMINI_TIMEOUT_MS;
-    if (timeoutMs < MIN_GEMINI_TIMEOUT_MS || timeoutMs > MAX_GEMINI_TIMEOUT_MS) {
-        const originalTimeout = timeoutMs;
-        timeoutMs = DEFAULT_GEMINI_TIMEOUT_MS;
-        console.warn({
-            message: 'Invalid Gemini timeout; falling back to default',
-            expertName: expert.name,
-            originalTimeout,
-            newTimeout: timeoutMs,
-            maxTimeoutMs: MAX_GEMINI_TIMEOUT_MS,
-        });
-    } else if (timeoutMs !== DEFAULT_GEMINI_TIMEOUT_MS) {
-        console.debug({
-            message: 'Using custom Gemini timeout',
-            expertName: expert.name,
-            timeoutMs,
-            defaultTimeoutMs: DEFAULT_GEMINI_TIMEOUT_MS,
-        });
-    }
+    timeoutMs = normalizeGeminiTimeout(timeoutMs, DEFAULT_GEMINI_TIMEOUT_MS, { expertName: expert.name });
     const start = performance.now();
     const timeoutController = new AbortController();
     const timeoutHandle = setTimeout(() => timeoutController.abort(), timeoutMs);
@@ -177,7 +191,7 @@ const runExpertGeminiSingle = async (
                 cleanup?.();
                 if (timeoutController.signal.aborted) {
                     const elapsed = performance.now() - start;
-                    return Promise.reject(new Error(formatTimeoutError(expert.name, timeoutMs, elapsed)));
+                    return Promise.reject(new Error(formatTimeoutError(expert.name, config.model, timeoutMs, elapsed)));
                 }
                 if (abortSignal?.aborted) {
                     const abortErr = new Error('Aborted');
@@ -194,20 +208,26 @@ const runExpertGeminiSingle = async (
                 } catch (error) {
                     if (timeoutController.signal.aborted) {
                         const elapsed = performance.now() - start;
-                        throw new Error(formatTimeoutError(expert.name, timeoutMs, elapsed));
+                        throw new Error(formatTimeoutError(expert.name, config.model, timeoutMs, elapsed));
                     }
                     throw error;
                 }
             },
             { retries: GEMINI_RETRY_COUNT, baseDelayMs: GEMINI_BACKOFF_MS, timeoutMs }
         );
-        return await processGeminiStream(stream, expert, timeoutController, start, timeoutMs);
+        return await processGeminiStream(stream, expert, config.model, timeoutController, start, timeoutMs);
     } catch (error) {
         if (isAbortError(error)) {
             throw error as Error;
         }
-        if (error instanceof Error && error.message.startsWith(`Expert "${expert.name}" exceeded the configured timeout`)) {
-            throw error;
+        if (error instanceof Error) {
+            if (error.message.startsWith(`Expert "${expert.name}" exceeded the configured timeout`)) {
+                throw error;
+            }
+            if (error.message.startsWith('Gemini request timed out')) {
+                const elapsed = performance.now() - start;
+                throw new Error(formatTimeoutError(expert.name, config.model, timeoutMs, elapsed));
+            }
         }
         return handleGeminiError(error, 'dispatcher', 'dispatch');
     } finally {
@@ -479,6 +499,7 @@ const runExpert = async (
             expert,
             content: "This agent failed to generate a response.",
             status: 'FAILED',
+            isPartial: false,
             error: errorMessage,
         };
     }

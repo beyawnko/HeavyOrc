@@ -226,84 +226,92 @@ describe('dispatcher Gemini timeout', () => {
     },
   } as const;
 
-  it('fails when stream exceeds timeout before first chunk', async () => {
-    const generateContentStream = vi.fn((params) => {
-      const signal = params.config?.abortSignal;
-      return {
-        [Symbol.asyncIterator]: async function* () {
-          await new Promise<void>((resolve) => {
-            const t = setTimeout(resolve, 1500);
-            signal?.addEventListener('abort', () => {
-              clearTimeout(t);
-              resolve();
+    it('fails when stream exceeds timeout before first chunk', async () => {
+      vi.useFakeTimers();
+      const generateContentStream = vi.fn((params) => {
+        const signal = params.config?.abortSignal;
+        return {
+          [Symbol.asyncIterator]: async function* () {
+            await new Promise<void>((resolve) => {
+              const t = setTimeout(resolve, 6000);
+              signal?.addEventListener('abort', () => {
+                clearTimeout(t);
+                resolve();
+              });
             });
-          });
-          if (signal?.aborted) {
-            throw Object.assign(new Error('aborted'), { name: 'AbortError' });
-          }
-          yield { text: () => 'late' };
-        },
+            if (signal?.aborted) {
+              throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+            }
+            yield { text: () => 'late' };
+          },
+        };
+      });
+
+      (getGeminiClient as unknown as Mock).mockReturnValue({ models: { generateContentStream } });
+      const { dispatch } = await import('@/moe/dispatcher');
+
+      const expert: ExpertDispatch = {
+        agentId: 'timeout1',
+        provider: 'gemini',
+        model: GEMINI_FLASH_MODEL,
+        id: '1',
+        name: 'timeout1',
+        persona: '',
       };
+      const config: GeminiAgentConfig = { ...baseConfig, id: 'timeout1', expert, settings: { ...baseConfig.settings, timeoutMs: 5000 } };
+
+      const draftsPromise = dispatch([expert], 'prompt', [], [config], () => {}, undefined);
+      await vi.advanceTimersByTimeAsync(6000);
+      const drafts = await draftsPromise;
+
+      expect(drafts[0].status).toBe('FAILED');
+      expect(drafts[0].error).toMatch(/Expert "timeout1".*exceeded the configured timeout/);
+      vi.useRealTimers();
     });
 
-    (getGeminiClient as unknown as Mock).mockReturnValue({ models: { generateContentStream } });
-    const { dispatch } = await import('@/moe/dispatcher');
-
-    const expert: ExpertDispatch = {
-      agentId: 'timeout1',
-      provider: 'gemini',
-      model: GEMINI_FLASH_MODEL,
-      id: '1',
-      name: 'timeout1',
-      persona: '',
-    };
-    const config: GeminiAgentConfig = { ...baseConfig, id: 'timeout1', expert, settings: { ...baseConfig.settings, timeoutMs: 1000 } };
-
-    const drafts = await dispatch([expert], 'prompt', [], [config], () => {}, undefined);
-
-    expect(drafts[0].status).toBe('FAILED');
-    expect(drafts[0].error).toMatch(/^Expert "timeout1" exceeded the configured timeout/);
-  });
-
-  it('fails when timeout occurs during streaming', async () => {
-    const generateContentStream = vi.fn((params) => {
-      const signal = params.config?.abortSignal;
-      return {
-        [Symbol.asyncIterator]: async function* () {
-          yield { text: () => 'early' };
-          await new Promise<void>((resolve) => {
-            const t = setTimeout(resolve, 1500);
-            signal?.addEventListener('abort', () => {
-              clearTimeout(t);
-              resolve();
+    it('fails when timeout occurs during streaming', async () => {
+      vi.useFakeTimers();
+      const generateContentStream = vi.fn((params) => {
+        const signal = params.config?.abortSignal;
+        return {
+          [Symbol.asyncIterator]: async function* () {
+            yield { text: () => 'early' };
+            await new Promise<void>((resolve) => {
+              const t = setTimeout(resolve, 6000);
+              signal?.addEventListener('abort', () => {
+                clearTimeout(t);
+                resolve();
+              });
             });
-          });
-          if (signal?.aborted) {
-            throw Object.assign(new Error('aborted'), { name: 'AbortError' });
-          }
-          yield { text: () => 'late' };
-        },
+            if (signal?.aborted) {
+              throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+            }
+            yield { text: () => 'late' };
+          },
+        };
+      });
+
+      (getGeminiClient as unknown as Mock).mockReturnValue({ models: { generateContentStream } });
+      const { dispatch } = await import('@/moe/dispatcher');
+
+      const expert: ExpertDispatch = {
+        agentId: 'timeout2',
+        provider: 'gemini',
+        model: GEMINI_FLASH_MODEL,
+        id: '1',
+        name: 'timeout2',
+        persona: '',
       };
+      const config: GeminiAgentConfig = { ...baseConfig, id: 'timeout2', expert, settings: { ...baseConfig.settings, timeoutMs: 5000 } };
+
+      const draftsPromise = dispatch([expert], 'prompt', [], [config], () => {}, undefined);
+      await vi.advanceTimersByTimeAsync(6000);
+      const drafts = await draftsPromise;
+
+      expect(drafts[0].status).toBe('FAILED');
+      expect(drafts[0].error).toMatch(/Expert "timeout2".*exceeded the configured timeout/);
+      vi.useRealTimers();
     });
-
-    (getGeminiClient as unknown as Mock).mockReturnValue({ models: { generateContentStream } });
-    const { dispatch } = await import('@/moe/dispatcher');
-
-    const expert: ExpertDispatch = {
-      agentId: 'timeout2',
-      provider: 'gemini',
-      model: GEMINI_FLASH_MODEL,
-      id: '1',
-      name: 'timeout2',
-      persona: '',
-    };
-    const config: GeminiAgentConfig = { ...baseConfig, id: 'timeout2', expert, settings: { ...baseConfig.settings, timeoutMs: 1000 } };
-
-    const drafts = await dispatch([expert], 'prompt', [], [config], () => {}, undefined);
-
-    expect(drafts[0].status).toBe('FAILED');
-    expect(drafts[0].error).toMatch(/^Expert "timeout2" exceeded the configured timeout/);
-  });
 
   it('handles minimum valid timeout correctly', async () => {
     const generateContentStream = vi.fn().mockResolvedValue({
@@ -327,7 +335,7 @@ describe('dispatcher Gemini timeout', () => {
       ...baseConfig,
       id: 'minTimeout',
       expert,
-      settings: { ...baseConfig.settings, timeoutMs: 1001 }
+      settings: { ...baseConfig.settings, timeoutMs: 5001 }
     };
 
     const drafts = await dispatch([expert], 'prompt', [], [config], () => {}, undefined);

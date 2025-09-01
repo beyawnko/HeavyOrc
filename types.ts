@@ -94,7 +94,7 @@ const GeminiAgentSettingsSchema: z.ZodType<Partial<GeminiAgentSettings>> =
         timeoutMs: z
             .number()
             .int()
-            .min(1000)
+            .min(5000)
             .max(MAX_GEMINI_TIMEOUT_MS)
             .optional(),
     }).strict();
