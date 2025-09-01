@@ -19,7 +19,7 @@
   - `lib/` for utilities and hooks
 - Centralize constants in `constants.ts` and shared types in `types.ts`.
 - When calling external APIs, always use retry/timeout helpers (`fetchWithRetry`, `callWithRetry`, `callWithGeminiRetry`).
-- Retry helpers default to 3 attempts with exponential backoff (500ms base delay for `fetchWithRetry`/`callWithRetry`, 1s for `callWithGeminiRetry` with a 10s timeout).
+- Retry helpers default to 3 attempts with exponential backoff (500ms base delay for `fetchWithRetry`/`callWithRetry`, 1s for `callWithGeminiRetry` with a 10s timeout) and should apply jitter and circuit breakers to avoid thundering herd effects.
 - Handle rate limits, server errors, and aborted requests gracefully; prefer user-friendly error messages.
 - Maintain consistent formatting (ES modules, 2-space indent, semicolons, matching quote style with surrounding code).
 - Update README.md, SPECS.md, or AGENTS.md whenever behavior, deps, or architecture changes.
@@ -45,10 +45,9 @@
   - `VITE_APP_URL`  # Application URL.
 
 ## Security Best Practices
-- Validate and sanitize all user input and outputs.
-- Rate limit upstream API calls and user requests.
-- Store secrets outside version control and rotate keys regularly.
-
+- Validate and sanitize all user input and outputs; use schema validators like Zod (`z.object({ id: z.string().uuid() })`) and DOMPurify or `escape-html` for sanitization.
+- Rate limit upstream API calls and user requests. Document provider-specific limits (e.g., Gemini ~60 RPM, OpenAI plan-specific RPM) and use concurrency guards to prevent overload.
+- Rotate keys regularly.
 
 ## Known Friction Points
 - Past issues center on Gemini timeouts, streaming, and error typing. Mitigation tips:
