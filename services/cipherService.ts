@@ -82,14 +82,39 @@ function validateCsp(response: Response): void {
     .filter(Boolean)
     .map(parseDirective)
     .filter(d => d.name && d.sources.length > 0);
+  const defaultSrc = directives.find(d => d.name === 'default-src');
+  const connectSrc = directives.find(d => d.name === 'connect-src');
+  const objectSrc = directives.find(d => d.name === 'object-src');
+  const baseUri = directives.find(d => d.name === 'base-uri');
 
-  const allowsSelf = directives.some(
-    d =>
-      (d.name === 'connect-src' || d.name === 'default-src') &&
-      d.sources.includes("'self'")
+  const hasUnsafeSource = directives.some(d =>
+    d.sources.some(s =>
+      s === "'unsafe-inline'" ||
+      s === "'unsafe-eval'" ||
+      s === '*'
+    )
   );
+  const isDefaultSrcStrict =
+    !!defaultSrc &&
+    defaultSrc.sources.length === 1 &&
+    defaultSrc.sources[0] === "'none'";
+  const isConnectSrcSelf =
+    !!connectSrc &&
+    connectSrc.sources.length === 1 &&
+    connectSrc.sources[0] === "'self'";
+  const isObjectSrcSafe =
+    !objectSrc ||
+    (objectSrc.sources.length === 1 && objectSrc.sources[0] === "'none'");
+  const isBaseUriSafe =
+    !baseUri || (baseUri.sources.length === 1 && baseUri.sources[0] === "'none'");
 
-  if (!allowsSelf) {
+  if (
+    !isDefaultSrcStrict ||
+    !isConnectSrcSelf ||
+    hasUnsafeSource ||
+    !isObjectSrcSafe ||
+    !isBaseUriSafe
+  ) {
     console.error('Invalid or insufficient CSP headers from memory server');
     throw new Error('Invalid CSP headers');
   }
@@ -112,7 +137,8 @@ export const storeRunRecord = async (run: RunRecord): Promise<void> => {
       body: JSON.stringify({ run }),
     });
     if (enforceCsp) validateCsp(response);
-    if (!response.ok) {
+    const responseOk = response.ok;
+    if (!responseOk) {
       const errorData = await response.text().catch(() => 'Unable to read error response');
       console.error('Failed to store run record', {
         url: `${baseUrl}/memories`,
@@ -147,8 +173,9 @@ export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[
       body: JSON.stringify({ query }),
     });
 
-    if (!response.ok) {
-      if (enforceCsp) validateCsp(response);
+    if (enforceCsp) validateCsp(response);
+    const responseOk = response.ok;
+    if (!responseOk) {
       const errorData = await response
         .text()
         .catch(() => 'Unable to read error response');
@@ -161,7 +188,6 @@ export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[
       return [];
     }
 
-    if (enforceCsp) validateCsp(response);
     const data = (await response.json()) as { memories?: MemoryEntry[] };
     return Array.isArray(data.memories)
       ? data.memories.filter(m => m.content.length <= MAX_MEMORY_LENGTH)
