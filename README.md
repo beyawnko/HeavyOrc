@@ -8,6 +8,7 @@ For a detailed, AI-oriented overview of the architecture and tooling, see the [S
 
 ## Documentation
 
+- [AGENTS.md](./AGENTS.md) – project intent, tech stack, and coding guidelines.
 - [SPECS.md](./SPECS.md) – AI-oriented technical specification of the stack and modules.
 
 ## Features
