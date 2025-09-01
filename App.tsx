@@ -384,15 +384,6 @@ const App: React.FC = () => {
             return;
         }
 
-        setIsLoading(true);
-
-        const memories = await fetchRelevantMemories(finalPrompt);
-        if (memories.length > 0) {
-            const memoryText = memories.map(m => escapeHtml(m.content)).join('\n');
-            finalPrompt = `Context from previous interactions:\n${memoryText}\n\nCurrent request:\n${finalPrompt}`;
-            setToast({ message: `Including ${memories.length} relevant memories from history...`, type: 'success' });
-        }
-
         orchestratorAbortRef.current?.();
         orchestratorAbortRef.current = null;
         setError(null);
@@ -400,19 +391,27 @@ const App: React.FC = () => {
         setIsArbiterRunning(false);
         setAgents([]);
         setArbiterSwitchWarning(null);
-        
-        isRunCompletedRef.current = false;
-        currentRunDataRef.current = {
-            prompt: finalPrompt,
-            images,
-            agentConfigs,
-            arbiterModel,
-            openAIArbiterVerbosity,
-            openAIArbiterEffort,
-            geminiArbiterEffort
-        };
-        
+
         try {
+            setIsLoading(true);
+
+            const memories = await fetchRelevantMemories(finalPrompt);
+            if (memories.length > 0) {
+                const memoryText = memories.map(m => escapeHtml(m.content)).join('\n');
+                finalPrompt = `Context from previous interactions:\n${memoryText}\n\nCurrent request:\n${finalPrompt}`;
+                setToast({ message: `Including ${memories.length} relevant memories from history...`, type: 'success' });
+            }
+
+            isRunCompletedRef.current = false;
+            currentRunDataRef.current = {
+                prompt: finalPrompt,
+                images,
+                agentConfigs,
+                arbiterModel,
+                openAIArbiterVerbosity,
+                openAIArbiterEffort,
+                geminiArbiterEffort
+            };
             const onInitialAgents = (dispatchedExperts: ExpertDispatch[]) => {
                 const initialAgents = dispatchedExperts.map((expert): AgentState => ({
                     id: expert.agentId,

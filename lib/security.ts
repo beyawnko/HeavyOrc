@@ -13,34 +13,58 @@ const SENSITIVE_PATTERNS = [
 ];
 
 const BASE64_VALUE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+const BASE64_SHORT = /^[A-Za-z0-9+/]{16,}={0,2}$/;
 
-function sanitizeObject(obj: Record<string, unknown>): Record<string, unknown> {
-  const sanitized = { ...obj };
-  for (const [key, value] of Object.entries(sanitized)) {
-    if (
-      SENSITIVE_PATTERNS.some(p => p.test(key)) ||
-      (typeof value === 'string' && value.length >= 40 && BASE64_VALUE.test(value))
-    ) {
-      sanitized[key] = '[REDACTED]';
-    }
-  }
-  return sanitized;
+function isSensitiveString(value: string): boolean {
+  return (
+    (value.length >= 20 && BASE64_VALUE.test(value)) ||
+    BASE64_SHORT.test(value)
+  );
 }
 
+/**
+ * Recursively sanitizes data by redacting sensitive fields and values.
+ * @param data - The data to sanitize
+ * @returns A copy with sensitive information redacted
+ */
+function sanitize(data: unknown): unknown {
+  if (Array.isArray(data)) {
+    return data.map(item =>
+      item && typeof item === 'object' ? sanitize(item) : '[REDACTED]'
+    );
+  }
+
+  if (data && typeof data === 'object' && data !== null) {
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+      if (
+        SENSITIVE_PATTERNS.some(p => p.test(key)) ||
+        (typeof value === 'string' && isSensitiveString(value))
+      ) {
+        sanitized[key] = '[REDACTED]';
+      } else {
+        sanitized[key] = sanitize(value);
+      }
+    }
+    return sanitized;
+  }
+
+  if (typeof data === 'string' && isSensitiveString(data)) {
+    return '[REDACTED]';
+  }
+
+  return data;
+}
+
+/**
+ * Sanitizes an error response body by redacting sensitive information.
+ * Non-JSON responses are fully redacted.
+ */
 export function sanitizeErrorResponse(body: string): string {
   try {
     const parsed = JSON.parse(body);
-    if (Array.isArray(parsed)) {
-      return JSON.stringify(
-        parsed.map(item =>
-          item && typeof item === 'object' && !Array.isArray(item)
-            ? sanitizeObject(item)
-            : item
-        )
-      );
-    }
-    if (parsed && typeof parsed === 'object') {
-      return JSON.stringify(sanitizeObject(parsed as Record<string, unknown>));
+    if (parsed && typeof parsed === 'object' && parsed !== null) {
+      return JSON.stringify(sanitize(parsed));
     }
   } catch {
     // ignore parse errors
