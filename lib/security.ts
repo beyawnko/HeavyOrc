@@ -10,6 +10,10 @@ export function sanitizeErrorResponse(body: string): string {
         /key/i,
         /credential/i,
         /api[-_]?key/i,
+        /cert(ificate)?/i,
+        /connection[-_]?string/i,
+        /private[-_]?key/i,
+        /session[-_]?id/i,
       ];
       for (const key of Object.keys(parsed)) {
         if (SENSITIVE_PATTERNS.some(p => p.test(key))) {

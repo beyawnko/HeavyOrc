@@ -8,17 +8,30 @@ export interface MemoryEntry {
 }
 
 const useCipher = import.meta.env.VITE_USE_CIPHER_MEMORY === 'true';
-const baseUrl = validateUrl(import.meta.env.VITE_CIPHER_SERVER_URL);
+const baseUrl = validateUrl(import.meta.env.VITE_CIPHER_SERVER_URL, import.meta.env.DEV);
 
 const RATE_LIMIT_WINDOW = 60000; // 1 minute
 const MAX_REQUESTS = 30; // 30 requests per minute
-const requestTimestamps: number[] = [];
+let tokens = MAX_REQUESTS;
+let lastRefill = Date.now();
 
-export function validateUrl(url: string | undefined): string | undefined {
+function consumeToken(): boolean {
+  const now = Date.now();
+  const elapsed = now - lastRefill;
+  if (elapsed > 0) {
+    tokens = Math.min(MAX_REQUESTS, tokens + (elapsed / RATE_LIMIT_WINDOW) * MAX_REQUESTS);
+    lastRefill = now;
+  }
+  if (tokens < 1) return false;
+  tokens -= 1;
+  return true;
+}
+
+export function validateUrl(url: string | undefined, dev: boolean = import.meta.env.DEV): string | undefined {
   if (!url) return undefined;
   try {
     const parsed = new URL(url);
-    return ['http:', 'https:'].includes(parsed.protocol) && (import.meta.env.DEV || !isPrivateOrLocalhost(parsed.hostname)) ? url : undefined;
+    return ['http:', 'https:'].includes(parsed.protocol) && (dev || !isPrivateOrLocalhost(parsed.hostname)) ? url : undefined;
   } catch {
     return undefined;
   }
@@ -59,8 +72,11 @@ export const storeRunRecord = async (run: RunRecord): Promise<void> => {
       body: JSON.stringify({ run }),
     });
     const csp = response.headers.get('Content-Security-Policy');
-    if (!csp || !csp.includes("default-src 'self'")) {
-      console.error('Invalid CSP headers from memory server');
+    const directives = ['default-src', 'script-src', 'style-src', 'img-src', 'connect-src'];
+    const valid =
+      csp && directives.every(d => new RegExp(`\\b${d}\\s+'self'(?:\\s|;|$)`).test(csp));
+    if (!valid) {
+      console.error('Invalid or insufficient CSP headers from memory server');
       return;
     }
     if (!response.ok) {
@@ -84,13 +100,7 @@ export const storeRunRecord = async (run: RunRecord): Promise<void> => {
 export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[]> => {
   if (!useCipher || !baseUrl) return [];
 
-  const now = Date.now();
-  requestTimestamps.push(now);
-  const windowStart = now - RATE_LIMIT_WINDOW;
-  while (requestTimestamps.length > 0 && requestTimestamps[0] < windowStart) {
-    requestTimestamps.shift();
-  }
-  if (requestTimestamps.length > MAX_REQUESTS) {
+  if (!consumeToken()) {
     console.warn('Rate limit exceeded for memory fetching');
     return [];
   }

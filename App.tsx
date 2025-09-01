@@ -382,7 +382,7 @@ const App: React.FC = () => {
         if (memories.length > 0) {
             const sanitizedMemories = memories.map(m => ({
                 ...m,
-                content: escapeHtml(m.content).replace(/[<>]/g, '')
+                content: escapeHtml(m.content)
             }));
             const memoryText = sanitizedMemories.map(m => m.content).join('\n');
             finalPrompt = `Context from previous interactions:\n${memoryText}\n\nCurrent request:\n${finalPrompt}`;
