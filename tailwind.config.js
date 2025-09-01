@@ -10,23 +10,26 @@ export default {
     'hidden', 'block', 'flex', 'grid',
 
     // Typography
-    'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl',
     'font-medium', 'font-semibold',
     'text-gray-500', 'text-neutral-600', 'text-gray-700',
+    { pattern: /text-(xs|sm|base|lg|xl)/ },
 
     // Spacing
-    'p-1', 'p-2', 'p-3', 'p-4', 'px-2', 'px-3', 'px-4', 'py-1', 'py-2',
+    { pattern: /p-[1-4]/ },
+    { pattern: /px-[2-4]/ },
+    { pattern: /py-[1-2]/ },
 
     // Borders & Rounded corners
-    'rounded', 'rounded-md', 'rounded-lg', 'rounded-2xl',
-    'border', 'border-gray-200', 'border-neutral-200',
+    'border',
+    { pattern: /rounded(-(md|lg|2xl))?/ },
+    { pattern: /border-(gray|neutral)-200/ },
 
     // Backgrounds
-    'bg-white', 'bg-gray-50', 'bg-gray-100', 'bg-neutral-50',
-    'hover:bg-gray-100', 'hover:bg-neutral-100',
+    { pattern: /bg-(white|gray-50|gray-100|neutral-50)/ },
+    { pattern: /hover:bg-(gray|neutral)-100/ },
 
     // Dark mode
-    'dark:bg-neutral-900', 'dark:text-neutral-100',
+    { pattern: /dark:(bg-neutral-900|text-neutral-100)/ },
   ],
   theme: {
     extend: {
