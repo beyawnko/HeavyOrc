@@ -116,7 +116,7 @@ export const storeRunRecord = async (run: RunRecord): Promise<void> => {
         statusText: response.statusText,
         body: sanitizeErrorResponse(errorData),
       });
-      throw new Error('Failed to store run record');
+      throw new Error('Failed to store run record with status ' + response.status);
     }
   } catch (e) {
     console.error('Failed to store run record', {
