@@ -5,7 +5,7 @@ import OpenAI from "openai";
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-const fetchWithTimeout = async (
+export const fetchWithTimeout = async (
     input: RequestInfo,
     init: RequestInit,
     timeoutMs = 5000,
@@ -13,7 +13,13 @@ const fetchWithTimeout = async (
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-        return await fetch(input, { ...init, signal: controller.signal });
+        const response = await fetch(input, { ...init, signal: controller.signal });
+        return response;
+    } catch (error) {
+        if ((error as { name?: string }).name === 'AbortError') {
+            throw new Error(`Request timeout after ${timeoutMs}ms`);
+        }
+        throw error;
     } finally {
         clearTimeout(timer);
     }
@@ -31,7 +37,7 @@ export const fetchWithRetry = async (
     }
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
-            const response = await fetchWithTimeout(input, init, timeoutMs);
+            const response = await fetchWithTimeout(input, init, timeoutMs * (attempt + 1));
             const isServerError = response.status >= 500 && response.status < 600;
             if (!isServerError) {
                 return response;

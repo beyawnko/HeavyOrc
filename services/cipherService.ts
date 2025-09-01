@@ -1,5 +1,5 @@
 import { RunRecord } from '@/types';
-import { fetchWithRetry } from '@/services/llmService';
+import { fetchWithRetry, fetchWithTimeout } from '@/services/llmService';
 import { sanitizeErrorResponse } from '@/lib/security';
 import * as ipaddr from 'ipaddr.js';
 
@@ -17,10 +17,26 @@ const MAX_REQUESTS = 30; // 30 requests per minute
 const MAX_MEMORY_LENGTH = 4000; // 4KB safety limit per entry
 const MAX_RESPONSE_SIZE = MAX_MEMORY_LENGTH * 100; // 400KB total response cap
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_CACHE_ENTRIES = 1000;
 
 let tokens = MAX_REQUESTS;
 let lastRefill = Date.now();
 const memoryCache = new Map<string, { data: MemoryEntry[]; expiry: number }>();
+
+function pruneCache() {
+  const now = Date.now();
+  for (const [key, value] of memoryCache) {
+    if (value.expiry <= now) {
+      memoryCache.delete(key);
+    }
+  }
+  if (memoryCache.size > MAX_CACHE_ENTRIES) {
+    const entries = Array.from(memoryCache.entries()).sort((a, b) => a[1].expiry - b[1].expiry);
+    entries
+      .slice(0, entries.length - MAX_CACHE_ENTRIES)
+      .forEach(([key]) => memoryCache.delete(key));
+  }
+}
 
 async function consumeToken(): Promise<boolean> {
   const exec = () => {
@@ -49,7 +65,7 @@ export function validateUrl(url: string | undefined, dev: boolean = import.meta.
     if (
       !['http:', 'https:'].includes(parsed.protocol) ||
       hostname.length > 255 ||
-      (!ipaddr.isValid(bareHost) && !/^[a-zA-Z0-9.-]+$/.test(bareHost)) ||
+      (!ipaddr.isValid(bareHost) && !/^(?!-)[a-zA-Z0-9-]+(?<!-)(?:\.[a-zA-Z0-9-]+)*$/.test(bareHost)) ||
       (!dev && isPrivateOrLocalhost(hostname))
     ) {
       return undefined;
@@ -151,11 +167,11 @@ export const storeRunRecord = async (run: RunRecord): Promise<void> => {
   const backoff = (attempt: number) => Math.min(1000 * Math.pow(2, attempt), 10000);
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const response = await fetchWithRetry(`${baseUrl}/memories`, {
+      const response = await fetchWithTimeout(`${baseUrl}/memories`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ run }),
-      }, 0);
+      });
       if (enforceCsp) validateCsp(response);
       if (!response.ok) {
         const errorData = await response.text().catch(() => 'Unable to read error response');
@@ -183,6 +199,7 @@ export const storeRunRecord = async (run: RunRecord): Promise<void> => {
 
 export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[]> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl)) return [];
+  pruneCache();
   const cached = memoryCache.get(query);
   if (cached && cached.expiry > Date.now()) {
     return cached.data;
@@ -199,7 +216,7 @@ export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query }),
-    }, 0);
+    });
 
     if (enforceCsp) validateCsp(response);
     if (!response.ok) {
@@ -227,6 +244,7 @@ export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[
       ? data.memories.filter(m => m.content.length <= MAX_MEMORY_LENGTH)
       : [];
     memoryCache.set(query, { data: memories, expiry: Date.now() + CACHE_TTL_MS });
+    pruneCache();
     return memories;
   } catch (e) {
     console.error('Failed to fetch relevant memories', {

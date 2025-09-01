@@ -39,4 +39,14 @@ describe('sanitizeErrorResponse limits', () => {
     const output = sanitizeErrorResponse(big);
     expect(output).toBe('[REDACTED: Response too large]');
   });
+
+  test('truncates oversized JSON gracefully', () => {
+    const bigMessage = 'x'.repeat(40_000);
+    const input = JSON.stringify({ message: bigMessage, token: 'secret' });
+    const output = sanitizeErrorResponse(input);
+    const parsed = JSON.parse(output);
+    expect(parsed._truncated).toBe(true);
+    expect(parsed.message.length).toBe(1000);
+    expect(parsed.token).toBe('[REDACTED]');
+  });
 });

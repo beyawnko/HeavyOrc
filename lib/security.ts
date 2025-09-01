@@ -78,6 +78,16 @@ function sanitize(data: unknown): unknown {
 export function sanitizeErrorResponse(body: string): string {
   const MAX_ERROR_SIZE = 32_768; // 32KB limit
   if (body.length > MAX_ERROR_SIZE) {
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed && typeof parsed === 'object' && parsed !== null) {
+        const sanitized = sanitize(parsed);
+        const message = (parsed as { message?: string }).message?.slice(0, 1000) || '[REDACTED: Response too large]';
+        return JSON.stringify({ ...(sanitized as Record<string, unknown>), _truncated: true, message });
+      }
+    } catch {
+      return '[REDACTED: Response too large]';
+    }
     return '[REDACTED: Response too large]';
   }
   try {
