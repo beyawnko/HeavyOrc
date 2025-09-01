@@ -19,6 +19,11 @@ const sampleRun: RunRecord = {
 };
 
 const originalFetch = global.fetch;
+const VALID_CSP_HEADER = {
+  'Content-Security-Policy': "default-src 'self'; connect-src 'self'",
+};
+const INVALID_CSP_HEADER = { 'Content-Security-Policy': "default-src *" };
+const MEMORIES_RESPONSE = { memories: [{ id: '1', content: 'note' }] };
 
 afterEach(() => {
   global.fetch = originalFetch;
@@ -51,8 +56,9 @@ describe('cipherService', () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
     vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
-    const headers = { 'Content-Security-Policy': "default-src *" };
-    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200, headers }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 200, headers: INVALID_CSP_HEADER }));
     global.fetch = fetchMock as any;
     const { storeRunRecord } = await import('@/services/cipherService');
     await expect(storeRunRecord(sampleRun)).rejects.toThrow('Invalid CSP headers');
@@ -62,10 +68,9 @@ describe('cipherService', () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
     vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
-    const headers = {
-      'Content-Security-Policy': "default-src 'self'; connect-src 'self'",
-    };
-    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200, headers }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 200, headers: VALID_CSP_HEADER }));
     global.fetch = fetchMock as any;
     const { storeRunRecord } = await import('@/services/cipherService');
     await expect(storeRunRecord(sampleRun)).resolves.toBeUndefined();
@@ -100,38 +105,51 @@ describe('cipherService', () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
     vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
-    const data = { memories: [{ id: '1', content: 'note' }] };
-    const headers = { 'Content-Security-Policy': "default-src 'self'; connect-src 'self'" };
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(data), { status: 200, headers }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify(MEMORIES_RESPONSE), { status: 200, headers: VALID_CSP_HEADER })
+      );
     global.fetch = fetchMock as any;
     const { fetchRelevantMemories } = await import('@/services/cipherService');
     const memories = await fetchRelevantMemories('q');
-    expect(memories).toEqual(data.memories);
+    expect(memories).toEqual(MEMORIES_RESPONSE.memories);
   });
 
-  it('returns empty array when CSP header missing and enforcement enabled', async () => {
-    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
-    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
-    vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
-    const data = { memories: [{ id: '1', content: 'note' }] };
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(data), { status: 200 }));
-    global.fetch = fetchMock as any;
-    const { fetchRelevantMemories } = await import('@/services/cipherService');
-    const memories = await fetchRelevantMemories('q');
-    expect(memories).toEqual([]);
-  });
+  it.each([
+    { name: 'missing', headers: undefined },
+    { name: 'invalid', headers: INVALID_CSP_HEADER },
+  ])(
+    'returns empty array when CSP header is $name and enforcement enabled',
+    async ({ headers }) => {
+      vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+      vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+      vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify(MEMORIES_RESPONSE), { status: 200, headers })
+        );
+      global.fetch = fetchMock as any;
+      const { fetchRelevantMemories } = await import('@/services/cipherService');
+      const memories = await fetchRelevantMemories('q');
+      expect(memories).toEqual([]);
+    }
+  );
 
-  it('returns empty array when CSP header invalid and enforcement enabled', async () => {
+  it('returns memories when CSP header invalid but enforcement disabled', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
-    vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
-    const headers = { 'Content-Security-Policy': "default-src *" };
-    const data = { memories: [{ id: '1', content: 'note' }] };
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(data), { status: 200, headers }));
+    vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'false');
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify(MEMORIES_RESPONSE), { status: 200, headers: INVALID_CSP_HEADER })
+      );
     global.fetch = fetchMock as any;
     const { fetchRelevantMemories } = await import('@/services/cipherService');
     const memories = await fetchRelevantMemories('q');
-    expect(memories).toEqual([]);
+    expect(memories).toEqual(MEMORIES_RESPONSE.memories);
   });
 
   it('returns an empty array on network errors when fetching memories', async () => {

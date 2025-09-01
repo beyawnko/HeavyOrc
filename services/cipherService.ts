@@ -146,9 +146,12 @@ export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query }),
     });
-    if (enforceCsp) validateCsp(response);
+
     if (!response.ok) {
-      const errorData = await response.text().catch(() => 'Unable to read error response');
+      if (enforceCsp) validateCsp(response);
+      const errorData = await response
+        .text()
+        .catch(() => 'Unable to read error response');
       console.error('Failed to fetch memories', {
         url: `${baseUrl}/memories/search`,
         status: response.status,
@@ -157,7 +160,9 @@ export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[
       });
       return [];
     }
-    const data = await response.json() as { memories?: MemoryEntry[] };
+
+    if (enforceCsp) validateCsp(response);
+    const data = (await response.json()) as { memories?: MemoryEntry[] };
     return Array.isArray(data.memories)
       ? data.memories.filter(m => m.content.length <= MAX_MEMORY_LENGTH)
       : [];
