@@ -15,8 +15,12 @@ export function sanitizeErrorResponse(body: string): string {
         /private[-_]?key/i,
         /session[-_]?id/i,
       ];
-      for (const key of Object.keys(parsed)) {
-        if (SENSITIVE_PATTERNS.some(p => p.test(key))) {
+      const BASE64_VALUE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+      for (const [key, value] of Object.entries(parsed)) {
+        if (
+          SENSITIVE_PATTERNS.some(p => p.test(key)) ||
+          (typeof value === 'string' && value.length >= 40 && BASE64_VALUE.test(value))
+        ) {
           (parsed as Record<string, unknown>)[key] = '[REDACTED]';
         }
       }

@@ -40,6 +40,31 @@ describe('cipherService', () => {
     expect(fetchMock).toHaveBeenCalledWith('http://cipher/memories', expect.any(Object));
   });
 
+  it('skips storing run record when an agent content exceeds limit', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as any;
+    const { storeRunRecord } = await import('@/services/cipherService');
+    const big = 'x'.repeat(5000);
+    await storeRunRecord({
+      ...sampleRun,
+      agents: [
+        {
+          id: 'a',
+          name: 'n',
+          persona: '',
+          status: 'COMPLETED',
+          content: big,
+          error: null,
+          model: 'm',
+          provider: 'openai',
+        },
+      ],
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('fetches memories when enabled', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
@@ -81,6 +106,7 @@ describe('cipherService', () => {
       'connection-string': 'conn',
       'private_key': 'pk',
       session_id: 'sess',
+      encoded: 'YWJjMTIzYWJjMTIzYWJjMTIzYWJjMTIzYWJjMTIz',
     });
     const headers = {
       'Content-Security-Policy':
@@ -99,7 +125,7 @@ describe('cipherService', () => {
     await storeRunRecord(sampleRun);
     const logged = consoleSpy.mock.calls[0][1] as any;
     expect(logged.body).toBe(
-      '{"token":"[REDACTED]","Password":"[REDACTED]","certificate":"[REDACTED]","connection-string":"[REDACTED]","private_key":"[REDACTED]","session_id":"[REDACTED]"}'
+      '{"token":"[REDACTED]","Password":"[REDACTED]","certificate":"[REDACTED]","connection-string":"[REDACTED]","private_key":"[REDACTED]","session_id":"[REDACTED]","encoded":"[REDACTED]"}'
     );
     consoleSpy.mockRestore();
   });
@@ -132,6 +158,7 @@ describe('cipherService', () => {
     expect(validateUrl('http://example.com')).toBe('http://example.com');
     expect(validateUrl('ftp://example.com')).toBeUndefined();
     expect(validateUrl('http://localhost')).toBe('http://localhost');
+    expect(validateUrl('example.com')).toBeUndefined();
   });
 
   it('blocks private URLs in production', async () => {
