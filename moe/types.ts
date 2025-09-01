@@ -17,5 +17,6 @@ export interface Draft {
    * True when the draft content represents a partial response produced before an error occurred.
    * When set, `error` should contain details about the failure that interrupted generation.
    */
+  /** Defaults to false; optional for backward compatibility. */
   isPartial?: boolean;
 }
