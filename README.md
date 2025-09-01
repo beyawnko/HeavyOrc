@@ -6,6 +6,10 @@ HeavyOrc is a web application that demonstrates a Mixture-of-Experts orchestrati
 
 For a detailed, AI-oriented overview of the architecture and tooling, see the [SPECS.md](./SPECS.md) technical specification.
 
+## Documentation
+
+- [SPECS.md](./SPECS.md) – AI-oriented technical specification of the stack and modules.
+
 ## Features
 
 - **Multi-provider support**: Gemini, OpenAI and OpenRouter backends.
@@ -116,10 +120,5 @@ When using function calling with a reasoning model, pass back the reasoning item
 - **Judge modes**: use an LLM judge to score traces before voting.
 
 These modes work with any supported provider.
-
-
-## Documentation
-
-- [SPECS.md](./SPECS.md) – AI-oriented technical specification of the stack and modules.
 
 
