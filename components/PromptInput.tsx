@@ -179,7 +179,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
                             <button
                                 onClick={() => handleRemoveImage(img.id)}
                                 disabled={disabled || isLoading}
-                                className="absolute top-1 right-1 p-0.5 bg-black/60 text-[var(--text)] rounded-full hover:bg-[var(--danger)] focus:outline-none focus:ring-2 focus:ring-[var(--danger)] disabled:opacity-50"
+                                className="absolute top-1 right-1 p-0.5 bg-black/60 text-[var(--text)] rounded-full hover:bg-danger focus:outline-none focus:ring-2 focus:ring-danger disabled:opacity-50"
                                 aria-label="Remove image"
                             >
                                 <XCircleIcon className="w-5 h-5" aria-hidden="true" />

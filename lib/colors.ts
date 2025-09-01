@@ -1,9 +1,9 @@
 export const EXPERT_COLORS = [
   'var(--accent)',
   'var(--accent-2)',
-  'var(--success)',
-  'var(--warn)',
-  'var(--danger)'
+  'rgb(var(--success))',
+  'rgb(var(--warn))',
+  'rgb(var(--danger))'
 ] as const;
 
 /**

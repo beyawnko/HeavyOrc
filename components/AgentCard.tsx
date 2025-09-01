@@ -23,9 +23,9 @@ const getStatusIndicator = (status: AgentStatus): React.ReactNode => {
         case 'RUNNING':
             return <><LoadingSpinner className="h-5 w-5 text-[var(--accent-2)] animate-spin" /><span className="sr-only">Running</span></>;
         case 'COMPLETED':
-            return <><CheckCircleIcon className="h-5 w-5 text-[var(--success)]" /><span className="sr-only">Completed</span></>;
+            return <><CheckCircleIcon className="h-5 w-5 text-success" /><span className="sr-only">Completed</span></>;
         case 'FAILED':
-            return <><XCircleIcon className="h-5 w-5 text-[var(--danger)]" /><span className="sr-only">Failed</span></>;
+            return <><XCircleIcon className="h-5 w-5 text-danger" /><span className="sr-only">Failed</span></>;
         case 'PENDING':
         default:
             return <><EllipsisHorizontalIcon className="h-5 w-5 text-[var(--text-muted)]" /><span className="sr-only">Pending</span></>;
@@ -37,9 +37,9 @@ const getBorderColor = (status: AgentStatus): string => {
         case 'RUNNING':
             return 'border-[var(--accent-2)] animate-pulse';
         case 'COMPLETED':
-            return 'border-[var(--success)]';
+            return 'border-success';
         case 'FAILED':
-            return 'border-[var(--danger)]';
+            return 'border-danger';
         case 'PENDING':
         default:
             return 'border-[var(--line)]';
@@ -53,7 +53,7 @@ const getProviderChipStyle = (provider: AgentState['provider']): string => {
         case 'openai':
             return 'bg-[var(--accent-2)] text-[#0D1411]';
         case 'openrouter':
-            return 'bg-[var(--success)] text-[#0D1411]';
+            return 'bg-success text-[#0D1411]';
         default:
             return 'bg-[var(--surface-1)] text-[var(--text)]';
     }
