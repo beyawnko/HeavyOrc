@@ -2,7 +2,13 @@
 
 ![HeavyOrc banner](./assets/banner.png)
 
-HeavyOrc is a web application that demonstrates a Mixture-of-Experts orchestration pattern for large language models. It dispatches prompts to multiple "expert" agents across different providers and synthesises their drafts into a final answer in real time.
+HeavyOrc is a web application that demonstrates a Mixture-of-Experts orchestration pattern for large language models. It dispatches prompts to multiple "expert" agents across different providers and synthesizes their drafts into a final answer in real time.
+
+For a detailed, AI-oriented overview of the architecture and tooling, see the [SPECS.md](./SPECS.md) technical specification.
+
+## Documentation
+
+- [SPECS.md](./SPECS.md) – AI-oriented technical specification of the stack and modules.
 
 ## Features
 
