@@ -97,9 +97,12 @@ const runExpertGeminiSingle = async (
     }
     const timeoutMs = config.settings.timeoutMs ?? DEFAULT_GEMINI_TIMEOUT_MS;
     if (timeoutMs !== DEFAULT_GEMINI_TIMEOUT_MS) {
-        console.debug(
-            `Using custom Gemini timeout of ${timeoutMs}ms for expert "${expert.name}" (default ${DEFAULT_GEMINI_TIMEOUT_MS}ms).`
-        );
+console.debug({
+    message: 'Using custom Gemini timeout',
+    expertName: expert.name,
+    timeoutMs,
+    defaultTimeoutMs: DEFAULT_GEMINI_TIMEOUT_MS
+});
     }
     const start = Date.now();
     try {
