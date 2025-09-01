@@ -387,7 +387,10 @@ const App: React.FC = () => {
             }
         } catch (error) {
             console.error('Error fetching memories:', error);
-            setToast({ message: `Failed to fetch memories: ${error instanceof Error ? escapeHtml(error.message) : 'Unknown error'}`, type: 'error' });
+            setToast({ 
+              message: `Failed to fetch memories: ${error instanceof Error ? (error.name === 'NetworkError' ? 'Network connection issue' : escapeHtml(error.message)) : 'Unknown error'}`, 
+              type: 'error' 
+            });
         }
 
         orchestratorAbortRef.current?.();

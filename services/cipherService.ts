@@ -12,10 +12,16 @@ const baseUrl = validateUrl(import.meta.env.VITE_CIPHER_SERVER_URL);
 function sanitizeErrorResponse(body: string): string {
   try {
     const parsed = JSON.parse(body);
-    if (parsed && typeof parsed === 'object') {
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const SENSITIVE_PATTERNS = [
+        /auth(orization)?/i,
+        /token/i,
+        /password/i,
+        /secret/i,
+        /key/i,
+      ];
       for (const key of Object.keys(parsed)) {
-        const lower = key.toLowerCase();
-        if (['authorization', 'auth', 'token', 'password'].includes(lower)) {
+        if (SENSITIVE_PATTERNS.some(p => p.test(key))) {
           (parsed as Record<string, unknown>)[key] = '[REDACTED]';
         }
       }
@@ -44,24 +50,28 @@ function isPrivateOrLocalhost(hostname: string): boolean {
   if (lower.startsWith('127.') || lower.startsWith('192.168.') || lower.startsWith('10.') || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(lower)) return true;
   if (lower.startsWith('::ffff:')) {
     const mapped = lower.slice(7);
-    const ipv4 = mapped.includes('.') ? mapped : (() => {
+    if (mapped.includes('.')) {
+      const parts = mapped.split('.');
+      if (parts.length === 4 && parts.every(p => {
+        const n = Number(p);
+        return p !== '' && Number.isInteger(n) && n >= 0 && n <= 255;
+      }) && isPrivateOrLocalhost(mapped)) return true;
+    } else {
       const parts = mapped.split(':');
-      if (parts.length !== 2) return undefined;
-      const num = (parseInt(parts[0], 16) << 16) + parseInt(parts[1], 16);
-      return [
-        (num >>> 24) & 255,
-        (num >>> 16) & 255,
-        (num >>> 8) & 255,
-        num & 255,
-      ].join('.');
-    })();
-    if (ipv4 && isPrivateOrLocalhost(ipv4)) return true;
+      if (parts.length === 2) {
+        const num = (parseInt(parts[0], 16) << 16) + parseInt(parts[1], 16);
+        const ipv4 = [
+          (num >>> 24) & 255,
+          (num >>> 16) & 255,
+          (num >>> 8) & 255,
+          num & 255,
+        ].join('.');
+        if (isPrivateOrLocalhost(ipv4)) return true;
+      }
+    }
   }
   return /^fe[89ab][0-9a-f]*:/.test(lower) ||
-    /^f[cd][0-9a-f]*:/.test(lower) ||
-    /^fc00:/.test(lower) ||
-    /^fd00:/.test(lower) ||
-    /^fe80:/.test(lower);
+    /^f[cd][0-9a-f]*:/.test(lower);
 }
 
 export const storeRunRecord = async (run: RunRecord): Promise<void> => {

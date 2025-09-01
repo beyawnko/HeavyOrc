@@ -14,14 +14,11 @@ export const getGeminiResponseText = (response: unknown): string => {
     : (textProp as string | undefined) ?? '';
 };
 
-export const escapeHtml = (str: string): string =>
-  str.replace(/[&<>"']/g, c => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  }[c]!));
+export const escapeHtml = (str: string): string => {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+};
 
 export const combineAbortSignals = (
   ...signals: (AbortSignal | undefined)[]
