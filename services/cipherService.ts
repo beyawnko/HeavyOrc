@@ -80,11 +80,26 @@ export const storeRunRecord = async (run: RunRecord): Promise<void> => {
     });
     const csp = response.headers.get('Content-Security-Policy');
     if (csp) {
-      const directives = csp.split(';').map(d => d.trim());
-      const allowsSelf = directives.some(d => {
-        const [name, ...sources] = d.split(/\s+/);
-        return (name === 'connect-src' || name === 'default-src') && sources.includes("'self'");
-      });
+      type CSPDirective = { name: string; sources: string[] };
+
+      const parseDirective = (directive: string): CSPDirective => {
+        const [name, ...sources] = directive.trim().split(/\s+/);
+        return { name, sources };
+      };
+
+      const directives = csp
+        .split(';')
+        .map(d => d.trim())
+        .filter(Boolean)
+        .map(parseDirective)
+        .filter(d => d.name && d.sources.length > 0);
+
+      const allowsSelf = directives.some(
+        d =>
+          (d.name === 'connect-src' || d.name === 'default-src') &&
+          d.sources.includes("'self'")
+      );
+
       if (!allowsSelf) {
         console.error('Invalid or insufficient CSP headers from memory server');
         return;
