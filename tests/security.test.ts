@@ -26,3 +26,17 @@ describe('sanitizeErrorResponse arrays', () => {
     ]);
   });
 });
+
+describe('sanitizeErrorResponse limits', () => {
+  test('redacts short base64 strings', () => {
+    const input = JSON.stringify({ token: 'YWJjZA==' });
+    const output = sanitizeErrorResponse(input);
+    expect(JSON.parse(output)).toEqual({ token: '[REDACTED]' });
+  });
+
+  test('caps large responses', () => {
+    const big = 'x'.repeat(40_000);
+    const output = sanitizeErrorResponse(big);
+    expect(output).toBe('[REDACTED: Response too large]');
+  });
+});

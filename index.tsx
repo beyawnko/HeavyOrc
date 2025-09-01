@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ThemeProvider } from '@/lib/ThemeContext';
+import MemoryErrorBoundary from '@/components/MemoryErrorBoundary';
 import './index.css';
 
 const rootElement = document.getElementById('root');
@@ -13,7 +14,9 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ThemeProvider>
-      <App />
+      <MemoryErrorBoundary>
+        <App />
+      </MemoryErrorBoundary>
     </ThemeProvider>
   </React.StrictMode>
 );

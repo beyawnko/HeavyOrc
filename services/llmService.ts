@@ -5,18 +5,33 @@ import OpenAI from "openai";
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+const fetchWithTimeout = async (
+    input: RequestInfo,
+    init: RequestInit,
+    timeoutMs = 5000,
+): Promise<Response> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(input, { ...init, signal: controller.signal });
+    } finally {
+        clearTimeout(timer);
+    }
+};
+
 export const fetchWithRetry = async (
     input: RequestInfo,
     init: RequestInit,
     retries = 3,
     baseDelayMs = 500,
+    timeoutMs = 5000,
 ): Promise<Response> => {
     if (retries < 0) {
         throw new Error("retries must be non-negative");
     }
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
-            const response = await fetch(input, init);
+            const response = await fetchWithTimeout(input, init, timeoutMs);
             const isServerError = response.status >= 500 && response.status < 600;
             if (!isServerError) {
                 return response;

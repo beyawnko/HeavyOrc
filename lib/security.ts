@@ -28,7 +28,8 @@ const SENSITIVE_VALUE_PATTERNS = [
 ];
 
 const BASE64_VALUE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
-const BASE64_SHORT = /^[A-Za-z0-9+/]{16,}={0,2}$/;
+// Catch shorter base64-encoded secrets (8+ chars) that may still be sensitive
+const BASE64_SHORT = /^[A-Za-z0-9+/]{8,}={0,2}$/;
 
 function isSensitiveString(value: string): boolean {
   return (
@@ -75,6 +76,10 @@ function sanitize(data: unknown): unknown {
  * Non-JSON responses are fully redacted.
  */
 export function sanitizeErrorResponse(body: string): string {
+  const MAX_ERROR_SIZE = 32_768; // 32KB limit
+  if (body.length > MAX_ERROR_SIZE) {
+    return '[REDACTED: Response too large]';
+  }
   try {
     const parsed = JSON.parse(body);
     if (parsed && typeof parsed === 'object' && parsed !== null) {

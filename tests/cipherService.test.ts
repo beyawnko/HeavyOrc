@@ -130,6 +130,20 @@ describe('cipherService', () => {
     expect(memories).toEqual(MEMORIES_RESPONSE.memories);
   });
 
+  it('caches memory responses', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(MEMORIES_RESPONSE), { status: 200, headers: VALID_CSP_HEADER }));
+    global.fetch = fetchMock as any;
+    const { fetchRelevantMemories } = await import('@/services/cipherService');
+    await fetchRelevantMemories('q');
+    await fetchRelevantMemories('q');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     { name: 'missing', headers: undefined },
     { name: 'invalid', headers: WILDCARD_CSP_HEADER },
