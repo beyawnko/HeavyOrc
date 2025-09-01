@@ -45,6 +45,9 @@ export const callWithGeminiRetry = async <T>(
                 continue;
             }
             if (error instanceof Error && error.name === 'AbortError') {
+                if (!controller.signal.aborted) {
+                    throw error;
+                }
                 throw new Error('Gemini request timed out');
             }
             if (isRateLimit) {

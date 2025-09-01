@@ -1,7 +1,7 @@
 import { GenerateContentParameters, Part } from "@google/genai";
 import { Draft, ExpertDispatch } from './types';
 import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey, callWithRetry, fetchWithRetry } from '@/services/llmService';
-import { getAppUrl, getGeminiResponseText } from '@/lib/utils';
+import { getAppUrl, getGeminiResponseText, combineAbortSignals } from '@/lib/utils';
 import { callWithGeminiRetry, handleGeminiError } from '@/services/geminiUtils';
 import { GEMINI_PRO_MODEL, GEMINI_FLASH_MODEL, OPENAI_REASONING_PROMPT_PREFIX } from '@/constants';
 import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort, OpenRouterAgentConfig } from '@/types';
@@ -96,59 +96,75 @@ const runExpertGeminiSingle = async (
                     abortErr.name = 'AbortError';
                     return Promise.reject(abortErr);
                 }
-                let finalSignal: AbortSignal = signal;
-                let onAbort: (() => void) | undefined;
-                if (abortSignal) {
-                    const controller = new AbortController();
-                    onAbort = () => controller.abort();
-                    abortSignal.addEventListener('abort', onAbort);
-                    signal.addEventListener('abort', onAbort);
-                    finalSignal = controller.signal;
-                }
+                const { signal: finalSignal, cleanup } = combineAbortSignals(signal, abortSignal);
                 if (generateContentParams.config) {
                     generateContentParams.config.abortSignal = finalSignal;
                 }
-                const promise = geminiAI.models.generateContent(generateContentParams);
-                if (abortSignal && onAbort) {
-                    return promise.finally(() => {
-                        abortSignal.removeEventListener('abort', onAbort);
-                        signal.removeEventListener('abort', onAbort);
-                    });
-                }
-                return promise;
+                return geminiAI
+                    .models.generateContent(generateContentParams)
+                    .finally(cleanup);
             },
             { retries: GEMINI_RETRY_COUNT, baseDelayMs: GEMINI_BACKOFF_MS, timeoutMs: GEMINI_TIMEOUT_MS }
         );
         return getGeminiResponseText(response);
     } catch (error) {
-        if (error instanceof Error && error.message === 'Gemini request timed out') {
+        if (
+            error instanceof Error &&
+            (error.name === 'AbortError' || error.message === 'Gemini request timed out')
+        ) {
             throw error;
         }
         return handleGeminiError(error, 'dispatcher', 'dispatch');
     }
 }
 
+const createDeepConfTraceProvider = <C extends AgentConfig>(
+    runFn: (
+        expert: ExpertDispatch,
+        prompt: string,
+        images: ImageState[],
+        config: C,
+        abortSignal?: AbortSignal
+    ) => Promise<string>,
+    expert: ExpertDispatch,
+    images: ImageState[],
+    config: C,
+    orchestrationAbortSignal?: AbortSignal
+): TraceProvider => {
+    const segmenter = globalThis.Intl?.Segmenter
+        ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+        : undefined;
+    return {
+        generate: async (p, signal) => {
+            const { signal: finalSignal, cleanup } = combineAbortSignals(signal, orchestrationAbortSignal);
+            try {
+                const text = await runFn(expert, p, images, config, finalSignal);
+                const tokens = segmenter
+                    ? Array.from(segmenter.segment(text), ({ segment }) => segment)
+                    // Array.from on a string iterates by code point; complex grapheme clusters may split
+                    : Array.from(text);
+                const trace: Trace = {
+                    text,
+                    steps: tokens.map(token => ({ token, topK: [] })),
+                };
+                return trace;
+            } finally {
+                cleanup();
+            }
+        }
+    };
+};
+
 const runExpertGeminiDeepConf = async (
     expert: ExpertDispatch,
     prompt: string,
     images: ImageState[],
-    config: GeminiAgentConfig
+    config: GeminiAgentConfig,
+    abortSignal?: AbortSignal
 ): Promise<string> => {
     const { generationStrategy, traceCount, deepConfEta, tau, groupWindow } = config.settings;
-    
-    const createProvider = (): TraceProvider => {
-        return {
-            generate: async (p, abortSignal) => { // p is the prompt string
-                const text = await runExpertGeminiSingle(expert, p, images, config, abortSignal);
-                // Gemini API doesn't give us steps/tokens, so we create a mock Trace
-                const trace: Trace = {
-                    text,
-                    steps: text.split('').map(char => ({ token: char, topK: [] })), // Mock steps
-                };
-                return trace;
-            }
-        };
-    };
+
+    const provider = createDeepConfTraceProvider(runExpertGeminiSingle, expert, images, config, abortSignal);
 
     const extractAnswer = (trace: Trace) => trace.text.trim();
 
@@ -161,10 +177,10 @@ const runExpertGeminiDeepConf = async (
     };
 
     if (generationStrategy === 'deepconf-online') {
-        const { content } = await deepConfOnlineWithJudge(createProvider(), prompt, extractAnswer, config.model, opts);
+        const { content } = await deepConfOnlineWithJudge(provider, prompt, extractAnswer, config.model, opts);
         return content;
     } else { // deepconf-offline
-        const { content } = await deepConfOfflineWithJudge(createProvider(), prompt, extractAnswer, config.model, opts);
+        const { content } = await deepConfOfflineWithJudge(provider, prompt, extractAnswer, config.model, opts);
         return content;
     }
 }
@@ -216,24 +232,12 @@ const runExpertOpenAIDeepConf = async (
     expert: ExpertDispatch,
     prompt: string,
     images: ImageState[],
-    config: OpenAIAgentConfig
+    config: OpenAIAgentConfig,
+    abortSignal?: AbortSignal
 ): Promise<string> => {
     const { generationStrategy, traceCount, deepConfEta, tau, groupWindow } = config.settings;
-    
-    const createProvider = (): TraceProvider => {
-        return {
-            generate: async (p, abortSignal) => { // p is the prompt string
-                // Since logprobs are not available, we generate the full text and mock the trace.
-                const text = await runExpertOpenAISingle(expert, p, images, config, abortSignal);
-                // Mock Trace for judge-based DeepConf
-                const trace: Trace = {
-                    text,
-                    steps: text.split('').map(char => ({ token: char, topK: [] })), // Mock steps
-                };
-                return trace;
-            }
-        };
-    };
+
+    const provider = createDeepConfTraceProvider(runExpertOpenAISingle, expert, images, config, abortSignal);
 
     const extractAnswer = (trace: Trace) => trace.text.trim();
     
@@ -247,10 +251,10 @@ const runExpertOpenAIDeepConf = async (
 
     // Use judge-based DeepConf for OpenAI, similar to Gemini, as logprobs are not available.
     if (generationStrategy === 'deepconf-online') {
-        const { content } = await deepConfOnlineWithJudge(createProvider(), prompt, extractAnswer, config.model, opts);
+        const { content } = await deepConfOnlineWithJudge(provider, prompt, extractAnswer, config.model, opts);
         return content;
     } else { // deepconf-offline
-        const { content } = await deepConfOfflineWithJudge(createProvider(), prompt, extractAnswer, config.model, opts);
+        const { content } = await deepConfOfflineWithJudge(provider, prompt, extractAnswer, config.model, opts);
         return content;
     }
 };
@@ -259,7 +263,8 @@ const runExpertOpenRouterSingle = async (
     expert: ExpertDispatch,
     prompt: string,
     images: ImageState[],
-    config: OpenRouterAgentConfig
+    config: OpenRouterAgentConfig,
+    abortSignal?: AbortSignal
 ): Promise<string> => {
     const openRouterKey = getOpenRouterApiKey();
     if (!openRouterKey) throw new Error("OpenRouter API Key not set.");
@@ -297,6 +302,7 @@ const runExpertOpenRouterSingle = async (
             method: 'POST',
             headers,
             body: JSON.stringify(body),
+            signal: abortSignal,
         }
     );
 
@@ -314,7 +320,8 @@ const runExpert = async (
     expert: ExpertDispatch,
     prompt: string,
     images: ImageState[],
-    config: AgentConfig
+    config: AgentConfig,
+    abortSignal?: AbortSignal
 ): Promise<Draft> => {
     try {
         let content = '';
@@ -322,21 +329,21 @@ const runExpert = async (
         if (config.provider === 'gemini') {
             const geminiConfig = config as GeminiAgentConfig;
             if (geminiConfig.settings.generationStrategy === 'single') {
-                content = await runExpertGeminiSingle(expert, prompt, images, geminiConfig);
+                content = await runExpertGeminiSingle(expert, prompt, images, geminiConfig, abortSignal);
             } else {
-                content = await runExpertGeminiDeepConf(expert, prompt, images, geminiConfig);
+                content = await runExpertGeminiDeepConf(expert, prompt, images, geminiConfig, abortSignal);
             }
         } else if (config.provider === 'openai') {
             const openaiConfig = config as OpenAIAgentConfig;
             if (openaiConfig.settings.generationStrategy === 'single') {
-                content = await runExpertOpenAISingle(expert, prompt, images, openaiConfig);
+                content = await runExpertOpenAISingle(expert, prompt, images, openaiConfig, abortSignal);
             } else {
-                content = await runExpertOpenAIDeepConf(expert, prompt, images, openaiConfig);
+                content = await runExpertOpenAIDeepConf(expert, prompt, images, openaiConfig, abortSignal);
             }
         } else { // openrouter
              const openRouterConfig = config as OpenRouterAgentConfig;
              // DeepConf is not implemented for OpenRouter in this example, falls back to single
-             content = await runExpertOpenRouterSingle(expert, prompt, images, openRouterConfig);
+             content = await runExpertOpenRouterSingle(expert, prompt, images, openRouterConfig, abortSignal);
         }
 
         return {
@@ -347,6 +354,9 @@ const runExpert = async (
         };
 
     } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+            throw error;
+        }
         console.error(`Agent ${config.id} (${expert.provider} - ${expert.name}) failed:`, error);
         let errorMessage = "An unknown error occurred";
         if (error instanceof Error) {
@@ -371,7 +381,8 @@ export const dispatch = async (
     prompt: string,
     images: ImageState[],
     agentConfigs: AgentConfig[],
-    onDraftComplete: (draft: Draft) => void
+    onDraftComplete: (draft: Draft) => void,
+    abortSignal?: AbortSignal
 ): Promise<Draft[]> => {
     const OPENAI_REQUEST_DELAY_MS = 250;
 
@@ -395,24 +406,29 @@ export const dispatch = async (
     // Start all Gemini and OpenRouter experts in parallel
     const parallelExperts = [...geminiExperts, ...openRouterExperts];
     parallelExperts.forEach(({ expert, config }) => {
-        const promise = runExpert(expert, prompt, images, config).then(draft => {
+        const promise = runExpert(expert, prompt, images, config, abortSignal).then(draft => {
             onDraftComplete(draft);
             return draft;
         });
         draftPromises.push(promise);
     });
 
-    // Run all OpenAI experts sequentially with a delay to avoid rate limits
-    for (const { expert, config } of openAIExperts) {
-        const promise = runExpert(expert, prompt, images, config).then(draft => {
-            onDraftComplete(draft);
-            return draft;
-        });
-        draftPromises.push(promise);
-        await promise;
-        if (config.settings.generationStrategy === 'single') {
-            await delay(OPENAI_REQUEST_DELAY_MS);
+    try {
+        // Run all OpenAI experts sequentially with a delay to avoid rate limits
+        for (const { expert, config } of openAIExperts) {
+            const promise = runExpert(expert, prompt, images, config, abortSignal).then(draft => {
+                onDraftComplete(draft);
+                return draft;
+            });
+            draftPromises.push(promise);
+            await promise;
+            if (config.settings.generationStrategy === 'single') {
+                await delay(OPENAI_REQUEST_DELAY_MS);
+            }
         }
+        return await Promise.all(draftPromises);
+    } finally {
+        // Ensure all expert promises settle to avoid unhandled rejections when dispatch is aborted
+        await Promise.allSettled(draftPromises);
     }
-    return Promise.all(draftPromises);
 };

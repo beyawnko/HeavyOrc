@@ -1,19 +1,22 @@
 
 
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-    DownloadIcon, 
+import {
+    DownloadIcon,
     UploadIcon,
     ChevronLeftIcon,
     KeyIcon,
     ClockIcon,
     DocumentDuplicateIcon,
-    XMarkIcon
+    XMarkIcon,
+    SlidersHorizontalIcon
 } from './icons';
+import SegmentedControl from './SegmentedControl';
+import { useTheme, ThemeName } from '@/lib/ThemeContext';
 
 // --- SECTION DEFINITIONS ---
 
-type SectionId = 'api-keys' | 'session' | 'history';
+type SectionId = 'api-keys' | 'session' | 'appearance' | 'history';
 
 interface Section {
     id: SectionId;
@@ -29,15 +32,21 @@ const sections: Section[] = [
         icon: KeyIcon,
         description: "Manage your API keys. They're stored in your browser and never sent to our servers." 
     },
-    { 
-        id: 'session', 
-        label: 'Session Management', 
+    {
+        id: 'session',
+        label: 'Session Management',
         icon: DocumentDuplicateIcon,
-        description: 'Save your current settings, API key, and query history to a file, or load a previous session.' 
+        description: 'Save your current settings, API key, and query history to a file, or load a previous session.'
     },
-    { 
-        id: 'history', 
-        label: 'Query History', 
+    {
+        id: 'appearance',
+        label: 'Appearance',
+        icon: SlidersHorizontalIcon,
+        description: 'Switch color themes and adjust look & feel.'
+    },
+    {
+        id: 'history',
+        label: 'Query History',
         icon: ClockIcon,
         description: 'Review and reuse your most recent prompts.'
     },
@@ -220,6 +229,30 @@ const HistorySection: React.FC<Pick<SettingsViewProps, 'queryHistory' | 'onSelec
     );
 };
 
+const AppearanceSection: React.FC = () => {
+    const { theme, setTheme } = useTheme();
+    const options = [
+        { label: 'Forest', value: 'forest' as ThemeName },
+        { label: 'Desert', value: 'desert' as ThemeName },
+        { label: 'Ocean', value: 'ocean' as ThemeName },
+        { label: 'Midnight', value: 'midnight' as ThemeName },
+    ];
+
+    return (
+        <div className="space-y-6">
+            <div>
+                <h4 className="mb-2">Color Theme</h4>
+                <SegmentedControl
+                    options={options}
+                    value={theme}
+                    onChange={(v) => setTheme(v)}
+                    aria-label="Select theme"
+                />
+            </div>
+        </div>
+    );
+};
+
 
 // --- MAIN SETTINGS VIEW COMPONENT ---
 
@@ -291,6 +324,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
         switch(sectionId) {
             case 'api-keys': return <ApiKeySection {...props} />;
             case 'session': return <SessionSection {...props} />;
+            case 'appearance': return <AppearanceSection />;
             case 'history': return <HistorySection {...props} />;
             default: return null;
         }
@@ -332,7 +366,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
             <div
                 ref={dialogRef}
                 tabIndex={-1}
-                className="relative z-10 bg-[var(--surface-2)] rounded-xl shadow-2xl border border-[var(--line)] w-full max-w-4xl h-full max-h-[700px] flex flex-col"
+                className="relative z-10 bg-[var(--surface-2)] panel-pattern rounded-xl shadow-2xl border border-[var(--line)] w-full max-w-4xl h-full max-h-[700px] flex flex-col"
             >
                 {/* --- Header --- */}
                 <header className="flex items-center justify-between p-4 border-b border-[var(--line)] flex-shrink-0">

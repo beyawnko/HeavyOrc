@@ -1,6 +1,6 @@
 import { Draft } from './types';
 import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey, fetchWithRetry, callWithRetry } from '@/services/llmService';
-import { getAppUrl, getGeminiResponseText } from '@/lib/utils';
+import { getAppUrl, getGeminiResponseText, combineAbortSignals } from '@/lib/utils';
 import {
     ARBITER_PERSONA,
     ARBITER_HIGH_REASONING_PROMPT_MODIFIER,
@@ -68,7 +68,8 @@ export const arbitrateStream = async (
     drafts: Draft[],
     arbiterVerbosity: 'low' | 'medium' | 'high',
     openAIArbiterEffort: OpenAIReasoningEffort,
-    geminiArbiterEffort: GeminiThinkingEffort
+    geminiArbiterEffort: GeminiThinkingEffort,
+    abortSignal?: AbortSignal
 ): Promise<AsyncGenerator<{ text: string }>> => {
     const successfulDrafts = drafts.filter(d => d.status === 'COMPLETED');
 
@@ -103,6 +104,7 @@ export const arbitrateStream = async (
                 method: 'POST',
                 headers,
                 body: JSON.stringify(body),
+                signal: abortSignal,
             }
         );
 
@@ -127,14 +129,17 @@ export const arbitrateStream = async (
         try {
             const stream = await callWithRetry(
                 () =>
-                    openaiAI.responses.stream({
-                        model: arbiterModel,
-                        reasoning: { effort: openAIArbiterEffort },
-                        input: [
-                            { role: 'system', content: systemPersona },
-                            { role: 'user', content: arbiterPrompt },
-                        ],
-                    }),
+                    openaiAI.responses.stream(
+                        {
+                            model: arbiterModel,
+                            reasoning: { effort: openAIArbiterEffort },
+                            input: [
+                                { role: 'system', content: systemPersona },
+                                { role: 'user', content: arbiterPrompt },
+                            ],
+                        },
+                        { signal: abortSignal }
+                    ),
                 'OpenAI'
             );
 
@@ -164,17 +169,20 @@ export const arbitrateStream = async (
 
     const geminiAI = getGeminiClient();
     try {
-        const stream = await callWithGeminiRetry((signal) =>
-            geminiAI.models.generateContentStream({
-                model,
-                contents: { parts: [{ text: arbiterPrompt }] },
-                config: {
-                    systemInstruction: ARBITER_PERSONA,
-                    thinkingConfig: { thinkingBudget: budget },
-                    abortSignal: signal,
-                }
-            })
-        );
+        const stream = await callWithGeminiRetry((signal) => {
+            const { signal: finalSignal, cleanup } = combineAbortSignals(signal, abortSignal);
+            return geminiAI
+                .models.generateContentStream({
+                    model,
+                    contents: { parts: [{ text: arbiterPrompt }] },
+                    config: {
+                        systemInstruction: ARBITER_PERSONA,
+                        thinkingConfig: { thinkingBudget: budget },
+                        abortSignal: finalSignal,
+                    }
+                })
+                .finally(cleanup);
+        });
 
         async function* transformGeminiStream(): AsyncGenerator<{ text: string }> {
             for await (const chunk of stream) {

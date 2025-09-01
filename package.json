@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/sync-doc-assets.mjs",
+    "predev": "node scripts/install-missing-deps.mjs && node scripts/sync-doc-assets.mjs",
     "dev": "vite",
-    "prebuild": "node scripts/sync-doc-assets.mjs",
+    "prebuild": "node scripts/install-missing-deps.mjs && node scripts/sync-doc-assets.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest"
@@ -20,6 +20,8 @@
     "openai": "^4.52.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-virtuoso": "^4.14.0",
+    "wasm-feature-detect": "^1.8.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {

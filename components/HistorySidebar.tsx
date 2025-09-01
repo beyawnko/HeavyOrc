@@ -1,5 +1,6 @@
 
 import React, { useState, forwardRef } from 'react';
+import { Virtuoso, ListProps } from 'react-virtuoso';
 import { RunRecord, RunStatus } from '@/types';
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon, CheckCircleIcon, XCircleIcon } from '@/components/icons';
 
@@ -121,57 +122,71 @@ const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>((props
                 </button>
             </div>
             
-            <nav className="flex-grow p-2 overflow-y-auto">
-                <ul className="space-y-1">
-                     {currentRunStatus !== 'IDLE' && (
-                        <li>
+            <nav className="flex-grow p-2 overflow-hidden">
+                {currentRunStatus !== 'IDLE' && (
+                    <div className="mb-1">
+                        <button
+                            onClick={onViewCurrentRun}
+                            className={`w-full text-left flex items-center gap-3 p-2 rounded-md transition-colors ${
+                                !selectedRunId ? 'bg-[var(--surface-1)]' : 'hover:bg-[var(--surface-active)]'
+                            }`}
+                            title="View current run"
+                            aria-current={!selectedRunId ? 'page' : undefined}
+                        >
+                            <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center">
+                                <StatusIndicator status={currentRunStatus as RunStatus} />
+                            </div>
+                            {isOpen && (
+                                <div className="overflow-hidden">
+                                    <p className="text-sm font-medium text-[var(--text)] truncate">Current Run</p>
+                                    <p className="text-xs text-[var(--text-muted)] capitalize">{currentRunStatus.replace('_', ' ').toLowerCase()}</p>
+                                </div>
+                            )}
+                        </button>
+                    </div>
+                )}
+
+                {history.length === 0 && currentRunStatus === 'IDLE' ? (
+                    <div className="text-center py-4 text-sm text-[var(--text-muted)]">
+                        No past runs yet. Submit a prompt to create one.
+                    </div>
+                ) : (
+                    <Virtuoso
+                        data={history}
+                        style={{ height: '100%' }}
+                        components={{
+                            // react-virtuoso's List component is typed for a div; cast to render a semantic <ul>
+                            List: forwardRef<HTMLDivElement, ListProps>((props, ref) => (
+                                <ul
+                                    {...(props as any)}
+                                    ref={ref as unknown as React.Ref<HTMLUListElement>}
+                                    className="space-y-1"
+                                />
+                            )),
+                            Item: forwardRef<HTMLLIElement, React.ComponentProps<'li'>>((props, ref) => (
+                                <li {...props} ref={ref} />
+                            )),
+                        }}
+                        itemContent={(_index: number, run: RunRecord) => (
                             <button
-                                onClick={onViewCurrentRun} // View current run without resetting
+                                onClick={() => onSelectRun(run.id)}
                                 className={`w-full text-left flex items-center gap-3 p-2 rounded-md transition-colors ${
-                                    !selectedRunId ? 'bg-[var(--surface-1)]' : 'hover:bg-[var(--surface-active)]'
+                                    selectedRunId === run.id ? 'bg-[var(--surface-1)]' : 'hover:bg-[var(--surface-active)]'
                                 }`}
-                                title="View current run"
-                                aria-current={!selectedRunId ? 'page' : undefined}
                             >
-                                <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center">
-                                    <StatusIndicator status={currentRunStatus as RunStatus} />
+                                <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center mt-0.5">
+                                    <StatusIndicator status={run.status} />
                                 </div>
                                 {isOpen && (
                                     <div className="overflow-hidden">
-                                        <p className="text-sm font-medium text-[var(--text)] truncate">Current Run</p>
-                                        <p className="text-xs text-[var(--text-muted)] capitalize">{currentRunStatus.replace('_', ' ').toLowerCase()}</p>
+                                        <p className="text-sm font-medium text-[var(--text)] truncate">{run.prompt || 'Image-based prompt'}</p>
+                                        <p className="text-xs text-[var(--text-muted)]">{formatTimestamp(run.timestamp)}</p>
                                     </div>
                                 )}
                             </button>
-                        </li>
-                     )}
-                    {history.length === 0 && currentRunStatus === 'IDLE' ? (
-                        <li className="text-center py-4 text-sm text-[var(--text-muted)]">
-                            No past runs yet. Submit a prompt to create one.
-                        </li>
-                    ) : (
-                        history.map(run => (
-                            <li key={run.id}>
-                                <button
-                                    onClick={() => onSelectRun(run.id)}
-                                    className={`w-full text-left flex items-center gap-3 p-2 rounded-md transition-colors ${
-                                        selectedRunId === run.id ? 'bg-[var(--surface-1)]' : 'hover:bg-[var(--surface-active)]'
-                                    }`}
-                                >
-                                   <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center mt-0.5">
-                                        <StatusIndicator status={run.status} />
-                                   </div>
-                                    {isOpen && (
-                                        <div className="overflow-hidden">
-                                            <p className="text-sm font-medium text-[var(--text)] truncate">{run.prompt || "Image-based prompt"}</p>
-                                            <p className="text-xs text-[var(--text-muted)]">{formatTimestamp(run.timestamp)}</p>
-                                        </div>
-                                    )}
-                                </button>
-                            </li>
-                        ))
-                    )}
-                </ul>
+                        )}
+                    />
+                )}
             </nav>
         </aside>
     );

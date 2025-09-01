@@ -38,7 +38,7 @@ import { runOrchestration } from '@/moe/orchestrator';
 import { Draft, ExpertDispatch } from '@/moe/types';
 
 // Components
-import { ShieldCheckIcon, CogIcon, DownloadIcon, ExclamationTriangleIcon, XMarkIcon, Bars3Icon } from '@/components/icons';
+import { CogIcon, DownloadIcon, ExclamationTriangleIcon, XMarkIcon, Bars3Icon } from '@/components/icons';
 import { z } from 'zod';
 import AgentCard from '@/components/AgentCard';
 import SettingsView from '@/components/SettingsView';
@@ -274,6 +274,7 @@ const App: React.FC = () => {
     const errorRef = useRef(error);
     const animationFrameId = useRef<number | null>(null);
     const isRunCompletedRef = useRef(false);
+    const orchestratorAbortRef = useRef<(() => void) | null>(null);
     const currentRunDataRef = useRef<Pick<RunRecord, 'prompt' | 'images' | 'agentConfigs' | 'arbiterModel' | 'openAIArbiterVerbosity' | 'openAIArbiterEffort' | 'geminiArbiterEffort'> | undefined>(undefined);
 
 
@@ -281,6 +282,10 @@ const App: React.FC = () => {
     useEffect(() => { agentsRef.current = agents; }, [agents]);
     useEffect(() => { arbiterSwitchWarningRef.current = arbiterSwitchWarning; }, [arbiterSwitchWarning]);
     useEffect(() => { errorRef.current = error; }, [error]);
+
+    useEffect(() => {
+        return () => orchestratorAbortRef.current?.();
+    }, []);
 
     useEffect(() => {
         if (!isLoading && isRunCompletedRef.current) {
@@ -370,6 +375,8 @@ const App: React.FC = () => {
             return;
         }
 
+        orchestratorAbortRef.current?.();
+        orchestratorAbortRef.current = null;
         setIsLoading(true);
         setError(null);
         setFinalAnswer('');
@@ -418,7 +425,7 @@ const App: React.FC = () => {
                 ));
             };
 
-            const { stream, switchedArbiter } = await runOrchestration({
+            const { promise, abort } = runOrchestration({
                 prompt: finalPrompt,
                 images,
                 agentConfigs,
@@ -427,7 +434,10 @@ const App: React.FC = () => {
                 openAIArbiterEffort,
                 geminiArbiterEffort
             }, { onInitialAgents, onDraftComplete: onDraftUpdate });
-            
+            orchestratorAbortRef.current = abort;
+
+            const { stream, switchedArbiter } = await promise;
+
             if (switchedArbiter) {
                 setArbiterSwitchWarning('The selected GPT-5 arbiter was automatically switched to Gemini 2.5 Pro due to a large input size to prevent errors. Gemini models support larger context windows.');
             }
@@ -448,26 +458,36 @@ const App: React.FC = () => {
             
             animationFrameId.current = requestAnimationFrame(updateDisplay);
 
-            for await (const chunk of stream) {
-                chunkBuffer += chunk.text;
+            const reader = stream.getReader();
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    chunkBuffer += value;
+                }
+            } finally {
+                reader.releaseLock();
             }
-            
-            if (animationFrameId.current) {
-                cancelAnimationFrame(animationFrameId.current);
-            }
-            
             if (chunkBuffer) {
                 fullText += chunkBuffer;
                 setFinalAnswer(fullText);
             }
 
         } catch (e) {
+            if ((e as Error)?.name === 'AbortError') {
+                currentRunDataRef.current = undefined;
+                return;
+            }
             console.error(e);
             const errorMessage = e instanceof Error ? e.message : 'An unexpected error occurred.';
             setError(errorMessage);
-            setAgents(prev => prev.map(a => ({...a, status: 'FAILED', error: errorMessage})))
-            setAgentConfigs(configs => configs.map(c => ({...c, status: 'FAILED' })));
+            setAgents(prev => prev.map(a => ({ ...a, status: 'FAILED', error: errorMessage })))
+            setAgentConfigs(configs => configs.map(c => ({ ...c, status: 'FAILED' })));
         } finally {
+            if (animationFrameId.current) {
+                cancelAnimationFrame(animationFrameId.current);
+            }
+            orchestratorAbortRef.current = null;
             setIsLoading(false);
             setIsArbiterRunning(false);
             isRunCompletedRef.current = true;
@@ -475,6 +495,7 @@ const App: React.FC = () => {
     }, [prompt, images, isLoading, agentConfigs, arbiterModel, openAIArbiterVerbosity, openAIArbiterEffort, geminiArbiterEffort, openAIAgentCount, openAIApiKey, openRouterAgentCount, openRouterApiKey, queryHistory, selectedRunId]);
     
     const handleReset = useCallback(() => {
+        orchestratorAbortRef.current?.();
         setPrompt('');
         setImages([]);
         setAgentConfigs(createDefaultAgentConfigs());
@@ -882,10 +903,6 @@ const App: React.FC = () => {
                                 height={300}
                                 className="mx-auto mb-4 w-full max-w-2xl h-auto"
                             />
-                            <h1 className="text-4xl sm:text-5xl font-bold text-[var(--text)] flex items-center justify-center gap-3">
-                                <ShieldCheckIcon className="w-10 h-10 text-emerald-400" aria-hidden="true" />
-                                HeavyOrc
-                            </h1>
                             <div className="absolute top-8 right-0 flex items-center gap-2">
                                 <button
                                     onClick={handleSaveAll}
@@ -1016,7 +1033,7 @@ const App: React.FC = () => {
                     </div>
                 </div>
 
-                <footer className="sticky bottom-0 z-10 bg-[var(--surface-1)] bg-opacity-80 backdrop-blur-lg border-t border-[var(--line)] flex-shrink-0 fixed-footer">
+                <footer className="sticky bottom-0 z-10 bg-transparent backdrop-blur-lg border-t border-[var(--line)] flex-shrink-0 fixed-footer">
                     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3 space-y-3">
                         {isLoading && (
                             <div>

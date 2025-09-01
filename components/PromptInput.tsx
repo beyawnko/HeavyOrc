@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useCallback, useRef, useEffect, useMemo, useState } from 'react';
 import {
     XCircleIcon,
     PlusIcon,
@@ -9,7 +9,6 @@ import {
 import { ImageState } from '@/types';
 
 const MAX_IMAGES = 5;
-const MAX_TEXTAREA_HEIGHT = 200; // Max height in pixels before scrolling
 
 interface PromptInputProps {
     prompt: string;
@@ -50,6 +49,21 @@ const PromptInput: React.FC<PromptInputProps> = ({
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = inputRef || useRef<HTMLTextAreaElement>(null);
+    const calculateMaxHeight = useCallback(() => Math.min(200, window.innerHeight * 0.25), []);
+    const [maxTextareaHeight, setMaxTextareaHeight] = useState(calculateMaxHeight);
+
+    useEffect(() => {
+        let resizeTimeout: ReturnType<typeof setTimeout>;
+        const handleResize = () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => setMaxTextareaHeight(calculateMaxHeight()), 150);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => {
+            clearTimeout(resizeTimeout);
+            window.removeEventListener('resize', handleResize);
+        };
+    }, [calculateMaxHeight]);
 
     const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
@@ -137,9 +151,9 @@ const PromptInput: React.FC<PromptInputProps> = ({
             textareaRef.current.style.height = 'auto';
             const scrollHeight = textareaRef.current.scrollHeight;
 
-            if (scrollHeight > MAX_TEXTAREA_HEIGHT) {
+            if (scrollHeight > maxTextareaHeight) {
                 // If content is too tall, set to max height and enable scrolling
-                textareaRef.current.style.height = `${MAX_TEXTAREA_HEIGHT}px`;
+                textareaRef.current.style.height = `${maxTextareaHeight}px`;
                 textareaRef.current.style.overflowY = 'auto';
             } else {
                 // Otherwise, fit height to content and hide scrollbar
@@ -147,12 +161,12 @@ const PromptInput: React.FC<PromptInputProps> = ({
                 textareaRef.current.style.overflowY = 'hidden';
             }
         }
-    }, [prompt]);
+    }, [prompt, maxTextareaHeight]);
 
     const canSubmit = !disabled && (!!prompt.trim() || images.length > 0);
 
     return (
-        <div className="w-full bg-[var(--surface-2)] p-2 rounded-2xl shadow-2xl border border-[var(--line)] flex flex-col gap-2">
+        <div className="w-full bg-[color-mix(in_srgb,var(--surface-1)_60%,transparent)] backdrop-blur-xl p-2 rounded-2xl shadow-lg flex flex-col gap-2">
             {imagePreviews.length > 0 && (
                 <div className="flex flex-wrap gap-2 px-2 pt-1">
                     {imagePreviews.map(img => (

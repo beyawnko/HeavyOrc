@@ -62,7 +62,7 @@ describe('dispatcher Gemini failure handling', () => {
       { ...baseConfig, id: 'ok', expert: experts[1] },
     ];
 
-    const drafts = await dispatch(experts, 'prompt', [], configs, () => {});
+    const drafts = await dispatch(experts, 'prompt', [], configs, () => {}, undefined);
 
     const failDraft = drafts.find(d => d.agentId === 'fail');
     const okDraft = drafts.find(d => d.agentId === 'ok');
