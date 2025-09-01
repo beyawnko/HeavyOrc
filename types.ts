@@ -50,6 +50,7 @@ export interface GeminiAgentSettings {
     deepConfEta: 10 | 90;
     tau: number;
     groupWindow: number;
+    timeoutMs?: number;
 }
 
 export interface OpenAIAgentSettings {
@@ -87,6 +88,7 @@ const CommonAgentSettingsSchema = z.object({
 const GeminiAgentSettingsSchema: z.ZodType<Partial<GeminiAgentSettings>> =
     CommonAgentSettingsSchema.extend({
         effort: z.enum(['dynamic', 'high', 'medium', 'low', 'none']).optional(),
+        timeoutMs: z.number().optional(),
     }).strict();
 
 const OpenAIAgentSettingsSchema: z.ZodType<Partial<OpenAIAgentSettings>> =

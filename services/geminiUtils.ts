@@ -59,7 +59,7 @@ export const callWithGeminiRetry = async <T>(
                 if (!controller.signal.aborted) {
                     throw error as Error;
                 }
-                throw new Error('Gemini request timed out');
+                throw new Error(`Gemini request timed out after ${timeoutMs}ms`);
             }
             if (isRateLimit) {
                 throw new Error(GEMINI_QUOTA_MESSAGE);

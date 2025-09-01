@@ -46,7 +46,8 @@ const parseEnvInt = (value: string | undefined, fallback: number) => {
 
 const GEMINI_RETRY_COUNT = parseEnvInt(process.env.GEMINI_RETRY_COUNT, 2);
 const GEMINI_BACKOFF_MS = parseEnvInt(process.env.GEMINI_BACKOFF_MS, 2000);
-const GEMINI_TIMEOUT_MS = parseEnvInt(process.env.GEMINI_TIMEOUT_MS, 30000);
+// Default timeout for Gemini requests; individual experts can override this via config.
+const DEFAULT_GEMINI_TIMEOUT_MS = parseEnvInt(process.env.GEMINI_TIMEOUT_MS, 30000);
 
 const runExpertGeminiSingle = async (
     expert: ExpertDispatch,
@@ -94,6 +95,7 @@ const runExpertGeminiSingle = async (
     } catch (error) {
         throw new Error(`Gemini API key is missing or invalid. Please check your API key in settings.`);
     }
+    const timeoutMs = config.settings.timeoutMs ?? DEFAULT_GEMINI_TIMEOUT_MS;
     try {
         const response = await callWithGeminiRetry(
             (signal) => {
@@ -110,14 +112,15 @@ const runExpertGeminiSingle = async (
                     .models.generateContent(generateContentParams)
                     .finally(cleanup);
             },
-            { retries: GEMINI_RETRY_COUNT, baseDelayMs: GEMINI_BACKOFF_MS, timeoutMs: GEMINI_TIMEOUT_MS }
+            { retries: GEMINI_RETRY_COUNT, baseDelayMs: GEMINI_BACKOFF_MS, timeoutMs }
         );
         return getGeminiResponseText(response);
     } catch (error) {
-        if (
-            (isAbortError(error) || (error instanceof Error && error.message === 'Gemini request timed out'))
-        ) {
+        if (isAbortError(error)) {
             throw error as Error;
+        }
+        if (error instanceof Error && error.message.startsWith('Gemini request timed out')) {
+            throw new Error(`Expert "${expert.name}" exceeded the configured timeout of ${Math.round(timeoutMs / 1000)} seconds.`);
         }
         return handleGeminiError(error, 'dispatcher', 'dispatch');
     }
