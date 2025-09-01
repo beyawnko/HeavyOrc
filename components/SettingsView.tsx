@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useId } from 'react';
 import {
     DownloadIcon,
     UploadIcon,
@@ -83,6 +83,10 @@ const ApiKeySection: React.FC<Pick<SettingsViewProps, 'currentOpenAIApiKey' | 'o
     const [geminiKey, setGeminiKey] = useState(currentGeminiApiKey);
     const [openRouterKey, setOpenRouterKey] = useState(currentOpenRouterApiKey);
 
+    const openAIId = useId();
+    const geminiId = useId();
+    const openRouterId = useId();
+
     useEffect(() => { setOpenAIKey(currentOpenAIApiKey); }, [currentOpenAIApiKey]);
     useEffect(() => { setGeminiKey(currentGeminiApiKey); }, [currentGeminiApiKey]);
     useEffect(() => { setOpenRouterKey(currentOpenRouterApiKey); }, [currentOpenRouterApiKey]);
@@ -94,12 +98,12 @@ const ApiKeySection: React.FC<Pick<SettingsViewProps, 'currentOpenAIApiKey' | 'o
     return (
         <div className="space-y-6">
             <div>
-                <label htmlFor="openai-api-key" className="block text-sm font-medium text-[var(--text)] mb-2">
+                <label htmlFor={openAIId} className="block text-sm font-medium text-[var(--text)] mb-2">
                     OpenAI API Key
                 </label>
                 <div className="flex gap-2">
                     <input
-                        id="openai-api-key"
+                        id={openAIId}
                         type="password"
                         value={openAIKey}
                         onChange={(e) => setOpenAIKey(e.target.value)}
@@ -117,12 +121,12 @@ const ApiKeySection: React.FC<Pick<SettingsViewProps, 'currentOpenAIApiKey' | 'o
             </div>
             
             <div>
-                <label htmlFor="gemini-api-key" className="block text-sm font-medium text-[var(--text)] mb-2">
+                <label htmlFor={geminiId} className="block text-sm font-medium text-[var(--text)] mb-2">
                     Google Gemini API Key
                 </label>
                 <div className="flex gap-2">
                     <input
-                        id="gemini-api-key"
+                        id={geminiId}
                         type="password"
                         value={geminiKey}
                         onChange={(e) => setGeminiKey(e.target.value)}
@@ -143,12 +147,12 @@ const ApiKeySection: React.FC<Pick<SettingsViewProps, 'currentOpenAIApiKey' | 'o
             </div>
 
             <div>
-                <label htmlFor="openrouter-api-key" className="block text-sm font-medium text-[var(--text)] mb-2">
+                <label htmlFor={openRouterId} className="block text-sm font-medium text-[var(--text)] mb-2">
                     OpenRouter API Key
                 </label>
                 <div className="flex gap-2">
                     <input
-                        id="openrouter-api-key"
+                        id={openRouterId}
                         type="password"
                         value={openRouterKey}
                         onChange={(e) => setOpenRouterKey(e.target.value)}
