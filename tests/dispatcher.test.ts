@@ -76,3 +76,89 @@ describe('dispatcher Gemini failure handling', () => {
     expect(okDraft?.content).toBe('ok');
   });
 });
+
+describe('dispatcher Gemini streaming', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.resetModules();
+    process.env.GEMINI_RETRY_COUNT = '0';
+    process.env.GEMINI_BACKOFF_MS = '1';
+  });
+
+  afterEach(() => {
+    delete process.env.GEMINI_RETRY_COUNT;
+    delete process.env.GEMINI_BACKOFF_MS;
+  });
+
+  const baseConfig = {
+    provider: 'gemini',
+    model: GEMINI_FLASH_MODEL,
+    status: 'PENDING',
+    settings: {
+      effort: 'low',
+      generationStrategy: 'single',
+      confidenceSource: 'judge',
+      traceCount: 1,
+      deepConfEta: 90,
+      tau: 0.95,
+      groupWindow: 2048,
+    },
+  } as const;
+
+  it('concatenates multiple stream chunks', async () => {
+    const generateContentStream = vi.fn().mockResolvedValue({
+      [Symbol.asyncIterator]: async function* () {
+        yield { text: () => 'hello ' };
+        yield { text: () => 'world' };
+      },
+    });
+
+    (getGeminiClient as unknown as Mock).mockReturnValue({
+      models: { generateContentStream },
+    });
+    const { dispatch } = await import('@/moe/dispatcher');
+
+    const expert: ExpertDispatch = {
+      agentId: 'multi',
+      provider: 'gemini',
+      model: GEMINI_FLASH_MODEL,
+      id: '1',
+      name: 'multi',
+      persona: '',
+    };
+    const config: GeminiAgentConfig = { ...baseConfig, id: 'multi', expert };
+
+    const drafts = await dispatch([expert], 'prompt', [], [config], () => {}, undefined);
+
+    expect(drafts[0].content).toBe('hello world');
+  });
+
+  it('returns partial result when stream errors', async () => {
+    const generateContentStream = vi.fn().mockResolvedValue({
+      [Symbol.asyncIterator]: async function* () {
+        yield { text: () => 'partial' };
+        throw new Error('stream error');
+      },
+    });
+
+    (getGeminiClient as unknown as Mock).mockReturnValue({
+      models: { generateContentStream },
+    });
+    const { dispatch } = await import('@/moe/dispatcher');
+
+    const expert: ExpertDispatch = {
+      agentId: 'partial',
+      provider: 'gemini',
+      model: GEMINI_FLASH_MODEL,
+      id: '1',
+      name: 'partial',
+      persona: '',
+    };
+    const config: GeminiAgentConfig = { ...baseConfig, id: 'partial', expert };
+
+    const drafts = await dispatch([expert], 'prompt', [], [config], () => {}, undefined);
+
+    expect(drafts[0].content).toBe('partial');
+    expect(drafts[0].status).toBe('COMPLETED');
+  });
+});

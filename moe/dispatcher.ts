@@ -100,14 +100,15 @@ const runExpertGeminiSingle = async (
     }
     let timeoutMs = config.settings.timeoutMs ?? DEFAULT_GEMINI_TIMEOUT_MS;
     if (timeoutMs < 1000 || timeoutMs > MAX_GEMINI_TIMEOUT_MS) {
+        const originalTimeout = timeoutMs;
+        timeoutMs = DEFAULT_GEMINI_TIMEOUT_MS;
         console.warn({
             message: 'Invalid Gemini timeout; falling back to default',
             expertName: expert.name,
-            timeoutMs,
-            defaultTimeoutMs: DEFAULT_GEMINI_TIMEOUT_MS,
+            originalTimeout,
+            newTimeout: timeoutMs,
             maxTimeoutMs: MAX_GEMINI_TIMEOUT_MS,
         });
-        timeoutMs = DEFAULT_GEMINI_TIMEOUT_MS;
     } else if (timeoutMs !== DEFAULT_GEMINI_TIMEOUT_MS) {
         console.debug({
             message: 'Using custom Gemini timeout',
@@ -117,6 +118,8 @@ const runExpertGeminiSingle = async (
         });
     }
     const start = performance.now();
+    const timeoutController = new AbortController();
+    const timeoutHandle = setTimeout(() => timeoutController.abort(), timeoutMs);
     try {
         const stream = await callWithGeminiRetry(
             (signal) => {
@@ -125,7 +128,7 @@ const runExpertGeminiSingle = async (
                     abortErr.name = 'AbortError';
                     return Promise.reject(abortErr);
                 }
-                const { signal: finalSignal, cleanup } = combineAbortSignals(signal, abortSignal);
+                const { signal: finalSignal, cleanup } = combineAbortSignals(signal, abortSignal, timeoutController.signal);
                 if (generateContentParams.config) {
                     generateContentParams.config.abortSignal = finalSignal;
                 }
@@ -136,15 +139,34 @@ const runExpertGeminiSingle = async (
             { retries: GEMINI_RETRY_COUNT, baseDelayMs: GEMINI_BACKOFF_MS, timeoutMs }
         );
         let result = '';
-        for await (const chunk of stream) {
-            const text = getGeminiResponseText(chunk);
-            if (text) {
-                console.debug({ message: 'Gemini stream chunk', expertName: expert.name, text });
-                result += text;
+        try {
+            for await (const chunk of stream) {
+                if (timeoutController.signal.aborted) {
+                    throw new Error('Gemini request timed out');
+                }
+                const text = getGeminiResponseText(chunk);
+                if (text) {
+                    console.debug({ message: 'Gemini stream chunk', expertName: expert.name, text });
+                    result += text;
+                }
             }
+        } catch (streamError) {
+            console.error({ message: 'Error processing stream chunk', error: streamError });
+            if (timeoutController.signal.aborted) {
+                const elapsed = performance.now() - start;
+                throw new Error(formatTimeoutError(expert.name, timeoutMs, elapsed));
+            }
+            if (result) {
+                console.warn('Returning partial result due to streaming error');
+                return result;
+            }
+            throw streamError;
+        } finally {
+            clearTimeout(timeoutHandle);
         }
         return result;
     } catch (error) {
+        clearTimeout(timeoutHandle);
         if (isAbortError(error)) {
             throw error as Error;
         }
