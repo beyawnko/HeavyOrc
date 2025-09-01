@@ -44,9 +44,9 @@ const parseEnvInt = (value: string | undefined, fallback: number) => {
     return Number.isNaN(parsed) ? fallback : parsed;
 };
 
-const GEMINI_RETRY_COUNT = parseEnvInt(process.env.GEMINI_RETRY_COUNT, 3);
-const GEMINI_BACKOFF_MS = parseEnvInt(process.env.GEMINI_BACKOFF_MS, 1000);
-const GEMINI_TIMEOUT_MS = parseEnvInt(process.env.GEMINI_TIMEOUT_MS, 10000);
+const GEMINI_RETRY_COUNT = parseEnvInt(process.env.GEMINI_RETRY_COUNT, 2);
+const GEMINI_BACKOFF_MS = parseEnvInt(process.env.GEMINI_BACKOFF_MS, 2000);
+const GEMINI_TIMEOUT_MS = parseEnvInt(process.env.GEMINI_TIMEOUT_MS, 30000);
 
 const runExpertGeminiSingle = async (
     expert: ExpertDispatch,
@@ -87,6 +87,13 @@ const runExpertGeminiSingle = async (
         if (generateContentParams.config) generateContentParams.config.thinkingConfig = { thinkingBudget: budget };
     }
 
+    // Validate API key before making the call
+    try {
+        const geminiAI = getGeminiClient();
+    } catch (error) {
+        throw new Error(`Gemini API key is missing or invalid. Please check your API key in settings.`);
+    }
+    
     const geminiAI = getGeminiClient();
     try {
         const response = await callWithGeminiRetry(
