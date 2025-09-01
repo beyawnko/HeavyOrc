@@ -107,6 +107,7 @@ describe('cipherService', () => {
       'private_key': 'pk',
       session_id: 'sess',
       encoded: 'YWJjMTIzYWJjMTIzYWJjMTIzYWJjMTIzYWJjMTIz',
+      shortEncoded: 'YWJjZGVmZ2hpamtsbW4=',
     });
     const headers = {
       'Content-Security-Policy':
@@ -125,7 +126,7 @@ describe('cipherService', () => {
     await storeRunRecord(sampleRun);
     const logged = consoleSpy.mock.calls[0][1] as any;
     expect(logged.body).toBe(
-      '{"token":"[REDACTED]","Password":"[REDACTED]","certificate":"[REDACTED]","connection-string":"[REDACTED]","private_key":"[REDACTED]","session_id":"[REDACTED]","encoded":"[REDACTED]"}'
+      '{"token":"[REDACTED]","Password":"[REDACTED]","certificate":"[REDACTED]","connection-string":"[REDACTED]","private_key":"[REDACTED]","session_id":"[REDACTED]","encoded":"[REDACTED]","shortEncoded":"[REDACTED]"}'
     );
     consoleSpy.mockRestore();
   });
@@ -138,7 +139,7 @@ describe('cipherService', () => {
         "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'",
     };
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response('[{"token":"abc"}]', {
+      new Response('[{"token":"abc"},"my-secret-token"]', {
         status: 400,
         statusText: 'fail',
         headers,
@@ -149,7 +150,36 @@ describe('cipherService', () => {
     const { storeRunRecord } = await import('@/services/cipherService');
     await storeRunRecord(sampleRun);
     const logged = consoleSpy.mock.calls[0][1] as any;
-    expect(logged.body).toBe('[REDACTED]');
+    expect(logged.body).toBe('[{"token":"[REDACTED]"},"[REDACTED]"]');
+    consoleSpy.mockRestore();
+  });
+
+  it('recursively redacts nested data in error responses', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    const headers = {
+      'Content-Security-Policy':
+        "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'",
+    };
+    const responseBody = JSON.stringify({
+      details: {
+        token: 'abc',
+        items: ['secret', { password: 'p' }],
+      },
+    });
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(responseBody, {
+        status: 400,
+        statusText: 'fail',
+        headers,
+      })
+    );
+    global.fetch = fetchMock as any;
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { storeRunRecord } = await import('@/services/cipherService');
+    await storeRunRecord(sampleRun);
+    const logged = consoleSpy.mock.calls[0][1] as any;
+    expect(logged.body).toBe('{"details":{"token":"[REDACTED]","items":["[REDACTED]",{"password":"[REDACTED]"}]}}');
     consoleSpy.mockRestore();
   });
 
