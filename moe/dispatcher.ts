@@ -125,7 +125,7 @@ const runExpertGeminiSingle = async (
     }
     const start = performance.now();
     const timeoutController = new AbortController();
-    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    const timeoutHandle = setTimeout(() => timeoutController.abort(), timeoutMs);
     let cleanup: (() => void) | undefined;
     try {
         const stream = await callWithGeminiRetry(
@@ -144,7 +144,6 @@ const runExpertGeminiSingle = async (
             },
             { retries: GEMINI_RETRY_COUNT, baseDelayMs: GEMINI_BACKOFF_MS, timeoutMs }
         );
-        timeoutHandle = setTimeout(() => timeoutController.abort(), timeoutMs);
         let result = '';
         try {
             for await (const chunk of stream) {
@@ -169,21 +168,19 @@ const runExpertGeminiSingle = async (
                 return { content: result, isPartial: true, error: streamError };
             }
             throw streamError;
-        } finally {
-            if (timeoutHandle) clearTimeout(timeoutHandle);
-            cleanup?.();
         }
         return { content: result, isPartial: false };
     } catch (error) {
-        if (timeoutHandle) clearTimeout(timeoutHandle);
-        cleanup?.();
         if (isAbortError(error)) {
             throw error as Error;
         }
-        if (error instanceof Error && error.message.includes('exceeded the configured timeout')) {
+        if (error instanceof Error && error.message.startsWith(`Expert "${expert.name}" exceeded the configured timeout`)) {
             throw error;
         }
         return handleGeminiError(error, 'dispatcher', 'dispatch');
+    } finally {
+        clearTimeout(timeoutHandle);
+        cleanup?.();
     }
 }
 
@@ -431,7 +428,11 @@ const runExpert = async (
             content: result.content,
             status: 'COMPLETED',
             isPartial: result.isPartial,
-            error: result.error instanceof Error ? result.error.message : undefined,
+            error: result.error instanceof Error
+                ? result.error.message
+                : result.error !== undefined
+                    ? String(result.error)
+                    : undefined,
         };
 
     } catch (error) {

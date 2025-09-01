@@ -216,7 +216,7 @@ describe('dispatcher Gemini timeout', () => {
     const drafts = await dispatch([expert], 'prompt', [], [config], () => {}, undefined);
 
     expect(drafts[0].status).toBe('FAILED');
-    expect(drafts[0].error).toContain('exceeded the configured timeout');
+    expect(drafts[0].error).toMatch(/^Expert "timeout1" exceeded the configured timeout/);
   });
 
   it('fails when timeout occurs during streaming', async () => {
@@ -256,6 +256,6 @@ describe('dispatcher Gemini timeout', () => {
     const drafts = await dispatch([expert], 'prompt', [], [config], () => {}, undefined);
 
     expect(drafts[0].status).toBe('FAILED');
-    expect(drafts[0].error).toContain('exceeded the configured timeout');
+    expect(drafts[0].error).toMatch(/^Expert "timeout2" exceeded the configured timeout/);
   });
 });
