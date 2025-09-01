@@ -1,5 +1,6 @@
 import { RunRecord } from '@/types';
 import { fetchWithRetry } from '@/services/llmService';
+import { sanitizeErrorResponse } from '@/lib/security';
 
 export interface MemoryEntry {
   id: string;
@@ -9,40 +10,24 @@ export interface MemoryEntry {
 const useCipher = import.meta.env.VITE_USE_CIPHER_MEMORY === 'true';
 const baseUrl = validateUrl(import.meta.env.VITE_CIPHER_SERVER_URL);
 
-function sanitizeErrorResponse(body: string): string {
-  try {
-    const parsed = JSON.parse(body);
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      const SENSITIVE_PATTERNS = [
-        /auth(orization)?/i,
-        /token/i,
-        /password/i,
-        /secret/i,
-        /key/i,
-      ];
-      for (const key of Object.keys(parsed)) {
-        if (SENSITIVE_PATTERNS.some(p => p.test(key))) {
-          (parsed as Record<string, unknown>)[key] = '[REDACTED]';
-        }
-      }
-      return JSON.stringify(parsed);
-    }
-  } catch {
-    // ignore parse errors
-  }
-  return '[REDACTED]';
-}
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const MAX_REQUESTS = 30; // 30 requests per minute
+const requestTimestamps: number[] = [];
 
 export function validateUrl(url: string | undefined): string | undefined {
   if (!url) return undefined;
   try {
     const parsed = new URL(url);
-    return ['http:', 'https:'].includes(parsed.protocol) && !isPrivateOrLocalhost(parsed.hostname) ? url : undefined;
+    return ['http:', 'https:'].includes(parsed.protocol) && (import.meta.env.DEV || !isPrivateOrLocalhost(parsed.hostname)) ? url : undefined;
   } catch {
     return undefined;
   }
 }
 
+/**
+ * Detects private network or localhost hostnames.
+ * TODO: Consider replacing with a vetted library to reduce edge-case risk.
+ */
 function isPrivateOrLocalhost(hostname: string): boolean {
   const host = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
   const lower = host.toLowerCase();
@@ -73,6 +58,11 @@ export const storeRunRecord = async (run: RunRecord): Promise<void> => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ run }),
     });
+    const csp = response.headers.get('Content-Security-Policy');
+    if (!csp || !csp.includes("default-src 'self'")) {
+      console.error('Invalid CSP headers from memory server');
+      return;
+    }
     if (!response.ok) {
       const errorData = await response.text().catch(() => 'Unable to read error response');
       console.error('Failed to store run record', {
@@ -93,6 +83,18 @@ export const storeRunRecord = async (run: RunRecord): Promise<void> => {
 
 export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[]> => {
   if (!useCipher || !baseUrl) return [];
+
+  const now = Date.now();
+  requestTimestamps.push(now);
+  const windowStart = now - RATE_LIMIT_WINDOW;
+  while (requestTimestamps.length > 0 && requestTimestamps[0] < windowStart) {
+    requestTimestamps.shift();
+  }
+  if (requestTimestamps.length > MAX_REQUESTS) {
+    console.warn('Rate limit exceeded for memory fetching');
+    return [];
+  }
+
   try {
     const response = await fetchWithRetry(`${baseUrl}/memories/search`, {
       method: 'POST',
