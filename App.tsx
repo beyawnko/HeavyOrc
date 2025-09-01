@@ -60,6 +60,7 @@ import { storeRunRecord, fetchRelevantMemories } from '@/services/cipherService'
 // Hooks
 import useViewportHeight from '@/lib/useViewportHeight';
 import useKeydown from '@/lib/useKeydown';
+import { escapeHtml } from '@/lib/utils';
 
 // Session migration
 import { migrateAgentConfig } from '@/lib/sessionMigration';
@@ -386,7 +387,10 @@ const App: React.FC = () => {
             }
         } catch (error) {
             console.error('Error fetching memories:', error);
-            setToast({ message: 'Failed to fetch relevant memories', type: 'error' });
+            setToast({ 
+              message: `Failed to fetch memories: ${error instanceof Error ? (error.name === 'NetworkError' ? 'Network connection issue' : escapeHtml(error.message)) : 'Unknown error'}`, 
+              type: 'error' 
+            });
         }
 
         orchestratorAbortRef.current?.();
