@@ -386,7 +386,7 @@ const App: React.FC = () => {
             }
         } catch (error) {
             console.error('Error fetching memories:', error);
-            setToast({ message: 'Failed to fetch relevant memories', type: 'error' });
+            setToast({ message: `Failed to fetch memories: ${error instanceof Error ? error.message : 'Unknown error'}`, type: 'error' });
         }
 
         orchestratorAbortRef.current?.();

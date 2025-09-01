@@ -72,11 +72,16 @@ describe('cipherService', () => {
     const { validateUrl } = await import('@/services/cipherService');
     expect(validateUrl('http://example.com')).toBe('http://example.com');
     expect(validateUrl('https://example.com')).toBe('https://example.com');
+    expect(validateUrl('http://example.com:8080')).toBe('http://example.com:8080');
     expect(validateUrl('http://localhost')).toBeUndefined();
     expect(validateUrl('http://127.0.0.1')).toBeUndefined();
     expect(validateUrl('http://192.168.0.1')).toBeUndefined();
     expect(validateUrl('http://10.0.0.1')).toBeUndefined();
     expect(validateUrl('http://172.16.0.1')).toBeUndefined();
+    expect(validateUrl('http://[::1]')).toBeUndefined();
+    expect(validateUrl('http://[fd00::1]')).toBeUndefined();
+    expect(validateUrl('http://[fe80::1]')).toBeUndefined();
+    expect(validateUrl('http://[2001:db8::1]')).toBe('http://[2001:db8::1]');
     expect(validateUrl('ftp://example.com')).toBeUndefined();
   });
 });
