@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 import { ExpertDispatch } from '@/moe/types';
 import { GEMINI_FLASH_MODEL } from '@/constants';
-import type { GeminiAgentConfig } from '@/types';
+import { MAX_GEMINI_TIMEOUT_MS, type GeminiAgentConfig } from '@/types';
 import { getGeminiClient } from '@/services/llmService';
 
 vi.mock('@/services/llmService', () => ({
@@ -165,6 +165,18 @@ describe('dispatcher Gemini streaming', () => {
 });
 
 describe('dispatcher Gemini timeout', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.resetModules();
+    process.env.GEMINI_RETRY_COUNT = '0';
+    process.env.GEMINI_BACKOFF_MS = '1';
+  });
+
+  afterEach(() => {
+    delete process.env.GEMINI_RETRY_COUNT;
+    delete process.env.GEMINI_BACKOFF_MS;
+  });
+
   const baseConfig = {
     provider: 'gemini',
     model: GEMINI_FLASH_MODEL,
@@ -257,5 +269,63 @@ describe('dispatcher Gemini timeout', () => {
 
     expect(drafts[0].status).toBe('FAILED');
     expect(drafts[0].error).toMatch(/^Expert "timeout2" exceeded the configured timeout/);
+  });
+
+  it('handles minimum valid timeout correctly', async () => {
+    const generateContentStream = vi.fn().mockResolvedValue({
+      [Symbol.asyncIterator]: async function* () {
+        yield { text: () => 'ok' };
+      },
+    });
+
+    (getGeminiClient as unknown as Mock).mockReturnValue({ models: { generateContentStream } });
+    const { dispatch } = await import('@/moe/dispatcher');
+
+    const expert: ExpertDispatch = {
+      agentId: 'minTimeout',
+      provider: 'gemini',
+      model: GEMINI_FLASH_MODEL,
+      id: '1',
+      name: 'minTimeout',
+      persona: '',
+    };
+    const config: GeminiAgentConfig = {
+      ...baseConfig,
+      id: 'minTimeout',
+      expert,
+      settings: { ...baseConfig.settings, timeoutMs: 1001 }
+    };
+
+    const drafts = await dispatch([expert], 'prompt', [], [config], () => {}, undefined);
+    expect(drafts[0].status).toBe('COMPLETED');
+  });
+
+  it('handles maximum valid timeout correctly', async () => {
+    const generateContentStream = vi.fn().mockResolvedValue({
+      [Symbol.asyncIterator]: async function* () {
+        yield { text: () => 'ok' };
+      },
+    });
+
+    (getGeminiClient as unknown as Mock).mockReturnValue({ models: { generateContentStream } });
+    const { dispatch } = await import('@/moe/dispatcher');
+
+    const expert: ExpertDispatch = {
+      agentId: 'maxTimeout',
+      provider: 'gemini',
+      model: GEMINI_FLASH_MODEL,
+      id: '1',
+      name: 'maxTimeout',
+      persona: '',
+    };
+    const config: GeminiAgentConfig = {
+      ...baseConfig,
+      id: 'maxTimeout',
+      expert,
+      settings: { ...baseConfig.settings, timeoutMs: MAX_GEMINI_TIMEOUT_MS - 1 }
+    };
+
+    const drafts = await dispatch([expert], 'prompt', [], [config], () => {}, undefined);
+    expect(drafts[0].status).toBe('COMPLETED');
   });
 });

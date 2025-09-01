@@ -18,4 +18,9 @@ export interface Draft {
    * When set, `error` should contain details about the failure that interrupted generation.
    */
   isPartial?: boolean;
+  /**
+   * For partial responses, indicates the estimated percentage of completion (0-100).
+   * Helps clients understand how much of the expected response was received.
+   */
+  completionPercentage?: number;
 }
