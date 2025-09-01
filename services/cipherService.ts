@@ -9,14 +9,22 @@ export interface MemoryEntry {
 const useCipher = import.meta.env.VITE_USE_CIPHER_MEMORY === 'true';
 const baseUrl = validateUrl(import.meta.env.VITE_CIPHER_SERVER_URL);
 
-function validateUrl(url: string | undefined): string | undefined {
+export function validateUrl(url: string | undefined): string | undefined {
   if (!url) return undefined;
   try {
     const parsed = new URL(url);
-    return ['http:', 'https:'].includes(parsed.protocol) ? url : undefined;
+    return ['http:', 'https:'].includes(parsed.protocol) && !isPrivateOrLocalhost(parsed.hostname) ? url : undefined;
   } catch {
     return undefined;
   }
+}
+
+function isPrivateOrLocalhost(hostname: string): boolean {
+  return hostname === 'localhost' ||
+    hostname.startsWith('127.') ||
+    hostname.startsWith('192.168.') ||
+    hostname.startsWith('10.') ||
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
 }
 
 export const storeRunRecord = async (run: RunRecord): Promise<void> => {
@@ -30,7 +38,7 @@ export const storeRunRecord = async (run: RunRecord): Promise<void> => {
     if (!response.ok) {
       console.warn(`Failed to store run record: ${response.status} ${response.statusText}`);
       const errorData = await response.text().catch(() => 'Unable to read error response');
-      console.debug('Error details:', errorData);
+      console.error('Error details:', errorData);
     }
   } catch (e) {
     console.warn('Failed to store run record:', e);
@@ -47,7 +55,9 @@ export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[
       body: JSON.stringify({ query }),
     });
     if (!response.ok) {
-      console.warn(`Failed to fetch memories, server responded with ${response.status}`);
+      console.warn(`Failed to fetch memories, server responded with ${response.status} ${response.statusText}`);
+      const errorData = await response.text().catch(() => 'Unable to read error response');
+      console.error('Error details:', errorData);
       return [];
     }
     const data = await response.json() as { memories?: MemoryEntry[] };

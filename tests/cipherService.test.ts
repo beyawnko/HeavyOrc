@@ -67,4 +67,16 @@ describe('cipherService', () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(res).toEqual([]);
   });
+
+  it('validates URLs and blocks private addresses', async () => {
+    const { validateUrl } = await import('@/services/cipherService');
+    expect(validateUrl('http://example.com')).toBe('http://example.com');
+    expect(validateUrl('https://example.com')).toBe('https://example.com');
+    expect(validateUrl('http://localhost')).toBeUndefined();
+    expect(validateUrl('http://127.0.0.1')).toBeUndefined();
+    expect(validateUrl('http://192.168.0.1')).toBeUndefined();
+    expect(validateUrl('http://10.0.0.1')).toBeUndefined();
+    expect(validateUrl('http://172.16.0.1')).toBeUndefined();
+    expect(validateUrl('ftp://example.com')).toBeUndefined();
+  });
 });

@@ -377,11 +377,16 @@ const App: React.FC = () => {
             return;
         }
 
-        const memories = await fetchRelevantMemories(finalPrompt);
-        if (memories.length > 0) {
-            const memoryText = memories.map(m => m.content).join('\n');
-            finalPrompt = `${memoryText}\n\n${finalPrompt}`;
-            setToast({ message: `Including ${memories.length} relevant memories from history...`, type: 'success' });
+        try {
+            const memories = await fetchRelevantMemories(finalPrompt);
+            if (memories.length > 0) {
+                const memoryText = memories.map(m => m.content).join('\n');
+                finalPrompt = `${memoryText}\n\n${finalPrompt}`;
+                setToast({ message: `Including ${memories.length} relevant memories from history...`, type: 'success' });
+            }
+        } catch (error) {
+            console.error('Error fetching memories:', error);
+            setToast({ message: 'Failed to fetch relevant memories', type: 'error' });
         }
 
         orchestratorAbortRef.current?.();
