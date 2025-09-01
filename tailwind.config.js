@@ -45,6 +45,11 @@ export default {
         md: 'var(--shadow-md)',
         lg: 'var(--shadow-lg)',
       },
+      colors: {
+        danger: 'rgb(var(--danger) / <alpha-value>)',
+        warn: 'rgb(var(--warn) / <alpha-value>)',
+        success: 'rgb(var(--success) / <alpha-value>)',
+      },
     },
   },
   plugins: [],

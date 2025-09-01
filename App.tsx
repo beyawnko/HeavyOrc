@@ -118,8 +118,8 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error'; onClose: () 
 
     const colorClasses =
         type === 'success'
-            ? 'bg-[var(--success)] border-[var(--success)] text-[var(--text)]'
-            : 'bg-[var(--danger)] border-[var(--danger)] text-[var(--text)]';
+            ? 'bg-success border-success text-[var(--text)]'
+            : 'bg-danger border-danger text-[var(--text)]';
 
     return (
         <div
@@ -928,12 +928,12 @@ const App: React.FC = () => {
                         </header>
 
                         <main className="max-w-4xl mx-auto space-y-8 pb-40">
-                            {error && !displayData.isHistoryView && <div className="p-3 bg-[var(--danger)] bg-opacity-20 text-[var(--danger)] border border-[var(--danger)] rounded-lg text-sm text-center">{error}</div>}
+                            {error && !displayData.isHistoryView && <div className="p-3 bg-danger/20 text-danger border border-danger rounded-lg text-sm text-center">{error}</div>}
 
                             {(openAIAgentCount > 0 && !openAIApiKey) || (openRouterAgentCount > 0 && !openRouterApiKey) && (
-                                <p className="text-xs text-[var(--warn)] text-center p-2 bg-[var(--warn)] bg-opacity-20 rounded-md border border-[var(--warn)]">
-                                    An API key is required for one or more of your agents. 
-                                    <button onClick={() => setIsSettingsViewOpen(true)} className="ml-1 underline font-semibold hover:text-[var(--warn)] focus:outline-none focus:ring-2 focus:ring-[var(--warn)] rounded">
+                                <p className="text-xs text-warn text-center p-2 bg-warn/20 rounded-md border border-warn">
+                                    An API key is required for one or more of your agents.
+                                    <button onClick={() => setIsSettingsViewOpen(true)} className="ml-1 underline font-semibold hover:text-warn focus:outline-none focus:ring-2 focus:ring-warn rounded">
                                         Set API Key
                                     </button>
                                 </p>
@@ -947,13 +947,13 @@ const App: React.FC = () => {
                                     variants={containerVariants}
                                 >
                                     {displayData.arbiterSwitchWarning && (
-                                        <motion.div 
-                                            className="bg-[var(--warn)] bg-opacity-20 border border-[var(--warn)] text-[var(--warn)] px-4 py-3 rounded-lg relative"
+                                        <motion.div
+                                            className="bg-warn/20 border border-warn text-warn px-4 py-3 rounded-lg relative"
                                             role="alert"
                                             variants={itemVariants}
                                         >
                                             <div className="flex items-start">
-                                                <ExclamationTriangleIcon className="w-5 h-5 mr-3 mt-0.5 text-[var(--warn)] flex-shrink-0" aria-hidden="true" />
+                                                <ExclamationTriangleIcon className="w-5 h-5 mr-3 mt-0.5 text-warn flex-shrink-0" aria-hidden="true" />
                                                 <div>
                                                     <strong className="font-bold">Automatic Model Switch:</strong>
                                                     <span className="block sm:inline sm:ml-2">{displayData.arbiterSwitchWarning}</span>
