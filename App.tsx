@@ -60,7 +60,6 @@ import { storeRunRecord, fetchRelevantMemories } from '@/services/cipherService'
 // Hooks
 import useViewportHeight from '@/lib/useViewportHeight';
 import useKeydown from '@/lib/useKeydown';
-import { escapeHtml } from '@/lib/utils';
 import { formatErrorMessage } from '@/lib/errors';
 
 // Session migration
@@ -386,7 +385,7 @@ const App: React.FC = () => {
 
         const memories = await fetchRelevantMemories(finalPrompt);
         if (memories.length > 0) {
-            const memoryText = memories.map(m => escapeHtml(m.content)).join('\n');
+            const memoryText = memories.map(m => m.content).join('\n');
             finalPrompt = `Context from previous interactions:\n${memoryText}\n\nCurrent request:\n${finalPrompt}`;
             setToast({ message: `Including ${memories.length} relevant memories from history...`, type: 'success' });
         }
