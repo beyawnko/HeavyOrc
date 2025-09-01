@@ -30,14 +30,21 @@ describe('cipherService', () => {
   it('stores run record when enabled', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
-    const headers = {
-      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'",
-    };
-    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200, headers }));
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     global.fetch = fetchMock as any;
     const { storeRunRecord } = await import('@/services/cipherService');
     await storeRunRecord(sampleRun);
     expect(fetchMock).toHaveBeenCalledWith('http://cipher/memories', expect.any(Object));
+  });
+
+  it('optionally enforces CSP headers', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    global.fetch = fetchMock as any;
+    const { storeRunRecord } = await import('@/services/cipherService');
+    await expect(storeRunRecord(sampleRun)).rejects.toThrow('Missing CSP headers');
   });
 
   it('skips storing run record when an agent content exceeds limit', async () => {

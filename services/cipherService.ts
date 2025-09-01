@@ -10,6 +10,7 @@ export interface MemoryEntry {
 
 const useCipher = import.meta.env.VITE_USE_CIPHER_MEMORY === 'true';
 const baseUrl = validateUrl(import.meta.env.VITE_CIPHER_SERVER_URL, import.meta.env.DEV);
+const enforceCsp = import.meta.env.VITE_ENFORCE_CIPHER_CSP === 'true';
 
 const RATE_LIMIT_WINDOW = 60000; // 1 minute
 const MAX_REQUESTS = 30; // 30 requests per minute
@@ -78,35 +79,37 @@ export const storeRunRecord = async (run: RunRecord): Promise<void> => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ run }),
     });
-    const csp = response.headers.get('Content-Security-Policy');
-    if (csp) {
-      type CSPDirective = { name: string; sources: string[] };
+    if (enforceCsp) {
+      const csp = response.headers.get('Content-Security-Policy');
+      if (csp) {
+        type CSPDirective = { name: string; sources: string[] };
 
-      const parseDirective = (directive: string): CSPDirective => {
-        const [name, ...sources] = directive.trim().split(/\s+/);
-        return { name, sources };
-      };
+        const parseDirective = (directive: string): CSPDirective => {
+          const [name, ...sources] = directive.trim().split(/\s+/);
+          return { name, sources };
+        };
 
-      const directives = csp
-        .split(';')
-        .map(d => d.trim())
-        .filter(Boolean)
-        .map(parseDirective)
-        .filter(d => d.name && d.sources.length > 0);
+        const directives = csp
+          .split(';')
+          .map(d => d.trim())
+          .filter(Boolean)
+          .map(parseDirective)
+          .filter(d => d.name && d.sources.length > 0);
 
-      const allowsSelf = directives.some(
-        d =>
-          (d.name === 'connect-src' || d.name === 'default-src') &&
-          d.sources.includes("'self'")
-      );
+        const allowsSelf = directives.some(
+          d =>
+            (d.name === 'connect-src' || d.name === 'default-src') &&
+            d.sources.includes("'self'")
+        );
 
-      if (!allowsSelf) {
-        console.error('Invalid or insufficient CSP headers from memory server');
-        throw new Error('Invalid CSP headers');
+        if (!allowsSelf) {
+          console.error('Invalid or insufficient CSP headers from memory server');
+          throw new Error('Invalid CSP headers');
+        }
+      } else {
+        console.error('Missing CSP headers from memory server');
+        throw new Error('Missing CSP headers');
       }
-    } else {
-      console.error('Missing CSP headers from memory server');
-      throw new Error('Missing CSP headers');
     }
     if (!response.ok) {
       const errorData = await response.text().catch(() => 'Unable to read error response');
