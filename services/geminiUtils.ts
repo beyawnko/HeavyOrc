@@ -2,6 +2,17 @@ export const GEMINI_QUOTA_MESSAGE = "Gemini quota exceeded, please try again in 
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+/**
+ * Determines whether the provided error represents an aborted request.
+ * Some environments throw a generic `Error` with a message mentioning
+ * "AbortError", so we check both the name and message.
+ */
+export const isAbortError = (error: unknown): error is Error => {
+    if (!(error instanceof Error)) return false;
+    const message = error.message.toLowerCase();
+    return error.name === 'AbortError' || message.includes('aborterror') || message.includes('aborted');
+};
+
 export const isGeminiRateLimitError = (error: unknown): boolean => {
     if (typeof error !== 'object' || error === null) {
         return false;
@@ -44,9 +55,9 @@ export const callWithGeminiRetry = async <T>(
                 await sleep(baseDelayMs * Math.pow(2, attempt));
                 continue;
             }
-            if (error instanceof Error && error.name === 'AbortError') {
+            if (isAbortError(error)) {
                 if (!controller.signal.aborted) {
-                    throw error;
+                    throw error as Error;
                 }
                 throw new Error('Gemini request timed out');
             }
