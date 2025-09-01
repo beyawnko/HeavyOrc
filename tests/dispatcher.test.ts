@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 import { ExpertDispatch } from '@/moe/types';
 import { GEMINI_FLASH_MODEL } from '@/constants';
-import { MAX_GEMINI_TIMEOUT_MS, type GeminiAgentConfig } from '@/types';
+import { MAX_GEMINI_TIMEOUT_MS, MIN_GEMINI_TIMEOUT_MS, type GeminiAgentConfig } from '@/types';
 import { getGeminiClient } from '@/services/llmService';
 
 vi.mock('@/services/llmService', () => ({
@@ -258,10 +258,10 @@ describe('dispatcher Gemini timeout', () => {
         name: 'timeout1',
         persona: '',
       };
-      const config: GeminiAgentConfig = { ...baseConfig, id: 'timeout1', expert, settings: { ...baseConfig.settings, timeoutMs: 5000 } };
+      const config: GeminiAgentConfig = { ...baseConfig, id: 'timeout1', expert, settings: { ...baseConfig.settings, timeoutMs: MIN_GEMINI_TIMEOUT_MS } };
 
       const draftsPromise = dispatch([expert], 'prompt', [], [config], () => {}, undefined);
-      await vi.advanceTimersByTimeAsync(6000);
+      await vi.advanceTimersByTimeAsync(MIN_GEMINI_TIMEOUT_MS + 1000);
       const drafts = await draftsPromise;
 
       expect(drafts[0].status).toBe('FAILED');
@@ -302,10 +302,10 @@ describe('dispatcher Gemini timeout', () => {
         name: 'timeout2',
         persona: '',
       };
-      const config: GeminiAgentConfig = { ...baseConfig, id: 'timeout2', expert, settings: { ...baseConfig.settings, timeoutMs: 5000 } };
+      const config: GeminiAgentConfig = { ...baseConfig, id: 'timeout2', expert, settings: { ...baseConfig.settings, timeoutMs: MIN_GEMINI_TIMEOUT_MS } };
 
       const draftsPromise = dispatch([expert], 'prompt', [], [config], () => {}, undefined);
-      await vi.advanceTimersByTimeAsync(6000);
+      await vi.advanceTimersByTimeAsync(MIN_GEMINI_TIMEOUT_MS + 1000);
       const drafts = await draftsPromise;
 
       expect(drafts[0].status).toBe('FAILED');
@@ -335,7 +335,7 @@ describe('dispatcher Gemini timeout', () => {
       ...baseConfig,
       id: 'minTimeout',
       expert,
-      settings: { ...baseConfig.settings, timeoutMs: 5000 }
+      settings: { ...baseConfig.settings, timeoutMs: MIN_GEMINI_TIMEOUT_MS }
     };
 
     const drafts = await dispatch([expert], 'prompt', [], [config], () => {}, undefined);

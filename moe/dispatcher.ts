@@ -4,7 +4,7 @@ import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey, callWithRetry, f
 import { getAppUrl, getGeminiResponseText, combineAbortSignals } from '@/lib/utils';
 import { callWithGeminiRetry, handleGeminiError, isAbortError } from '@/services/geminiUtils';
 import { GEMINI_PRO_MODEL, GEMINI_FLASH_MODEL, OPENAI_REASONING_PROMPT_PREFIX } from '@/constants';
-import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort, OpenRouterAgentConfig, MAX_GEMINI_TIMEOUT_MS } from '@/types';
+import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort, OpenRouterAgentConfig, MAX_GEMINI_TIMEOUT_MS, MIN_GEMINI_TIMEOUT_MS } from '@/types';
 import {
     Trace,
     DEFAULTS,
@@ -46,7 +46,6 @@ const parseEnvInt = (value: string | undefined, fallback: number) => {
 
 const GEMINI_RETRY_COUNT = parseEnvInt(process.env.GEMINI_RETRY_COUNT, 2);
 const GEMINI_BACKOFF_MS = parseEnvInt(process.env.GEMINI_BACKOFF_MS, 2000);
-const MIN_GEMINI_TIMEOUT_MS = 5000;
 
 /**
  * Validates and normalizes a Gemini timeout against minimum and maximum bounds.

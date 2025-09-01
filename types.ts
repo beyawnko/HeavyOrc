@@ -86,6 +86,7 @@ const CommonAgentSettingsSchema = z.object({
 }).strict();
 
 export const MAX_GEMINI_TIMEOUT_MS = 300000;
+export const MIN_GEMINI_TIMEOUT_MS = 5000;
 
 const GeminiAgentSettingsSchema: z.ZodType<Partial<GeminiAgentSettings>> =
     CommonAgentSettingsSchema.extend({
@@ -94,7 +95,7 @@ const GeminiAgentSettingsSchema: z.ZodType<Partial<GeminiAgentSettings>> =
         timeoutMs: z
             .number()
             .int()
-            .min(5000, { message: 'Gemini timeout must be at least 5000 ms' })
+            .min(MIN_GEMINI_TIMEOUT_MS, { message: `Gemini timeout must be at least ${MIN_GEMINI_TIMEOUT_MS} ms` })
             .max(MAX_GEMINI_TIMEOUT_MS, { message: `Gemini timeout must be at most ${MAX_GEMINI_TIMEOUT_MS} ms` })
             .optional(),
     }).strict();
