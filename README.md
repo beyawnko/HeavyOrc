@@ -51,6 +51,8 @@ VITE_CIPHER_SERVER_URL=http://localhost:3000
 
 If the server is not running, HeavyOrc continues to operate with ephemeral in-memory history. Cipher speaks the Model Context Protocol, so the same memory store can be shared with other tools in the future.
 
+Fetched memory snippets are HTML-escaped before being included in prompts, and error responses are recursively redacted so logs don't leak tokens, passwords, or other secrets.
+
 ## Reasoning models and context management
 
 Reasoning models such as GPT‑5 and GPT‑5‑mini generate internal reasoning tokens before returning a final answer. These tokens count against the model's context window and are billed as output tokens. To avoid incomplete responses:
