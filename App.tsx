@@ -928,11 +928,11 @@ const App: React.FC = () => {
                         </header>
 
                         <main className="max-w-4xl mx-auto space-y-8 pb-40">
-                            {error && !displayData.isHistoryView && <div className="p-3 bg-[var(--danger)] bg-opacity-20 text-[var(--danger)] border border-[var(--danger)] rounded-lg text-sm text-center">{error}</div>}
+                            {error && !displayData.isHistoryView && <div className="p-3 bg-[color:var(--danger)/0.2] text-[var(--danger)] border border-[var(--danger)] rounded-lg text-sm text-center">{error}</div>}
 
                             {(openAIAgentCount > 0 && !openAIApiKey) || (openRouterAgentCount > 0 && !openRouterApiKey) && (
-                                <p className="text-xs text-[var(--warn)] text-center p-2 bg-[var(--warn)] bg-opacity-20 rounded-md border border-[var(--warn)]">
-                                    An API key is required for one or more of your agents. 
+                                <p className="text-xs text-[var(--warn)] text-center p-2 bg-[color:var(--warn)/0.2] rounded-md border border-[var(--warn)]">
+                                    An API key is required for one or more of your agents.
                                     <button onClick={() => setIsSettingsViewOpen(true)} className="ml-1 underline font-semibold hover:text-[var(--warn)] focus:outline-none focus:ring-2 focus:ring-[var(--warn)] rounded">
                                         Set API Key
                                     </button>
