@@ -102,11 +102,11 @@ export const storeRunRecord = async (run: RunRecord): Promise<void> => {
 
       if (!allowsSelf) {
         console.error('Invalid or insufficient CSP headers from memory server');
-        return;
+        throw new Error('Invalid CSP headers');
       }
     } else {
       console.error('Missing CSP headers from memory server');
-      return;
+      throw new Error('Missing CSP headers');
     }
     if (!response.ok) {
       const errorData = await response.text().catch(() => 'Unable to read error response');
@@ -116,13 +116,14 @@ export const storeRunRecord = async (run: RunRecord): Promise<void> => {
         statusText: response.statusText,
         body: sanitizeErrorResponse(errorData),
       });
+      throw new Error('Failed to store run record');
     }
   } catch (e) {
     console.error('Failed to store run record', {
       url: `${baseUrl}/memories`,
       error: e,
     });
-    // Swallow errors to avoid breaking the app when memory is unreachable
+    throw e;
   }
 };
 
