@@ -378,19 +378,15 @@ const App: React.FC = () => {
             return;
         }
 
-        try {
-            const memories = await fetchRelevantMemories(finalPrompt);
-            if (memories.length > 0) {
-                const memoryText = memories.map(m => m.content).join('\n');
-                finalPrompt = `${memoryText}\n\n${finalPrompt}`;
-                setToast({ message: `Including ${memories.length} relevant memories from history...`, type: 'success' });
-            }
-        } catch (error) {
-            console.error('Error fetching memories:', error);
-            setToast({ 
-              message: `Failed to fetch memories: ${error instanceof Error ? (error.name === 'NetworkError' ? 'Network connection issue' : escapeHtml(error.message)) : 'Unknown error'}`, 
-              type: 'error' 
-            });
+        const memories = await fetchRelevantMemories(finalPrompt);
+        if (memories.length > 0) {
+            const sanitizedMemories = memories.map(m => ({
+                ...m,
+                content: escapeHtml(m.content)
+            }));
+            const memoryText = sanitizedMemories.map(m => m.content).join('\n');
+            finalPrompt = `Context from previous interactions:\n${memoryText}\n\nCurrent request:\n${finalPrompt}`;
+            setToast({ message: `Including ${memories.length} relevant memories from history...`, type: 'success' });
         }
 
         orchestratorAbortRef.current?.();
