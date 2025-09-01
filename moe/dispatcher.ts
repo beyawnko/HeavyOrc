@@ -96,6 +96,15 @@ const runExpertGeminiSingle = async (
         throw new Error(`Gemini API key is missing or invalid. Please check your API key in settings.`);
     }
     const timeoutMs = config.settings.timeoutMs ?? DEFAULT_GEMINI_TIMEOUT_MS;
+    if (timeoutMs !== DEFAULT_GEMINI_TIMEOUT_MS) {
+console.debug({
+    message: 'Using custom Gemini timeout',
+    expertName: expert.name,
+    timeoutMs,
+    defaultTimeoutMs: DEFAULT_GEMINI_TIMEOUT_MS
+});
+    }
+    const start = Date.now();
     try {
         const response = await callWithGeminiRetry(
             (signal) => {
@@ -120,7 +129,12 @@ const runExpertGeminiSingle = async (
             throw error as Error;
         }
         if (error instanceof Error && error.message.startsWith('Gemini request timed out')) {
-            throw new Error(`Expert "${expert.name}" exceeded the configured timeout of ${Math.round(timeoutMs / 1000)} seconds.`);
+const formatTimeoutError = (expertName: string, timeoutMs: number, elapsed: number) => 
+    `Expert "${expertName}" exceeded the configured timeout of ${Math.round(timeoutMs / 1000)} seconds after ${Math.round(elapsed / 1000)} seconds.`;
+
+// In the error handler:
+const elapsed = Date.now() - start;
+throw new Error(formatTimeoutError(expert.name, timeoutMs, elapsed));
         }
         return handleGeminiError(error, 'dispatcher', 'dispatch');
     }
