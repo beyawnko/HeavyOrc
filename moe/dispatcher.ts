@@ -4,7 +4,7 @@ import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey, callWithRetry, f
 import { getAppUrl, getGeminiResponseText, combineAbortSignals } from '@/lib/utils';
 import { callWithGeminiRetry, handleGeminiError, isAbortError } from '@/services/geminiUtils';
 import { GEMINI_PRO_MODEL, GEMINI_FLASH_MODEL, OPENAI_REASONING_PROMPT_PREFIX } from '@/constants';
-import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort, OpenRouterAgentConfig } from '@/types';
+import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort, OpenRouterAgentConfig, MAX_GEMINI_TIMEOUT_MS, MIN_GEMINI_TIMEOUT_MS } from '@/types';
 import {
     Trace,
     DEFAULTS,
@@ -46,7 +46,103 @@ const parseEnvInt = (value: string | undefined, fallback: number) => {
 
 const GEMINI_RETRY_COUNT = parseEnvInt(process.env.GEMINI_RETRY_COUNT, 2);
 const GEMINI_BACKOFF_MS = parseEnvInt(process.env.GEMINI_BACKOFF_MS, 2000);
-const GEMINI_TIMEOUT_MS = parseEnvInt(process.env.GEMINI_TIMEOUT_MS, 30000);
+
+/**
+ * Validates and normalizes a Gemini timeout against minimum and maximum bounds.
+ * Falls back to the provided default when out of range and logs contextual information.
+ *
+ * @param timeoutMs - Timeout in milliseconds to validate.
+ * @param defaultTimeoutMs - Fallback timeout if the provided value is invalid.
+ * @param context - Optional metadata for logging, such as expert name or value source.
+ * @returns A timeout guaranteed to be within allowed bounds.
+ */
+const normalizeGeminiTimeout = (
+    timeoutMs: number,
+    defaultTimeoutMs: number,
+    context: { expertName?: string; source?: string } = {}
+) => {
+    if (timeoutMs < MIN_GEMINI_TIMEOUT_MS || timeoutMs > MAX_GEMINI_TIMEOUT_MS) {
+        console.warn({
+            message: 'Invalid Gemini timeout; falling back to default',
+            ...context,
+            originalTimeout: timeoutMs,
+            newTimeout: defaultTimeoutMs,
+            minTimeoutMs: MIN_GEMINI_TIMEOUT_MS,
+            maxTimeoutMs: MAX_GEMINI_TIMEOUT_MS,
+        });
+        return defaultTimeoutMs;
+    }
+    if (context.expertName && timeoutMs !== defaultTimeoutMs) {
+        console.debug({
+            message: 'Using custom Gemini timeout',
+            expertName: context.expertName,
+            timeoutMs,
+            defaultTimeoutMs,
+        });
+    }
+    return timeoutMs;
+};
+// Default timeout for Gemini requests; individual experts can override this via config.
+const DEFAULT_GEMINI_TIMEOUT_MS = ((fallback: number) =>
+    normalizeGeminiTimeout(
+        parseEnvInt(process.env.GEMINI_TIMEOUT_MS, fallback),
+        fallback,
+        { source: 'env' }
+    )
+)(30000);
+
+const formatTimeoutError = (expertName: string, model: string, timeoutMs: number, elapsed: number) =>
+    `Expert "${expertName}" using model "${model}" exceeded the configured timeout of ${Math.round(timeoutMs / 1000)} seconds after ${Math.round(elapsed / 1000)} seconds.`;
+
+interface ExpertResult {
+    content: string;
+    isPartial: boolean;
+    error?: Error;
+}
+
+const processGeminiStream = async (
+    stream: AsyncGenerator<any, void, unknown>,
+    expert: ExpertDispatch,
+    model: string,
+    timeoutController: AbortController,
+    start: number,
+    timeoutMs: number
+): Promise<ExpertResult> => {
+    const ensureWithinTimeout = (): void => {
+        if (timeoutController.signal.aborted) {
+            const elapsed = performance.now() - start;
+            throw new Error(formatTimeoutError(expert.name, model, timeoutMs, elapsed));
+        }
+    };
+
+    let result = '';
+    try {
+        for await (const chunk of stream) {
+            ensureWithinTimeout();
+            const text = getGeminiResponseText(chunk);
+            if (text) {
+                console.debug({ message: 'Gemini stream chunk', expertName: expert.name, text });
+                result += text;
+            }
+        }
+        return { content: result, isPartial: false };
+    } catch (streamError) {
+        console.error({ message: 'Error processing stream chunk', error: streamError });
+        ensureWithinTimeout();
+        if (isAbortError(streamError)) {
+            throw streamError as Error;
+        }
+        if (result) {
+            console.warn('Returning partial result due to streaming error');
+            return {
+                content: result,
+                isPartial: true,
+                error: streamError instanceof Error ? streamError : new Error(String(streamError)),
+            };
+        }
+        throw streamError;
+    }
+};
 
 const runExpertGeminiSingle = async (
     expert: ExpertDispatch,
@@ -54,7 +150,7 @@ const runExpertGeminiSingle = async (
     images: ImageState[],
     config: GeminiAgentConfig,
     abortSignal?: AbortSignal
-): Promise<string> => {
+): Promise<ExpertResult> => {
     const parts: Part[] = [{ text: prompt }];
     images.forEach(img => {
         parts.push({
@@ -94,32 +190,62 @@ const runExpertGeminiSingle = async (
     } catch (error) {
         throw new Error(`Gemini API key is missing or invalid. Please check your API key in settings.`);
     }
+    const timeoutMs = normalizeGeminiTimeout(
+        config.settings.timeoutMs ?? DEFAULT_GEMINI_TIMEOUT_MS,
+        DEFAULT_GEMINI_TIMEOUT_MS,
+        { expertName: expert.name }
+    );
+    const start = performance.now();
+    const timeoutController = new AbortController();
+    const timeoutHandle = setTimeout(() => timeoutController.abort(), timeoutMs);
+    let cleanup: (() => void) | undefined;
     try {
-        const response = await callWithGeminiRetry(
+        const stream = await callWithGeminiRetry(
             (signal) => {
+                cleanup?.();
+                if (timeoutController.signal.aborted) {
+                    const elapsed = performance.now() - start;
+                    return Promise.reject(new Error(formatTimeoutError(expert.name, config.model, timeoutMs, elapsed)));
+                }
                 if (abortSignal?.aborted) {
                     const abortErr = new Error('Aborted');
                     abortErr.name = 'AbortError';
                     return Promise.reject(abortErr);
                 }
-                const { signal: finalSignal, cleanup } = combineAbortSignals(signal, abortSignal);
+                const combined = combineAbortSignals(signal, abortSignal, timeoutController.signal);
+                cleanup = combined.cleanup;
                 if (generateContentParams.config) {
-                    generateContentParams.config.abortSignal = finalSignal;
+                    generateContentParams.config.abortSignal = combined.signal;
                 }
-                return geminiAI
-                    .models.generateContent(generateContentParams)
-                    .finally(cleanup);
+                try {
+                    return geminiAI.models.generateContentStream(generateContentParams);
+                } catch (error) {
+                    if (timeoutController.signal.aborted) {
+                        const elapsed = performance.now() - start;
+                        throw new Error(formatTimeoutError(expert.name, config.model, timeoutMs, elapsed));
+                    }
+                    throw error;
+                }
             },
-            { retries: GEMINI_RETRY_COUNT, baseDelayMs: GEMINI_BACKOFF_MS, timeoutMs: GEMINI_TIMEOUT_MS }
+            { retries: GEMINI_RETRY_COUNT, baseDelayMs: GEMINI_BACKOFF_MS, timeoutMs }
         );
-        return getGeminiResponseText(response);
+        return await processGeminiStream(stream, expert, config.model, timeoutController, start, timeoutMs);
     } catch (error) {
-        if (
-            (isAbortError(error) || (error instanceof Error && error.message === 'Gemini request timed out'))
-        ) {
+        if (isAbortError(error)) {
             throw error as Error;
         }
+        if (error instanceof Error) {
+            if (error.message.startsWith(`Expert "${expert.name}" exceeded the configured timeout`)) {
+                throw error;
+            } else if (error.message.startsWith('Gemini request timed out')) {
+                const elapsed = performance.now() - start;
+                throw new Error(formatTimeoutError(expert.name, config.model, timeoutMs, elapsed));
+            }
+        }
         return handleGeminiError(error, 'dispatcher', 'dispatch');
+    } finally {
+        clearTimeout(timeoutHandle);
+        cleanup?.();
     }
 }
 
@@ -130,7 +256,7 @@ const createDeepConfTraceProvider = <C extends AgentConfig>(
         images: ImageState[],
         config: C,
         abortSignal?: AbortSignal
-    ) => Promise<string>,
+    ) => Promise<ExpertResult>,
     expert: ExpertDispatch,
     images: ImageState[],
     config: C,
@@ -143,7 +269,7 @@ const createDeepConfTraceProvider = <C extends AgentConfig>(
         generate: async (p, signal) => {
             const { signal: finalSignal, cleanup } = combineAbortSignals(signal, orchestrationAbortSignal);
             try {
-                const text = await runFn(expert, p, images, config, finalSignal);
+                const { content: text } = await runFn(expert, p, images, config, finalSignal);
                 const tokens = segmenter
                     ? Array.from(segmenter.segment(text), ({ segment }) => segment)
                     // Array.from on a string iterates by code point; complex grapheme clusters may split
@@ -242,7 +368,13 @@ const runExpertOpenAIDeepConf = async (
 ): Promise<string> => {
     const { generationStrategy, traceCount, deepConfEta, tau, groupWindow } = config.settings;
 
-    const provider = createDeepConfTraceProvider(runExpertOpenAISingle, expert, images, config, abortSignal);
+    const provider = createDeepConfTraceProvider(
+        async (e, p, i, c, s) => ({ content: await runExpertOpenAISingle(e, p, i, c, s), isPartial: false }),
+        expert,
+        images,
+        config,
+        abortSignal
+    );
 
     const extractAnswer = (trace: Trace) => trace.text.trim();
     
@@ -329,33 +461,39 @@ const runExpert = async (
     abortSignal?: AbortSignal
 ): Promise<Draft> => {
     try {
-        let content = '';
+        let result: ExpertResult;
 
         if (config.provider === 'gemini') {
             const geminiConfig = config as GeminiAgentConfig;
             if (geminiConfig.settings.generationStrategy === 'single') {
-                content = await runExpertGeminiSingle(expert, prompt, images, geminiConfig, abortSignal);
+                result = await runExpertGeminiSingle(expert, prompt, images, geminiConfig, abortSignal);
             } else {
-                content = await runExpertGeminiDeepConf(expert, prompt, images, geminiConfig, abortSignal);
+                const content = await runExpertGeminiDeepConf(expert, prompt, images, geminiConfig, abortSignal);
+                result = { content, isPartial: false };
             }
         } else if (config.provider === 'openai') {
             const openaiConfig = config as OpenAIAgentConfig;
             if (openaiConfig.settings.generationStrategy === 'single') {
-                content = await runExpertOpenAISingle(expert, prompt, images, openaiConfig, abortSignal);
+                const content = await runExpertOpenAISingle(expert, prompt, images, openaiConfig, abortSignal);
+                result = { content, isPartial: false };
             } else {
-                content = await runExpertOpenAIDeepConf(expert, prompt, images, openaiConfig, abortSignal);
+                const content = await runExpertOpenAIDeepConf(expert, prompt, images, openaiConfig, abortSignal);
+                result = { content, isPartial: false };
             }
         } else { // openrouter
              const openRouterConfig = config as OpenRouterAgentConfig;
              // DeepConf is not implemented for OpenRouter in this example, falls back to single
-             content = await runExpertOpenRouterSingle(expert, prompt, images, openRouterConfig, abortSignal);
+             const content = await runExpertOpenRouterSingle(expert, prompt, images, openRouterConfig, abortSignal);
+             result = { content, isPartial: false };
         }
 
         return {
             agentId: expert.agentId,
             expert,
-            content,
+            content: result.content,
             status: 'COMPLETED',
+            isPartial: result.isPartial,
+            error: result.error?.message,
         };
 
     } catch (error) {
@@ -374,6 +512,7 @@ const runExpert = async (
             expert,
             content: "This agent failed to generate a response.",
             status: 'FAILED',
+            isPartial: false,
             error: errorMessage,
         };
     }

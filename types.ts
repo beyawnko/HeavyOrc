@@ -50,6 +50,7 @@ export interface GeminiAgentSettings {
     deepConfEta: 10 | 90;
     tau: number;
     groupWindow: number;
+    timeoutMs?: number;
 }
 
 export interface OpenAIAgentSettings {
@@ -84,9 +85,19 @@ const CommonAgentSettingsSchema = z.object({
     groupWindow: z.number().optional(),
 }).strict();
 
+export const MAX_GEMINI_TIMEOUT_MS = 300000;
+export const MIN_GEMINI_TIMEOUT_MS = 5000;
+
 const GeminiAgentSettingsSchema: z.ZodType<Partial<GeminiAgentSettings>> =
     CommonAgentSettingsSchema.extend({
         effort: z.enum(['dynamic', 'high', 'medium', 'low', 'none']).optional(),
+        // Restrict timeout to reasonable bounds to avoid misconfiguration
+        timeoutMs: z
+            .number()
+            .int()
+            .min(MIN_GEMINI_TIMEOUT_MS, { message: `Gemini timeout must be at least ${MIN_GEMINI_TIMEOUT_MS} ms` })
+            .max(MAX_GEMINI_TIMEOUT_MS, { message: `Gemini timeout must be at most ${MAX_GEMINI_TIMEOUT_MS} ms` })
+            .optional(),
     }).strict();
 
 const OpenAIAgentSettingsSchema: z.ZodType<Partial<OpenAIAgentSettings>> =
