@@ -27,13 +27,17 @@ describe('dispatcher Gemini failure handling', () => {
   });
 
   it('records a failed draft when Gemini returns 503 and continues with others', async () => {
-    const generateContent = vi
+    const generateContentStream = vi
       .fn()
       .mockRejectedValueOnce({ status: 503 })
-      .mockResolvedValueOnce({ text: () => 'ok' });
+      .mockResolvedValueOnce({
+        [Symbol.asyncIterator]: async function* () {
+          yield { text: () => 'ok' };
+        },
+      });
 
     (getGeminiClient as unknown as Mock).mockReturnValue({
-      models: { generateContent },
+      models: { generateContentStream },
     });
     const { dispatch } = await import('@/moe/dispatcher');
 

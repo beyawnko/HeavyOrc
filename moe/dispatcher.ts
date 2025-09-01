@@ -4,7 +4,7 @@ import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey, callWithRetry, f
 import { getAppUrl, getGeminiResponseText, combineAbortSignals } from '@/lib/utils';
 import { callWithGeminiRetry, handleGeminiError, isAbortError } from '@/services/geminiUtils';
 import { GEMINI_PRO_MODEL, GEMINI_FLASH_MODEL, OPENAI_REASONING_PROMPT_PREFIX } from '@/constants';
-import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort, OpenRouterAgentConfig } from '@/types';
+import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort, OpenRouterAgentConfig, MAX_GEMINI_TIMEOUT_MS } from '@/types';
 import {
     Trace,
     DEFAULTS,
@@ -48,6 +48,9 @@ const GEMINI_RETRY_COUNT = parseEnvInt(process.env.GEMINI_RETRY_COUNT, 2);
 const GEMINI_BACKOFF_MS = parseEnvInt(process.env.GEMINI_BACKOFF_MS, 2000);
 // Default timeout for Gemini requests; individual experts can override this via config.
 const DEFAULT_GEMINI_TIMEOUT_MS = parseEnvInt(process.env.GEMINI_TIMEOUT_MS, 30000);
+
+const formatTimeoutError = (expertName: string, timeoutMs: number, elapsed: number) =>
+    `Expert "${expertName}" exceeded the configured timeout of ${Math.round(timeoutMs / 1000)} seconds after ${Math.round(elapsed / 1000)} seconds.`;
 
 const runExpertGeminiSingle = async (
     expert: ExpertDispatch,
@@ -95,18 +98,27 @@ const runExpertGeminiSingle = async (
     } catch (error) {
         throw new Error(`Gemini API key is missing or invalid. Please check your API key in settings.`);
     }
-    const timeoutMs = config.settings.timeoutMs ?? DEFAULT_GEMINI_TIMEOUT_MS;
-    if (timeoutMs !== DEFAULT_GEMINI_TIMEOUT_MS) {
-console.debug({
-    message: 'Using custom Gemini timeout',
-    expertName: expert.name,
-    timeoutMs,
-    defaultTimeoutMs: DEFAULT_GEMINI_TIMEOUT_MS
-});
+    let timeoutMs = config.settings.timeoutMs ?? DEFAULT_GEMINI_TIMEOUT_MS;
+    if (timeoutMs < 1000 || timeoutMs > MAX_GEMINI_TIMEOUT_MS) {
+        console.warn({
+            message: 'Invalid Gemini timeout; falling back to default',
+            expertName: expert.name,
+            timeoutMs,
+            defaultTimeoutMs: DEFAULT_GEMINI_TIMEOUT_MS,
+            maxTimeoutMs: MAX_GEMINI_TIMEOUT_MS,
+        });
+        timeoutMs = DEFAULT_GEMINI_TIMEOUT_MS;
+    } else if (timeoutMs !== DEFAULT_GEMINI_TIMEOUT_MS) {
+        console.debug({
+            message: 'Using custom Gemini timeout',
+            expertName: expert.name,
+            timeoutMs,
+            defaultTimeoutMs: DEFAULT_GEMINI_TIMEOUT_MS,
+        });
     }
-    const start = Date.now();
+    const start = performance.now();
     try {
-        const response = await callWithGeminiRetry(
+        const stream = await callWithGeminiRetry(
             (signal) => {
                 if (abortSignal?.aborted) {
                     const abortErr = new Error('Aborted');
@@ -118,23 +130,27 @@ console.debug({
                     generateContentParams.config.abortSignal = finalSignal;
                 }
                 return geminiAI
-                    .models.generateContent(generateContentParams)
+                    .models.generateContentStream(generateContentParams)
                     .finally(cleanup);
             },
             { retries: GEMINI_RETRY_COUNT, baseDelayMs: GEMINI_BACKOFF_MS, timeoutMs }
         );
-        return getGeminiResponseText(response);
+        let result = '';
+        for await (const chunk of stream) {
+            const text = getGeminiResponseText(chunk);
+            if (text) {
+                console.debug({ message: 'Gemini stream chunk', expertName: expert.name, text });
+                result += text;
+            }
+        }
+        return result;
     } catch (error) {
         if (isAbortError(error)) {
             throw error as Error;
         }
         if (error instanceof Error && error.message.startsWith('Gemini request timed out')) {
-const formatTimeoutError = (expertName: string, timeoutMs: number, elapsed: number) => 
-    `Expert "${expertName}" exceeded the configured timeout of ${Math.round(timeoutMs / 1000)} seconds after ${Math.round(elapsed / 1000)} seconds.`;
-
-// In the error handler:
-const elapsed = Date.now() - start;
-throw new Error(formatTimeoutError(expert.name, timeoutMs, elapsed));
+            const elapsed = performance.now() - start;
+            throw new Error(formatTimeoutError(expert.name, timeoutMs, elapsed));
         }
         return handleGeminiError(error, 'dispatcher', 'dispatch');
     }
