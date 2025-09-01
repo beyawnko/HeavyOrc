@@ -474,7 +474,7 @@ const App: React.FC = () => {
             }
 
         } catch (e) {
-            if ((e as { name?: string })?.name === 'AbortError') {
+            if ((e as Error)?.name === 'AbortError') {
                 currentRunDataRef.current = undefined;
                 return;
             }
