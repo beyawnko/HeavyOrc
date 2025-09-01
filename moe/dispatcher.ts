@@ -55,7 +55,7 @@ const formatTimeoutError = (expertName: string, timeoutMs: number, elapsed: numb
 interface ExpertResult {
     content: string;
     isPartial: boolean;
-    error?: unknown;
+    error?: Error | { message: string };
 }
 
 const runExpertGeminiSingle = async (
@@ -125,11 +125,15 @@ const runExpertGeminiSingle = async (
     }
     const start = performance.now();
     const timeoutController = new AbortController();
-    const timeoutHandle = setTimeout(() => timeoutController.abort(), timeoutMs);
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     let cleanup: (() => void) | undefined;
     try {
         const stream = await callWithGeminiRetry(
             (signal) => {
+                if (timeoutController.signal.aborted) {
+                    const elapsed = performance.now() - start;
+                    return Promise.reject(new Error(formatTimeoutError(expert.name, timeoutMs, elapsed)));
+                }
                 if (abortSignal?.aborted) {
                     const abortErr = new Error('Aborted');
                     abortErr.name = 'AbortError';
@@ -140,10 +144,19 @@ const runExpertGeminiSingle = async (
                 if (generateContentParams.config) {
                     generateContentParams.config.abortSignal = combined.signal;
                 }
-                return geminiAI.models.generateContentStream(generateContentParams);
+                try {
+                    return geminiAI.models.generateContentStream(generateContentParams);
+                } catch (error) {
+                    if (timeoutController.signal.aborted) {
+                        const elapsed = performance.now() - start;
+                        throw new Error(formatTimeoutError(expert.name, timeoutMs, elapsed));
+                    }
+                    throw error;
+                }
             },
             { retries: GEMINI_RETRY_COUNT, baseDelayMs: GEMINI_BACKOFF_MS, timeoutMs }
         );
+        timeoutHandle = setTimeout(() => timeoutController.abort(), timeoutMs);
         let result = '';
         try {
             for await (const chunk of stream) {
@@ -163,9 +176,12 @@ const runExpertGeminiSingle = async (
                 const elapsed = performance.now() - start;
                 throw new Error(formatTimeoutError(expert.name, timeoutMs, elapsed));
             }
+            if (isAbortError(streamError)) {
+                throw streamError as Error;
+            }
             if (result) {
                 console.warn('Returning partial result due to streaming error');
-                return { content: result, isPartial: true, error: streamError };
+                return { content: result, isPartial: true, error: streamError as Error | { message: string } };
             }
             throw streamError;
         }
@@ -179,7 +195,7 @@ const runExpertGeminiSingle = async (
         }
         return handleGeminiError(error, 'dispatcher', 'dispatch');
     } finally {
-        clearTimeout(timeoutHandle);
+        if (timeoutHandle) clearTimeout(timeoutHandle);
         cleanup?.();
     }
 }
