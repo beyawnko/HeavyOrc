@@ -13,4 +13,5 @@ export interface Draft {
   content: string;
   status: AgentStatus;
   error?: string | null;
+  isPartial?: boolean;
 }

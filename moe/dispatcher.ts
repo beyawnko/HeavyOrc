@@ -52,13 +52,19 @@ const DEFAULT_GEMINI_TIMEOUT_MS = parseEnvInt(process.env.GEMINI_TIMEOUT_MS, 300
 const formatTimeoutError = (expertName: string, timeoutMs: number, elapsed: number) =>
     `Expert "${expertName}" exceeded the configured timeout of ${Math.round(timeoutMs / 1000)} seconds after ${Math.round(elapsed / 1000)} seconds.`;
 
+interface ExpertResult {
+    content: string;
+    isPartial: boolean;
+    error?: unknown;
+}
+
 const runExpertGeminiSingle = async (
     expert: ExpertDispatch,
     prompt: string,
     images: ImageState[],
     config: GeminiAgentConfig,
     abortSignal?: AbortSignal
-): Promise<string> => {
+): Promise<ExpertResult> => {
     const parts: Part[] = [{ text: prompt }];
     images.forEach(img => {
         parts.push({
@@ -119,7 +125,8 @@ const runExpertGeminiSingle = async (
     }
     const start = performance.now();
     const timeoutController = new AbortController();
-    const timeoutHandle = setTimeout(() => timeoutController.abort(), timeoutMs);
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    let cleanup: (() => void) | undefined;
     try {
         const stream = await callWithGeminiRetry(
             (signal) => {
@@ -128,21 +135,22 @@ const runExpertGeminiSingle = async (
                     abortErr.name = 'AbortError';
                     return Promise.reject(abortErr);
                 }
-                const { signal: finalSignal, cleanup } = combineAbortSignals(signal, abortSignal, timeoutController.signal);
+                const combined = combineAbortSignals(signal, abortSignal, timeoutController.signal);
+                cleanup = combined.cleanup;
                 if (generateContentParams.config) {
-                    generateContentParams.config.abortSignal = finalSignal;
+                    generateContentParams.config.abortSignal = combined.signal;
                 }
-                return geminiAI
-                    .models.generateContentStream(generateContentParams)
-                    .finally(cleanup);
+                return geminiAI.models.generateContentStream(generateContentParams);
             },
             { retries: GEMINI_RETRY_COUNT, baseDelayMs: GEMINI_BACKOFF_MS, timeoutMs }
         );
+        timeoutHandle = setTimeout(() => timeoutController.abort(), timeoutMs);
         let result = '';
         try {
             for await (const chunk of stream) {
                 if (timeoutController.signal.aborted) {
-                    throw new Error('Gemini request timed out');
+                    const elapsed = performance.now() - start;
+                    throw new Error(formatTimeoutError(expert.name, timeoutMs, elapsed));
                 }
                 const text = getGeminiResponseText(chunk);
                 if (text) {
@@ -158,21 +166,22 @@ const runExpertGeminiSingle = async (
             }
             if (result) {
                 console.warn('Returning partial result due to streaming error');
-                return result;
+                return { content: result, isPartial: true, error: streamError };
             }
             throw streamError;
         } finally {
-            clearTimeout(timeoutHandle);
+            if (timeoutHandle) clearTimeout(timeoutHandle);
+            cleanup?.();
         }
-        return result;
+        return { content: result, isPartial: false };
     } catch (error) {
-        clearTimeout(timeoutHandle);
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        cleanup?.();
         if (isAbortError(error)) {
             throw error as Error;
         }
-        if (error instanceof Error && error.message.startsWith('Gemini request timed out')) {
-            const elapsed = performance.now() - start;
-            throw new Error(formatTimeoutError(expert.name, timeoutMs, elapsed));
+        if (error instanceof Error && error.message.includes('exceeded the configured timeout')) {
+            throw error;
         }
         return handleGeminiError(error, 'dispatcher', 'dispatch');
     }
@@ -185,7 +194,7 @@ const createDeepConfTraceProvider = <C extends AgentConfig>(
         images: ImageState[],
         config: C,
         abortSignal?: AbortSignal
-    ) => Promise<string>,
+    ) => Promise<ExpertResult>,
     expert: ExpertDispatch,
     images: ImageState[],
     config: C,
@@ -198,7 +207,7 @@ const createDeepConfTraceProvider = <C extends AgentConfig>(
         generate: async (p, signal) => {
             const { signal: finalSignal, cleanup } = combineAbortSignals(signal, orchestrationAbortSignal);
             try {
-                const text = await runFn(expert, p, images, config, finalSignal);
+                const { content: text } = await runFn(expert, p, images, config, finalSignal);
                 const tokens = segmenter
                     ? Array.from(segmenter.segment(text), ({ segment }) => segment)
                     // Array.from on a string iterates by code point; complex grapheme clusters may split
@@ -297,7 +306,13 @@ const runExpertOpenAIDeepConf = async (
 ): Promise<string> => {
     const { generationStrategy, traceCount, deepConfEta, tau, groupWindow } = config.settings;
 
-    const provider = createDeepConfTraceProvider(runExpertOpenAISingle, expert, images, config, abortSignal);
+    const provider = createDeepConfTraceProvider(
+        async (e, p, i, c, s) => ({ content: await runExpertOpenAISingle(e, p, i, c, s), isPartial: false }),
+        expert,
+        images,
+        config,
+        abortSignal
+    );
 
     const extractAnswer = (trace: Trace) => trace.text.trim();
     
@@ -384,33 +399,39 @@ const runExpert = async (
     abortSignal?: AbortSignal
 ): Promise<Draft> => {
     try {
-        let content = '';
+        let result: ExpertResult;
 
         if (config.provider === 'gemini') {
             const geminiConfig = config as GeminiAgentConfig;
             if (geminiConfig.settings.generationStrategy === 'single') {
-                content = await runExpertGeminiSingle(expert, prompt, images, geminiConfig, abortSignal);
+                result = await runExpertGeminiSingle(expert, prompt, images, geminiConfig, abortSignal);
             } else {
-                content = await runExpertGeminiDeepConf(expert, prompt, images, geminiConfig, abortSignal);
+                const content = await runExpertGeminiDeepConf(expert, prompt, images, geminiConfig, abortSignal);
+                result = { content, isPartial: false };
             }
         } else if (config.provider === 'openai') {
             const openaiConfig = config as OpenAIAgentConfig;
             if (openaiConfig.settings.generationStrategy === 'single') {
-                content = await runExpertOpenAISingle(expert, prompt, images, openaiConfig, abortSignal);
+                const content = await runExpertOpenAISingle(expert, prompt, images, openaiConfig, abortSignal);
+                result = { content, isPartial: false };
             } else {
-                content = await runExpertOpenAIDeepConf(expert, prompt, images, openaiConfig, abortSignal);
+                const content = await runExpertOpenAIDeepConf(expert, prompt, images, openaiConfig, abortSignal);
+                result = { content, isPartial: false };
             }
         } else { // openrouter
              const openRouterConfig = config as OpenRouterAgentConfig;
              // DeepConf is not implemented for OpenRouter in this example, falls back to single
-             content = await runExpertOpenRouterSingle(expert, prompt, images, openRouterConfig, abortSignal);
+             const content = await runExpertOpenRouterSingle(expert, prompt, images, openRouterConfig, abortSignal);
+             result = { content, isPartial: false };
         }
 
         return {
             agentId: expert.agentId,
             expert,
-            content,
+            content: result.content,
             status: 'COMPLETED',
+            isPartial: result.isPartial,
+            error: result.error instanceof Error ? result.error.message : undefined,
         };
 
     } catch (error) {
