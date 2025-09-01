@@ -185,7 +185,7 @@ describe('cipherService', () => {
     global.fetch = fetchMock as any;
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { storeRunRecord } = await import('@/services/cipherService');
-    await expect(storeRunRecord(sampleRun)).rejects.toThrow('Failed to store run record');
+    await expect(storeRunRecord(sampleRun)).rejects.toThrow('Failed to store run record with status 400');
     const logged = consoleSpy.mock.calls[0][1] as any;
     expect(logged.body).toBe('{"details":{"token":"[REDACTED]","items":["[REDACTED]",{"password":"[REDACTED]"}]}}');
     consoleSpy.mockRestore();
