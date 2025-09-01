@@ -1,4 +1,7 @@
 /*! coi-serviceworker v0.1.7 - Guido Zuidhof and contributors, licensed under MIT */
+// Vendored copy with local modifications:
+// - dynamic versioning via global __SW_VERSION__
+// - worker scope derived from its registration path
 let coepCredentialless = false;
 if (typeof window === 'undefined') {
   self.addEventListener('install', () => self.skipWaiting());
@@ -89,10 +92,12 @@ if (typeof window === 'undefined') {
 
     // In some environments (e.g. Chrome incognito mode) this won't be available
     if (n.serviceWorker) {
-      const swVersion = '1';
+      const swVersion = (typeof globalThis.__SW_VERSION__ === 'string' && !globalThis.__SW_VERSION__.startsWith('%'))
+        ? globalThis.__SW_VERSION__
+        : Date.now().toString();
       const registrationUrl = (window.document?.currentScript?.src || import.meta.url) + `?v=${swVersion}`;
       const scope = new URL('.', registrationUrl).pathname;
-      // Note: using the root scope requires the origin server to enforce a strict
+      // Note: using a broad scope requires the origin server to enforce a strict
       // Content-Security-Policy to mitigate the broader SW control surface.
       n.serviceWorker.register(registrationUrl, { scope }).then(
         (registration) => {
