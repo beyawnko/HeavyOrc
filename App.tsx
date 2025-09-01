@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import JSZip from 'jszip';
 import { motion, Variants } from 'framer-motion';
 import FocusTrap from 'focus-trap-react';
-import escapeHtml from 'escape-html';
+import { escapeHtml } from '@/lib/utils';
 
 // Types and constants
 import {
