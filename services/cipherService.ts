@@ -50,22 +50,13 @@ function isPrivateOrLocalhost(hostname: string): boolean {
   if (lower.startsWith('127.') || lower.startsWith('192.168.') || lower.startsWith('10.') || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(lower)) return true;
   if (lower.startsWith('::ffff:')) {
     const mapped = lower.slice(7);
-    if (mapped.includes('.')) {
-      const parts = mapped.split('.');
-      if (parts.length === 4 && parts.every(p => {
-        const n = Number(p);
-        return p !== '' && Number.isInteger(n) && n >= 0 && n <= 255;
-      }) && isPrivateOrLocalhost(mapped)) return true;
+    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(mapped)) {
+      if (isPrivateOrLocalhost(mapped)) return true;
     } else {
       const parts = mapped.split(':');
-      if (parts.length === 2) {
-        const num = (parseInt(parts[0], 16) << 16) + parseInt(parts[1], 16);
-        const ipv4 = [
-          (num >>> 24) & 255,
-          (num >>> 16) & 255,
-          (num >>> 8) & 255,
-          num & 255,
-        ].join('.');
+      if (parts.length === 2 && parts.every(p => /^[0-9a-f]{1,4}$/.test(p))) {
+        const [a, b] = parts.map(p => parseInt(p, 16));
+        const ipv4 = `${a >> 8}.${a & 255}.${b >> 8}.${b & 255}`;
         if (isPrivateOrLocalhost(ipv4)) return true;
       }
     }
