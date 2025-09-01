@@ -147,9 +147,11 @@ const HistorySidebar = forwardRef<HTMLButtonElement, HistorySidebarProps>((props
                 )}
 
                 {history.length === 0 && currentRunStatus === 'IDLE' ? (
-                    <div className="text-center py-4 text-sm text-[var(--text-muted)]">
-                        No past runs yet. Submit a prompt to create one.
-                    </div>
+                    isOpen && (
+                        <div className="text-center py-4 text-sm text-[var(--text-muted)]">
+                            No past runs yet. Submit a prompt to create one.
+                        </div>
+                    )
                 ) : (
                     <Virtuoso
                         data={history}
