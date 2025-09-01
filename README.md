@@ -28,6 +28,8 @@ GEMINI_API_KEY=your_gemini_key
 OPENAI_API_KEY=your_openai_key
 OPENROUTER_API_KEY=your_openrouter_key
 VITE_APP_URL=https://your-domain.example
+# Optional service worker version for cache busting
+VITE_SW_VERSION=dev
 ```
 
 Keys are optional; the UI hides providers without keys. `VITE_APP_URL` supplies a referer for server-side deployments.

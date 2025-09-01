@@ -23,7 +23,10 @@
   }
 }
 </script>
-      <script type="module" src="./coi-serviceworker.js"></script>
+      <script type="module">
+        window.__SW_VERSION__ = import.meta.env.VITE_SW_VERSION;
+      </script>
+      <script type="module" src="/coi-serviceworker.js"></script>
     <style>
       html {
         box-sizing: border-box;
