@@ -82,14 +82,11 @@ function validateCsp(response: Response): void {
     .filter(Boolean)
     .map(parseDirective)
     .filter(d => d.name && d.sources.length > 0);
-
-  const allowsSelf = directives.some(
-    d =>
-      (d.name === 'connect-src' || d.name === 'default-src') &&
-      d.sources.includes("'self'")
+  const defaultSrc = directives.find(d => d.name === 'default-src');
+  const hasUnsafe = directives.some(d =>
+    d.sources.some(s => s === "'unsafe-inline'" || s === "'unsafe-eval'")
   );
-
-  if (!allowsSelf) {
+  if (!defaultSrc || defaultSrc.sources.length !== 1 || defaultSrc.sources[0] !== "'none'" || hasUnsafe) {
     console.error('Invalid or insufficient CSP headers from memory server');
     throw new Error('Invalid CSP headers');
   }
@@ -147,8 +144,8 @@ export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[
       body: JSON.stringify({ query }),
     });
 
+    if (enforceCsp) validateCsp(response);
     if (!response.ok) {
-      if (enforceCsp) validateCsp(response);
       const errorData = await response
         .text()
         .catch(() => 'Unable to read error response');
@@ -161,7 +158,6 @@ export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[
       return [];
     }
 
-    if (enforceCsp) validateCsp(response);
     const data = (await response.json()) as { memories?: MemoryEntry[] };
     return Array.isArray(data.memories)
       ? data.memories.filter(m => m.content.length <= MAX_MEMORY_LENGTH)

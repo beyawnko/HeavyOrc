@@ -20,9 +20,12 @@ const sampleRun: RunRecord = {
 
 const originalFetch = global.fetch;
 const VALID_CSP_HEADER = {
-  'Content-Security-Policy': "default-src 'self'; connect-src 'self'",
+  'Content-Security-Policy': "default-src 'none'",
 };
 const INVALID_CSP_HEADER = { 'Content-Security-Policy': "default-src *" };
+const UNSAFE_CSP_HEADER = {
+  'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'",
+};
 const MEMORIES_RESPONSE = { memories: [{ id: '1', content: 'note' }] };
 
 afterEach(() => {
@@ -52,13 +55,16 @@ describe('cipherService', () => {
     await expect(storeRunRecord(sampleRun)).rejects.toThrow('Missing CSP headers');
   });
 
-  it('throws when CSP header invalid', async () => {
+  it.each([
+    { name: 'wildcard', headers: INVALID_CSP_HEADER },
+    { name: 'unsafe', headers: UNSAFE_CSP_HEADER },
+  ])('throws when CSP header is $name', async ({ headers }) => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
     vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(new Response(null, { status: 200, headers: INVALID_CSP_HEADER }));
+      .mockResolvedValue(new Response(null, { status: 200, headers }));
     global.fetch = fetchMock as any;
     const { storeRunRecord } = await import('@/services/cipherService');
     await expect(storeRunRecord(sampleRun)).rejects.toThrow('Invalid CSP headers');
@@ -119,6 +125,7 @@ describe('cipherService', () => {
   it.each([
     { name: 'missing', headers: undefined },
     { name: 'invalid', headers: INVALID_CSP_HEADER },
+    { name: 'unsafe', headers: UNSAFE_CSP_HEADER },
   ])(
     'returns empty array when CSP header is $name and enforcement enabled',
     async ({ headers }) => {
@@ -194,8 +201,7 @@ describe('cipherService', () => {
       shortEncoded: 'YWJjZGVmZ2hpamtsbW4=',
     });
     const headers = {
-      'Content-Security-Policy':
-        "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'",
+      'Content-Security-Policy': "default-src 'none'",
     };
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(body, {
@@ -219,8 +225,7 @@ describe('cipherService', () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
     const headers = {
-      'Content-Security-Policy':
-        "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'",
+      'Content-Security-Policy': "default-src 'none'",
     };
     const fetchMock = vi.fn().mockResolvedValue(
       new Response('[{"token":"abc"},"my-secret-token"]', {
@@ -242,8 +247,7 @@ describe('cipherService', () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
     const headers = {
-      'Content-Security-Policy':
-        "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'",
+      'Content-Security-Policy': "default-src 'none'",
     };
     const responseBody = JSON.stringify({
       details: {
