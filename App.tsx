@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import JSZip from 'jszip';
 import { motion, Variants } from 'framer-motion';
 import FocusTrap from 'focus-trap-react';
+import escapeHtml from 'escape-html';
 
 // Types and constants
 import {
@@ -383,16 +384,17 @@ const App: React.FC = () => {
             return;
         }
 
+        setIsLoading(true);
+
         const memories = await fetchRelevantMemories(finalPrompt);
         if (memories.length > 0) {
-            const memoryText = memories.map(m => m.content).join('\n');
+            const memoryText = memories.map(m => escapeHtml(m.content)).join('\n');
             finalPrompt = `Context from previous interactions:\n${memoryText}\n\nCurrent request:\n${finalPrompt}`;
             setToast({ message: `Including ${memories.length} relevant memories from history...`, type: 'success' });
         }
 
         orchestratorAbortRef.current?.();
         orchestratorAbortRef.current = null;
-        setIsLoading(true);
         setError(null);
         setFinalAnswer('');
         setIsArbiterRunning(false);

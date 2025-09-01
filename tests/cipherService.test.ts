@@ -149,7 +149,7 @@ describe('cipherService', () => {
     const { storeRunRecord } = await import('@/services/cipherService');
     await storeRunRecord(sampleRun);
     const logged = consoleSpy.mock.calls[0][1] as any;
-    expect(logged.body).toBe('[REDACTED]');
+    expect(logged.body).toBe('[{"token":"[REDACTED]"}]');
     consoleSpy.mockRestore();
   });
 
