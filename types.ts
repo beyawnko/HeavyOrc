@@ -89,11 +89,14 @@ const GeminiAgentSettingsSchema: z.ZodType<Partial<GeminiAgentSettings>> =
     CommonAgentSettingsSchema.extend({
         effort: z.enum(['dynamic', 'high', 'medium', 'low', 'none']).optional(),
         // Restrict timeout to reasonable bounds to avoid misconfiguration
-        timeoutMs: z
-            .number()
-            .int()
-            .min(1000)
-            .max(300000)
+const MAX_GEMINI_TIMEOUT_MS = 300000;
+
+timeoutMs: z
+    .number()
+    .int()
+    .min(1000)
+    .max(MAX_GEMINI_TIMEOUT_MS)
+    .optional(),
             .optional(),
     }).strict();
 
