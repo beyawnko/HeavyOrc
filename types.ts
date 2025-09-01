@@ -88,7 +88,13 @@ const CommonAgentSettingsSchema = z.object({
 const GeminiAgentSettingsSchema: z.ZodType<Partial<GeminiAgentSettings>> =
     CommonAgentSettingsSchema.extend({
         effort: z.enum(['dynamic', 'high', 'medium', 'low', 'none']).optional(),
-        timeoutMs: z.number().optional(),
+        // Restrict timeout to reasonable bounds to avoid misconfiguration
+        timeoutMs: z
+            .number()
+            .int()
+            .min(1000)
+            .max(300000)
+            .optional(),
     }).strict();
 
 const OpenAIAgentSettingsSchema: z.ZodType<Partial<OpenAIAgentSettings>> =
