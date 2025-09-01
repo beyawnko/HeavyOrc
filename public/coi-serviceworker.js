@@ -92,7 +92,7 @@ if (typeof window === 'undefined') {
 
     // In some environments (e.g. Chrome incognito mode) this won't be available
     if (n.serviceWorker) {
-      const swVersion = (typeof globalThis.__SW_VERSION__ === 'string' && !globalThis.__SW_VERSION__.startsWith('%'))
+      const swVersion = (typeof globalThis.__SW_VERSION__ === 'string' && globalThis.__SW_VERSION__ && !globalThis.__SW_VERSION__.startsWith('%'))
         ? globalThis.__SW_VERSION__
         : Date.now().toString();
       const registrationUrl = (window.document?.currentScript?.src || import.meta.url) + `?v=${swVersion}`;
