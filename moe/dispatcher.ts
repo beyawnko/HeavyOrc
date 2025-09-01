@@ -88,13 +88,12 @@ const runExpertGeminiSingle = async (
     }
 
     // Validate API key before making the call
+    let geminiAI;
     try {
-        const geminiAI = getGeminiClient();
+        geminiAI = getGeminiClient();
     } catch (error) {
         throw new Error(`Gemini API key is missing or invalid. Please check your API key in settings.`);
     }
-    
-    const geminiAI = getGeminiClient();
     try {
         const response = await callWithGeminiRetry(
             (signal) => {
