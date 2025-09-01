@@ -56,8 +56,8 @@
 - `lib/loadExperts.ts`: fetches expert definitions from config files.
 
 ## Environment
-- required-variables: `LLM_PROVIDER_1_KEY`, `LLM_PROVIDER_2_KEY`, `LLM_PROVIDER_3_KEY`, `APP_URL`.
-- optional-legacy-variable: `LEGACY_PROVIDER_KEY` (fallback for provider 1).
+- required-variables: `GEMINI_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `VITE_APP_URL`.
+- optional-legacy-variable: `API_KEY` (fallback for Gemini).
 - configuration-files: `vite.config.ts`, `tailwind.config.js`, `tsconfig.json`, `postcss.config.js`.
 
 ## Scripts
