@@ -98,10 +98,10 @@ export const getGeminiClient = (): GoogleGenAI => {
         return geminiClient;
     }
 
-    const apiKey = currentGeminiApiKey || process.env.API_KEY;
+    const apiKey = currentGeminiApiKey || process.env.GEMINI_API_KEY || process.env.API_KEY;
 
     if (!apiKey) {
-        throw new Error("Gemini API key is missing. Please add it via the settings menu or ensure the API_KEY environment variable is set.");
+        throw new Error("Gemini API key is missing. Please add it via the settings menu or ensure the GEMINI_API_KEY environment variable (or legacy API_KEY) is set.");
     }
 
     geminiClient = new GoogleGenAI({ apiKey });

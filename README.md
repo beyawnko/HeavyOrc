@@ -25,6 +25,8 @@ VITE_APP_URL=https://your-domain.example
 
 Keys are optional; the UI hides providers without keys. `VITE_APP_URL` supplies a referer for server-side deployments.
 
+The application reads the Gemini key from `GEMINI_API_KEY` (falling back to a legacy `API_KEY` if present).
+
 ## Reasoning models and context management
 
 Reasoning models such as GPT‑5 and GPT‑5‑mini generate internal reasoning tokens before returning a final answer. These tokens count against the model's context window and are billed as output tokens. To avoid incomplete responses:

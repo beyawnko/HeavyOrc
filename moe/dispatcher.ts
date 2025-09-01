@@ -2,7 +2,7 @@ import { GenerateContentParameters, Part } from "@google/genai";
 import { Draft, ExpertDispatch } from './types';
 import { getGeminiClient, getOpenAIClient, getOpenRouterApiKey, callWithRetry, fetchWithRetry } from '@/services/llmService';
 import { getAppUrl, getGeminiResponseText, combineAbortSignals } from '@/lib/utils';
-import { callWithGeminiRetry, handleGeminiError } from '@/services/geminiUtils';
+import { callWithGeminiRetry, handleGeminiError, isAbortError } from '@/services/geminiUtils';
 import { GEMINI_PRO_MODEL, GEMINI_FLASH_MODEL, OPENAI_REASONING_PROMPT_PREFIX } from '@/constants';
 import { AgentConfig, GeminiAgentConfig, ImageState, OpenAIAgentConfig, GeminiThinkingEffort, OpenRouterAgentConfig } from '@/types';
 import {
@@ -109,10 +109,9 @@ const runExpertGeminiSingle = async (
         return getGeminiResponseText(response);
     } catch (error) {
         if (
-            error instanceof Error &&
-            (error.name === 'AbortError' || error.message === 'Gemini request timed out')
+            (isAbortError(error) || (error instanceof Error && error.message === 'Gemini request timed out'))
         ) {
-            throw error;
+            throw error as Error;
         }
         return handleGeminiError(error, 'dispatcher', 'dispatch');
     }
