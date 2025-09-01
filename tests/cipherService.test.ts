@@ -79,9 +79,13 @@ describe('cipherService', () => {
     expect(validateUrl('http://10.0.0.1')).toBeUndefined();
     expect(validateUrl('http://172.16.0.1')).toBeUndefined();
     expect(validateUrl('http://[::1]')).toBeUndefined();
+    expect(validateUrl('http://[::]')).toBeUndefined();
     expect(validateUrl('http://[fd00::1]')).toBeUndefined();
     expect(validateUrl('http://[fe80::1]')).toBeUndefined();
     expect(validateUrl('http://[2001:db8::1]')).toBe('http://[2001:db8::1]');
+    expect(validateUrl('http://[2001:db8:0:1::]')).toBe('http://[2001:db8:0:1::]');
+    expect(validateUrl('http://[::ffff:192.168.0.1]')).toBeUndefined();
+    expect(validateUrl('http://[fe80:::1]')).toBeUndefined();
     expect(validateUrl('ftp://example.com')).toBeUndefined();
   });
 });

@@ -9,6 +9,24 @@ export interface MemoryEntry {
 const useCipher = import.meta.env.VITE_USE_CIPHER_MEMORY === 'true';
 const baseUrl = validateUrl(import.meta.env.VITE_CIPHER_SERVER_URL);
 
+function sanitizeErrorResponse(body: string): string {
+  try {
+    const parsed = JSON.parse(body);
+    if (parsed && typeof parsed === 'object') {
+      for (const key of Object.keys(parsed)) {
+        const lower = key.toLowerCase();
+        if (['authorization', 'auth', 'token', 'password'].includes(lower)) {
+          (parsed as Record<string, unknown>)[key] = '[REDACTED]';
+        }
+      }
+      return JSON.stringify(parsed);
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return '[REDACTED]';
+}
+
 export function validateUrl(url: string | undefined): string | undefined {
   if (!url) return undefined;
   try {
@@ -22,14 +40,28 @@ export function validateUrl(url: string | undefined): string | undefined {
 function isPrivateOrLocalhost(hostname: string): boolean {
   const host = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
   const lower = host.toLowerCase();
-  return lower === 'localhost' ||
-    lower === '::1' ||
-    lower.startsWith('127.') ||
-    lower.startsWith('192.168.') ||
-    lower.startsWith('10.') ||
-    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(lower) ||
-    /^fe[89ab][0-9a-f]*:/i.test(lower) ||
-    /^f[cd][0-9a-f]*:/i.test(lower);
+  if (lower === 'localhost' || lower === '::1' || lower === '::') return true;
+  if (lower.startsWith('127.') || lower.startsWith('192.168.') || lower.startsWith('10.') || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(lower)) return true;
+  if (lower.startsWith('::ffff:')) {
+    const mapped = lower.slice(7);
+    const ipv4 = mapped.includes('.') ? mapped : (() => {
+      const parts = mapped.split(':');
+      if (parts.length !== 2) return undefined;
+      const num = (parseInt(parts[0], 16) << 16) + parseInt(parts[1], 16);
+      return [
+        (num >>> 24) & 255,
+        (num >>> 16) & 255,
+        (num >>> 8) & 255,
+        num & 255,
+      ].join('.');
+    })();
+    if (ipv4 && isPrivateOrLocalhost(ipv4)) return true;
+  }
+  return /^fe[89ab][0-9a-f]*:/.test(lower) ||
+    /^f[cd][0-9a-f]*:/.test(lower) ||
+    /^fc00:/.test(lower) ||
+    /^fd00:/.test(lower) ||
+    /^fe80:/.test(lower);
 }
 
 export const storeRunRecord = async (run: RunRecord): Promise<void> => {
@@ -46,7 +78,7 @@ export const storeRunRecord = async (run: RunRecord): Promise<void> => {
         url: `${baseUrl}/memories`,
         status: response.status,
         statusText: response.statusText,
-        body: errorData,
+        body: sanitizeErrorResponse(errorData),
       });
     }
   } catch (e) {
@@ -72,7 +104,7 @@ export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[
         url: `${baseUrl}/memories/search`,
         status: response.status,
         statusText: response.statusText,
-        body: errorData,
+        body: sanitizeErrorResponse(errorData),
       });
       return [];
     }
