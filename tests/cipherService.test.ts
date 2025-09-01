@@ -99,12 +99,39 @@ describe('cipherService', () => {
   it('fetches memories when enabled', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
+    const data = { memories: [{ id: '1', content: 'note' }] };
+    const headers = { 'Content-Security-Policy': "default-src 'self'; connect-src 'self'" };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(data), { status: 200, headers }));
+    global.fetch = fetchMock as any;
+    const { fetchRelevantMemories } = await import('@/services/cipherService');
+    const memories = await fetchRelevantMemories('q');
+    expect(memories).toEqual(data.memories);
+  });
+
+  it('returns empty array when CSP header missing and enforcement enabled', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
     const data = { memories: [{ id: '1', content: 'note' }] };
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(data), { status: 200 }));
     global.fetch = fetchMock as any;
     const { fetchRelevantMemories } = await import('@/services/cipherService');
     const memories = await fetchRelevantMemories('q');
-    expect(memories).toEqual(data.memories);
+    expect(memories).toEqual([]);
+  });
+
+  it('returns empty array when CSP header invalid and enforcement enabled', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
+    const headers = { 'Content-Security-Policy': "default-src *" };
+    const data = { memories: [{ id: '1', content: 'note' }] };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(data), { status: 200, headers }));
+    global.fetch = fetchMock as any;
+    const { fetchRelevantMemories } = await import('@/services/cipherService');
+    const memories = await fetchRelevantMemories('q');
+    expect(memories).toEqual([]);
   });
 
   it('returns an empty array on network errors when fetching memories', async () => {
