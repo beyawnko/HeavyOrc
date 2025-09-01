@@ -81,6 +81,7 @@ describe('cipherService', () => {
       'connection-string': 'conn',
       'private_key': 'pk',
       session_id: 'sess',
+      encoded: 'YWJjMTIzYWJjMTIzYWJjMTIzYWJjMTIzYWJjMTIz',
     });
     const headers = {
       'Content-Security-Policy':
@@ -99,7 +100,7 @@ describe('cipherService', () => {
     await storeRunRecord(sampleRun);
     const logged = consoleSpy.mock.calls[0][1] as any;
     expect(logged.body).toBe(
-      '{"token":"[REDACTED]","Password":"[REDACTED]","certificate":"[REDACTED]","connection-string":"[REDACTED]","private_key":"[REDACTED]","session_id":"[REDACTED]"}'
+      '{"token":"[REDACTED]","Password":"[REDACTED]","certificate":"[REDACTED]","connection-string":"[REDACTED]","private_key":"[REDACTED]","session_id":"[REDACTED]","encoded":"[REDACTED]"}'
     );
     consoleSpy.mockRestore();
   });
@@ -132,6 +133,7 @@ describe('cipherService', () => {
     expect(validateUrl('http://example.com')).toBe('http://example.com');
     expect(validateUrl('ftp://example.com')).toBeUndefined();
     expect(validateUrl('http://localhost')).toBe('http://localhost');
+    expect(validateUrl('example.com')).toBeUndefined();
   });
 
   it('blocks private URLs in production', async () => {

@@ -306,7 +306,12 @@ const App: React.FC = () => {
                     arbiterSwitchWarning: arbiterSwitchWarningRef.current,
                 };
                 setHistory(prev => [newRun, ...prev]);
-                void storeRunRecord(newRun);
+                storeRunRecord(newRun).catch(err =>
+                    setToast({
+                        message: `Failed to store run record: ${err instanceof Error ? escapeHtml(err.message) : 'Unknown error'}`,
+                        type: 'error',
+                    })
+                );
                 currentRunDataRef.current = undefined; // Clear after use
             }
         }
@@ -380,11 +385,7 @@ const App: React.FC = () => {
 
         const memories = await fetchRelevantMemories(finalPrompt);
         if (memories.length > 0) {
-            const sanitizedMemories = memories.map(m => ({
-                ...m,
-                content: escapeHtml(m.content)
-            }));
-            const memoryText = sanitizedMemories.map(m => m.content).join('\n');
+            const memoryText = memories.map(m => escapeHtml(m.content)).join('\n');
             finalPrompt = `Context from previous interactions:\n${memoryText}\n\nCurrent request:\n${finalPrompt}`;
             setToast({ message: `Including ${memories.length} relevant memories from history...`, type: 'success' });
         }
