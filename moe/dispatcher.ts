@@ -47,6 +47,16 @@ const parseEnvInt = (value: string | undefined, fallback: number) => {
 const GEMINI_RETRY_COUNT = parseEnvInt(process.env.GEMINI_RETRY_COUNT, 2);
 const GEMINI_BACKOFF_MS = parseEnvInt(process.env.GEMINI_BACKOFF_MS, 2000);
 const MIN_GEMINI_TIMEOUT_MS = 5000;
+
+/**
+ * Validates and normalizes a Gemini timeout against minimum and maximum bounds.
+ * Falls back to the provided default when out of range and logs contextual information.
+ *
+ * @param timeoutMs - Timeout in milliseconds to validate.
+ * @param defaultTimeoutMs - Fallback timeout if the provided value is invalid.
+ * @param context - Optional metadata for logging, such as expert name or value source.
+ * @returns A timeout guaranteed to be within allowed bounds.
+ */
 const normalizeGeminiTimeout = (
     timeoutMs: number,
     defaultTimeoutMs: number,
@@ -74,11 +84,13 @@ const normalizeGeminiTimeout = (
     return timeoutMs;
 };
 // Default timeout for Gemini requests; individual experts can override this via config.
-const DEFAULT_GEMINI_TIMEOUT_MS = normalizeGeminiTimeout(
-    parseEnvInt(process.env.GEMINI_TIMEOUT_MS, 30000),
-    30000,
-    { source: 'env' }
-);
+const DEFAULT_GEMINI_TIMEOUT_MS = ((fallback: number) =>
+    normalizeGeminiTimeout(
+        parseEnvInt(process.env.GEMINI_TIMEOUT_MS, fallback),
+        fallback,
+        { source: 'env' }
+    )
+)(30000);
 
 const formatTimeoutError = (expertName: string, model: string, timeoutMs: number, elapsed: number) =>
     `Expert "${expertName}" using model "${model}" exceeded the configured timeout of ${Math.round(timeoutMs / 1000)} seconds after ${Math.round(elapsed / 1000)} seconds.`;
@@ -179,8 +191,11 @@ const runExpertGeminiSingle = async (
     } catch (error) {
         throw new Error(`Gemini API key is missing or invalid. Please check your API key in settings.`);
     }
-    let timeoutMs = config.settings.timeoutMs ?? DEFAULT_GEMINI_TIMEOUT_MS;
-    timeoutMs = normalizeGeminiTimeout(timeoutMs, DEFAULT_GEMINI_TIMEOUT_MS, { expertName: expert.name });
+    const timeoutMs = normalizeGeminiTimeout(
+        config.settings.timeoutMs ?? DEFAULT_GEMINI_TIMEOUT_MS,
+        DEFAULT_GEMINI_TIMEOUT_MS,
+        { expertName: expert.name }
+    );
     const start = performance.now();
     const timeoutController = new AbortController();
     const timeoutHandle = setTimeout(() => timeoutController.abort(), timeoutMs);
@@ -223,8 +238,7 @@ const runExpertGeminiSingle = async (
         if (error instanceof Error) {
             if (error.message.startsWith(`Expert "${expert.name}" exceeded the configured timeout`)) {
                 throw error;
-            }
-            if (error.message.startsWith('Gemini request timed out')) {
+            } else if (error.message.startsWith('Gemini request timed out')) {
                 const elapsed = performance.now() - start;
                 throw new Error(formatTimeoutError(expert.name, config.model, timeoutMs, elapsed));
             }

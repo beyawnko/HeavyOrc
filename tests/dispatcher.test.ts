@@ -313,7 +313,7 @@ describe('dispatcher Gemini timeout', () => {
       vi.useRealTimers();
     });
 
-  it('handles minimum valid timeout correctly', async () => {
+  it('handles minimum timeout boundary correctly', async () => {
     const generateContentStream = vi.fn().mockResolvedValue({
       [Symbol.asyncIterator]: async function* () {
         yield { text: () => 'ok' };
@@ -335,7 +335,7 @@ describe('dispatcher Gemini timeout', () => {
       ...baseConfig,
       id: 'minTimeout',
       expert,
-      settings: { ...baseConfig.settings, timeoutMs: 5001 }
+      settings: { ...baseConfig.settings, timeoutMs: 5000 }
     };
 
     const drafts = await dispatch([expert], 'prompt', [], [config], () => {}, undefined);
