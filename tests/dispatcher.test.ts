@@ -162,6 +162,40 @@ describe('dispatcher Gemini streaming', () => {
     expect(drafts[0].status).toBe('COMPLETED');
     expect(drafts[0].isPartial).toBe(true);
   });
+
+  it('ignores empty stream chunks', async () => {
+    const generateContentStream = vi.fn().mockResolvedValue({
+      [Symbol.asyncIterator]: async function* () {
+        yield { text: () => 'a' };
+        yield { text: () => 'b' };
+        yield { text: () => 'c' };
+      },
+    });
+
+    (getGeminiClient as unknown as Mock).mockReturnValue({ models: { generateContentStream } });
+
+    const utils = await import('@/lib/utils');
+    vi.spyOn(utils, 'getGeminiResponseText')
+      .mockReturnValueOnce('hello ')
+      .mockReturnValueOnce(null as any)
+      .mockReturnValueOnce('world');
+
+    const { dispatch } = await import('@/moe/dispatcher');
+
+    const expert: ExpertDispatch = {
+      agentId: 'empty',
+      provider: 'gemini',
+      model: GEMINI_FLASH_MODEL,
+      id: '1',
+      name: 'empty',
+      persona: '',
+    };
+    const config: GeminiAgentConfig = { ...baseConfig, id: 'empty', expert };
+
+    const drafts = await dispatch([expert], 'prompt', [], [config], () => {}, undefined);
+
+    expect(drafts[0].content).toBe('hello world');
+  });
 });
 
 describe('dispatcher Gemini timeout', () => {
