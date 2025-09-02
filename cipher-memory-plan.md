@@ -45,6 +45,7 @@ This document tracks the phased implementation of persistent conversational cont
 - [x] Draft unit tests for LRU cache behavior.
 - [x] Stub Cipher client with session-aware `storeRun` and `search` calls.
 - [x] Wire session cache with Cipher service and propagate `sessionId` in App.
-- [ ] Decide on queue size and summarization thresholds. (`SESSION_CACHE_MAX_ENTRIES` currently 20)
-- [ ] Add tests for context reconstruction with long-term and session caches.
+- [x] Decide on queue size and summarization thresholds. (`SESSION_CACHE_MAX_ENTRIES` set to 20; summarize after ~4000 chars)
+- [x] Add tests for context reconstruction with long-term and session caches.
+- [ ] Implement summarization logic for overflowing session history.
 

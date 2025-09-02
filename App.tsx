@@ -2,7 +2,6 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import JSZip from 'jszip';
 import { motion, Variants } from 'framer-motion';
 import FocusTrap from 'focus-trap-react';
-import { escapeHtml } from '@/lib/utils';
 
 // Types and constants
 import {
@@ -56,8 +55,9 @@ import {
     setGeminiApiKey as storeGeminiApiKey,
     setOpenRouterApiKey as storeOpenRouterApiKey,
 } from '@/services/llmService';
-import { storeRunRecord, fetchRelevantMemories } from '@/services/cipherService';
-import { getSessionId, loadSessionContext, appendSessionContext } from '@/lib/sessionCache';
+import { storeRunRecord } from '@/services/cipherService';
+import { getSessionId, appendSessionContext } from '@/lib/sessionCache';
+import { buildContextualPrompt } from '@/lib/contextBuilder';
 
 // Hooks
 import useViewportHeight from '@/lib/useViewportHeight';
@@ -411,21 +411,12 @@ const App: React.FC = () => {
         try {
             setIsLoading(true);
 
-            let finalPrompt = userPrompt;
-
-            const memories = await fetchRelevantMemories(userPrompt, sessionId);
+            const {
+                prompt: finalPrompt,
+                memories,
+            } = await buildContextualPrompt(userPrompt, sessionId);
             if (memories.length > 0) {
-                const memoryText = memories.map(m => escapeHtml(m.content)).join('\n');
-                finalPrompt = `Context from previous interactions:\n${memoryText}\n\n${finalPrompt}`;
                 setToast({ message: `Including ${memories.length} relevant memories from history...`, type: 'success' });
-            }
-
-            const sessionContext = loadSessionContext(sessionId);
-            if (sessionContext.length > 0) {
-                const sessionText = sessionContext
-                    .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${escapeHtml(m.content)}`)
-                    .join('\n');
-                finalPrompt = `Recent session context:\n${sessionText}\n\n${finalPrompt}`;
             }
 
             isRunCompletedRef.current = false;
