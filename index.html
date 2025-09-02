@@ -26,7 +26,9 @@
       <script type="module">
         window.__SW_VERSION__ = import.meta.env.VITE_SW_VERSION;
       </script>
-      <script src="%BASE_URL%coi-serviceworker.js"></script>
+      <script type="module">
+        import(/* @vite-ignore */ `%BASE_URL%` + 'coi-serviceworker.js');
+      </script>
     <style>
       html {
         box-sizing: border-box;
