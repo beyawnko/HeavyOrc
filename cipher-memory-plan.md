@@ -50,6 +50,6 @@ This document tracks the phased implementation of persistent conversational cont
 - [x] Implement summarization logic for overflowing session history.
 - [x] Enforce rate limits and payload caps on memory operations.
 - [x] Add session export/import utilities for migrating context.
-- [ ] Sign and validate session IDs to prevent tampering.
+- [x] Sign and validate session IDs to prevent tampering.
 - [ ] Emit structured logs/metrics for memory operations.
 

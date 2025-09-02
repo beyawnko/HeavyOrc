@@ -7,6 +7,7 @@ import {
   summarizeSessionIfNeeded,
   exportSession,
   importSession,
+  __signSessionId,
 } from '@/lib/sessionCache';
 import { SESSION_CACHE_MAX_ENTRIES, SESSION_ID_STORAGE_KEY } from '@/constants';
 
@@ -54,7 +55,9 @@ describe('sessionCache', () => {
     const id1 = getSessionId();
     const id2 = getSessionId();
     expect(id1).toBe(id2);
-    expect(store[SESSION_ID_STORAGE_KEY]).toBe(id1);
+    expect(store[SESSION_ID_STORAGE_KEY]).toBe(
+      `${id1}.${__signSessionId(id1)}`,
+    );
   });
 
   it('summarizes overflowing context', async () => {
@@ -90,7 +93,9 @@ describe('sessionCache', () => {
     };
     const importedId = importSession(serialized);
     expect(importedId).toBe(sessionId);
-    expect(store[SESSION_ID_STORAGE_KEY]).toBe(sessionId);
+    expect(store[SESSION_ID_STORAGE_KEY]).toBe(
+      `${sessionId}.${__signSessionId(sessionId)}`,
+    );
     const ctx = loadSessionContext(sessionId);
     expect(ctx).toHaveLength(1);
     expect(ctx[0].content).toBe('hello');
@@ -99,5 +104,24 @@ describe('sessionCache', () => {
   it('returns null on malformed import', () => {
     const res = importSession('not-json');
     expect(res).toBeNull();
+  });
+
+  it('regenerates sessionId if signature mismatch', () => {
+    const store: Record<string, string> = {};
+    (globalThis as any).window = {
+      localStorage: {
+        getItem: (k: string) => store[k] ?? null,
+        setItem: (k: string, v: string) => {
+          store[k] = v;
+        },
+      },
+    };
+    const id1 = getSessionId();
+    store[SESSION_ID_STORAGE_KEY] = `${id1}.bogus`;
+    const id2 = getSessionId();
+    expect(id2).not.toBe(id1);
+    expect(store[SESSION_ID_STORAGE_KEY]).toBe(
+      `${id2}.${__signSessionId(id2)}`,
+    );
   });
 });

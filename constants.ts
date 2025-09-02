@@ -16,6 +16,10 @@ Instructions:
 export const SESSION_ID_STORAGE_KEY = 'cipher:sessionId';
 export const SESSION_CACHE_MAX_ENTRIES = 20;
 export const SESSION_SUMMARY_CHAR_THRESHOLD = 4000;
+export const SESSION_ID_SECRET =
+  (typeof process !== 'undefined' && process.env.SESSION_ID_SECRET) ||
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SESSION_ID_SECRET) ||
+  'dev-session-secret';
 
 export const GEMINI_FLASH_MODEL = "gemini-2.5-flash";
 export const GEMINI_PRO_MODEL = "gemini-2.5-pro";
