@@ -60,7 +60,7 @@ If the server is not running, HeavyOrc continues to operate with ephemeral in-me
 Fetched memory snippets are HTML-escaped with [`escape-html`](https://www.npmjs.com/package/escape-html), replacing characters like `&`, `<`, `>`, `"` and `'` before including them in prompts. Error responses are recursively redacted: keys such as `token`, `password`, `secret`, `apiKey` and other credential-like fields—or high-entropy strings that look base64-encoded—are replaced with `[REDACTED]`. Redaction patterns and entropy checks are hardcoded in [`lib/security.ts`](./lib/security.ts) and can be customized there if needed. Responses from the memory server are streamed and capped at 400KB to mitigate denial-of-service attempts.
 Review and update these patterns regularly to catch newly emerging sensitive data types.
 
-Memory requests are rate-limited to 30 per minute, cap each entry at 4KB and limit total response size to 400KB. Successful responses are cached for five minutes (up to 1000 entries) using a min-heap for eviction. All fetches use the shared retry helpers and honor standard timeouts.
+Memory requests are rate-limited to 30 per minute, cap each entry at 4KB and limit total response size to 400KB. Successful responses are cached for five minutes (up to 1000 entries) using a min-heap for eviction. All fetches use the shared retry helpers and honor standard timeouts. A circuit breaker skips memory fetches after five consecutive failures and resets after 30 seconds. Tune these thresholds via `VITE_CIPHER_CIRCUIT_BREAKER_THRESHOLD` and `VITE_CIPHER_CIRCUIT_BREAKER_RESET_MS`.
 
 ## ESM imports
 

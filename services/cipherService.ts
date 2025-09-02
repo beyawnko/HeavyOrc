@@ -30,6 +30,29 @@ let currentCacheSize = 0;
 const expiryHeap = new MinHeap<[string, number]>((a, b) => a[1] - b[1]);
 const inFlightFetches = new Map<string, Promise<MemoryEntry[]>>();
 
+const CIRCUIT_BREAKER_THRESHOLD = Number(
+  import.meta.env.VITE_CIPHER_CIRCUIT_BREAKER_THRESHOLD ?? 5,
+);
+const CIRCUIT_BREAKER_RESET_MS = Number(
+  import.meta.env.VITE_CIPHER_CIRCUIT_BREAKER_RESET_MS ?? 30000,
+);
+
+const circuitBreaker = {
+  failures: 0,
+  lastFailure: 0,
+  threshold: CIRCUIT_BREAKER_THRESHOLD,
+  resetTimeMs: CIRCUIT_BREAKER_RESET_MS,
+};
+
+function recordFailure() {
+  circuitBreaker.failures += 1;
+  circuitBreaker.lastFailure = Date.now();
+}
+
+function isCircuitOpen() {
+  return circuitBreaker.failures >= circuitBreaker.threshold;
+}
+
 function pruneCache() {
   const now = Date.now();
   while (expiryHeap.size() > 0) {
@@ -187,6 +210,26 @@ export const fetchRelevantMemories = async (
     return cached.data;
   }
   if (query.length > MAX_MEMORY_LENGTH) return [];
+  if (isCircuitOpen()) {
+    const elapsed = Date.now() - circuitBreaker.lastFailure;
+    if (elapsed > circuitBreaker.resetTimeMs) {
+      circuitBreaker.failures = 0;
+    } else {
+      const resetInMs = circuitBreaker.resetTimeMs - elapsed;
+      console.warn('Circuit breaker open, skipping memory fetch', {
+        failures: circuitBreaker.failures,
+        resetInMs,
+      });
+      logMemory('cipher.fetch.circuitOpen', {
+        sessionId,
+        query,
+        failures: circuitBreaker.failures,
+        resetInMs,
+      });
+      return [];
+    }
+  }
+
   if (inFlightFetches.has(cacheKey)) {
     return inFlightFetches.get(cacheKey)!;
   }
@@ -216,6 +259,7 @@ export const fetchRelevantMemories = async (
           statusText: response.statusText,
           body: sanitizeErrorResponse(errorData),
         });
+        recordFailure();
         return [];
       }
 
@@ -224,6 +268,7 @@ export const fetchRelevantMemories = async (
         console.error('Memory response too large', {
           url: `${baseUrl}/memories/search`,
         });
+        recordFailure();
         return [];
       }
       const data = JSON.parse(text) as { memories?: MemoryEntry[] };
@@ -241,12 +286,14 @@ export const fetchRelevantMemories = async (
       currentCacheSize += size;
       pruneCache();
       logMemory('cipher.fetch', { sessionId, query, count: memories.length });
+      circuitBreaker.failures = 0;
       return memories;
     } catch (e) {
       console.error('Failed to fetch relevant memories', {
         url: `${baseUrl}/memories/search`,
         error: e,
       });
+      recordFailure();
       logMemory('cipher.fetch.error', { sessionId, query, error: e });
       return [];
     }

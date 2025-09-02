@@ -265,8 +265,59 @@ describe('cipherService', () => {
     expect(empty).toEqual([]);
   });
 
+  it('skips fetch when circuit breaker is open', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
+    const fetchMock = vi.fn().mockRejectedValue(new Error('network')) as any;
+    global.fetch = fetchMock;
+    vi.doMock('@/services/llmService', () => ({
+      fetchWithRetry: (url: RequestInfo, init?: RequestInit) =>
+        fetch(url as any, init),
+    }));
+    const { fetchRelevantMemories } = await import('@/services/cipherService');
+    for (let i = 0; i < 5; i++) {
+      await fetchRelevantMemories('q', SESSION_ID);
+    }
+    const res = await fetchRelevantMemories('q', SESSION_ID);
+    expect(res).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  it('resets circuit breaker after timeout', async () => {
+    vi.useFakeTimers();
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    vi.stubEnv('VITE_CIPHER_CIRCUIT_BREAKER_THRESHOLD', '2');
+    vi.stubEnv('VITE_CIPHER_CIRCUIT_BREAKER_RESET_MS', '1000');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('network'))
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ memories: [] })));
+    global.fetch = fetchMock as any;
+    vi.doMock('@/services/llmService', () => ({
+      fetchWithRetry: (url: RequestInfo, init?: RequestInit) =>
+        fetch(url as any, init),
+    }));
+    const { fetchRelevantMemories } = await import('@/services/cipherService');
+    await fetchRelevantMemories('q', SESSION_ID);
+    await fetchRelevantMemories('q', SESSION_ID);
+    const before = await fetchRelevantMemories('q', SESSION_ID);
+    expect(before).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    vi.advanceTimersByTime(1001);
+    const after = await fetchRelevantMemories('q', SESSION_ID);
+    expect(after).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    vi.useRealTimers();
+  });
+
   it('no-ops when disabled', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'false');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', '');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const fetchMock = vi.fn();
     global.fetch = fetchMock as any;
     const { storeRunRecord, fetchRelevantMemories } = await import('@/services/cipherService');
