@@ -265,8 +265,29 @@ describe('cipherService', () => {
     expect(empty).toEqual([]);
   });
 
+  it('skips fetch when circuit breaker is open', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
+    const fetchMock = vi.fn().mockRejectedValue(new Error('network')) as any;
+    global.fetch = fetchMock;
+    vi.doMock('@/services/llmService', () => ({
+      fetchWithRetry: (url: RequestInfo, init?: RequestInit) =>
+        fetch(url as any, init),
+    }));
+    const { fetchRelevantMemories } = await import('@/services/cipherService');
+    for (let i = 0; i < 5; i++) {
+      await fetchRelevantMemories('q', SESSION_ID);
+    }
+    const res = await fetchRelevantMemories('q', SESSION_ID);
+    expect(res).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
   it('no-ops when disabled', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'false');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', '');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const fetchMock = vi.fn();
     global.fetch = fetchMock as any;
     const { storeRunRecord, fetchRelevantMemories } = await import('@/services/cipherService');

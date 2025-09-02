@@ -30,6 +30,26 @@ let currentCacheSize = 0;
 const expiryHeap = new MinHeap<[string, number]>((a, b) => a[1] - b[1]);
 const inFlightFetches = new Map<string, Promise<MemoryEntry[]>>();
 
+const circuitBreaker = {
+  failures: 0,
+  lastFailure: 0,
+  threshold: 5,
+  resetTimeMs: 30000,
+};
+
+function recordFailure() {
+  circuitBreaker.failures += 1;
+  circuitBreaker.lastFailure = Date.now();
+}
+
+function isCircuitOpen() {
+  if (Date.now() - circuitBreaker.lastFailure > circuitBreaker.resetTimeMs) {
+    circuitBreaker.failures = 0;
+    return false;
+  }
+  return circuitBreaker.failures >= circuitBreaker.threshold;
+}
+
 function pruneCache() {
   const now = Date.now();
   while (expiryHeap.size() > 0) {
@@ -187,6 +207,13 @@ export const fetchRelevantMemories = async (
     return cached.data;
   }
   if (query.length > MAX_MEMORY_LENGTH) return [];
+
+  if (isCircuitOpen()) {
+    console.warn('Circuit breaker open, skipping memory fetch');
+    logMemory('cipher.fetch.circuitOpen', { sessionId, query });
+    return [];
+  }
+
   if (inFlightFetches.has(cacheKey)) {
     return inFlightFetches.get(cacheKey)!;
   }
@@ -216,6 +243,7 @@ export const fetchRelevantMemories = async (
           statusText: response.statusText,
           body: sanitizeErrorResponse(errorData),
         });
+        recordFailure();
         return [];
       }
 
@@ -224,6 +252,7 @@ export const fetchRelevantMemories = async (
         console.error('Memory response too large', {
           url: `${baseUrl}/memories/search`,
         });
+        recordFailure();
         return [];
       }
       const data = JSON.parse(text) as { memories?: MemoryEntry[] };
@@ -241,12 +270,14 @@ export const fetchRelevantMemories = async (
       currentCacheSize += size;
       pruneCache();
       logMemory('cipher.fetch', { sessionId, query, count: memories.length });
+      circuitBreaker.failures = 0;
       return memories;
     } catch (e) {
       console.error('Failed to fetch relevant memories', {
         url: `${baseUrl}/memories/search`,
         error: e,
       });
+      recordFailure();
       logMemory('cipher.fetch.error', { sessionId, query, error: e });
       return [];
     }
