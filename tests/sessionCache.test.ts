@@ -4,6 +4,7 @@ import {
   loadSessionContext,
   getSessionId,
   __clearSessionCache,
+  summarizeSessionIfNeeded,
 } from '@/lib/sessionCache';
 import { SESSION_CACHE_MAX_ENTRIES, SESSION_ID_STORAGE_KEY } from '@/constants';
 
@@ -52,5 +53,18 @@ describe('sessionCache', () => {
     const id2 = getSessionId();
     expect(id1).toBe(id2);
     expect(store[SESSION_ID_STORAGE_KEY]).toBe(id1);
+  });
+
+  it('summarizes overflowing context', async () => {
+    const sessionId = 's';
+    const long = 'x'.repeat(SESSION_CACHE_MAX_ENTRIES * 300);
+    appendSessionContext(sessionId, { role: 'user', content: long, timestamp: 0 });
+    appendSessionContext(sessionId, { role: 'assistant', content: long, timestamp: 1 });
+    const summarizer = vi.fn(async () => 'summary');
+    await summarizeSessionIfNeeded(sessionId, summarizer, 1000);
+    expect(summarizer).toHaveBeenCalledOnce();
+    const ctx = loadSessionContext(sessionId);
+    expect(ctx).toHaveLength(2);
+    expect(ctx[1].content).toBe('summary');
   });
 });

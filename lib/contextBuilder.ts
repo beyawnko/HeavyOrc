@@ -1,5 +1,10 @@
 import { fetchRelevantMemories, MemoryEntry } from '@/services/cipherService';
-import { loadSessionContext, CachedMessage } from '@/lib/sessionCache';
+import {
+  loadSessionContext,
+  CachedMessage,
+  summarizeSessionIfNeeded,
+  Summarizer,
+} from '@/lib/sessionCache';
 import { escapeHtml } from '@/lib/utils';
 
 export interface ContextualPrompt {
@@ -11,7 +16,10 @@ export interface ContextualPrompt {
 export async function buildContextualPrompt(
   userPrompt: string,
   sessionId: string,
+  summarizer: Summarizer = async (text: string) =>
+    text.slice(0, 1000) + (text.length > 1000 ? '…' : ''),
 ): Promise<ContextualPrompt> {
+  await summarizeSessionIfNeeded(sessionId, summarizer);
   let prompt = userPrompt;
   const memories = await fetchRelevantMemories(userPrompt, sessionId);
   if (memories.length > 0) {
