@@ -5,6 +5,8 @@ import {
   getSessionId,
   __clearSessionCache,
   summarizeSessionIfNeeded,
+  exportSession,
+  importSession,
 } from '@/lib/sessionCache';
 import { SESSION_CACHE_MAX_ENTRIES, SESSION_ID_STORAGE_KEY } from '@/constants';
 
@@ -66,5 +68,36 @@ describe('sessionCache', () => {
     const ctx = loadSessionContext(sessionId);
     expect(ctx).toHaveLength(2);
     expect(ctx[1].content).toBe('summary');
+  });
+
+  it('exports and imports session data', () => {
+    const sessionId = 'exp';
+    appendSessionContext(sessionId, {
+      role: 'user',
+      content: 'hello',
+      timestamp: 1,
+    });
+    const serialized = exportSession(sessionId);
+    __clearSessionCache();
+    const store: Record<string, string> = {};
+    (globalThis as any).window = {
+      localStorage: {
+        getItem: (k: string) => store[k] ?? null,
+        setItem: (k: string, v: string) => {
+          store[k] = v;
+        },
+      },
+    };
+    const importedId = importSession(serialized);
+    expect(importedId).toBe(sessionId);
+    expect(store[SESSION_ID_STORAGE_KEY]).toBe(sessionId);
+    const ctx = loadSessionContext(sessionId);
+    expect(ctx).toHaveLength(1);
+    expect(ctx[0].content).toBe('hello');
+  });
+
+  it('returns null on malformed import', () => {
+    const res = importSession('not-json');
+    expect(res).toBeNull();
   });
 });

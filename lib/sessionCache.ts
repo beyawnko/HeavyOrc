@@ -87,3 +87,29 @@ export async function summarizeSessionIfNeeded(
     cache.set(sessionId, keep);
   }
 }
+
+export function exportSession(sessionId: string): string {
+  const messages = cache.get(sessionId) ?? [];
+  return JSON.stringify({ sessionId, messages });
+}
+
+export function importSession(serialized: string): string | null {
+  try {
+    const parsed = JSON.parse(serialized) as {
+      sessionId: string;
+      messages: CachedMessage[];
+    };
+    if (!parsed.sessionId || !Array.isArray(parsed.messages)) return null;
+    const { sessionId, messages } = parsed;
+    if (hasLocalStorage()) {
+      window.localStorage.setItem(SESSION_ID_STORAGE_KEY, sessionId);
+    } else {
+      ephemeralSessionId = sessionId;
+    }
+    cache.set(sessionId, messages);
+    return sessionId;
+  } catch (e) {
+    console.warn('Failed to import session', e);
+    return null;
+  }
+}

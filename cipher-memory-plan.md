@@ -49,7 +49,7 @@ This document tracks the phased implementation of persistent conversational cont
 - [x] Add tests for context reconstruction with long-term and session caches.
 - [x] Implement summarization logic for overflowing session history.
 - [x] Enforce rate limits and payload caps on memory operations.
-- [ ] Add session export/import utilities for migrating context.
+- [x] Add session export/import utilities for migrating context.
 - [ ] Sign and validate session IDs to prevent tampering.
 - [ ] Emit structured logs/metrics for memory operations.
 
