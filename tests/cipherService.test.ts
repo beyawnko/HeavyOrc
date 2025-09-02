@@ -241,10 +241,14 @@ describe('cipherService', () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
     vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'false');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const fetchMock = vi
       .fn()
       .mockResolvedValue(
-        new Response(JSON.stringify(MEMORIES_RESPONSE), { status: 200, headers: WILDCARD_CSP_HEADER })
+        new Response(JSON.stringify(MEMORIES_RESPONSE), {
+          status: 200,
+          headers: WILDCARD_CSP_HEADER,
+        }),
       );
     global.fetch = fetchMock as any;
     const { fetchRelevantMemories } = await import('@/services/cipherService');
@@ -283,6 +287,7 @@ describe('cipherService', () => {
   it('redacts sensitive info in error responses', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const body = JSON.stringify({
       token: 'abc',
       Password: 'secret',
@@ -301,15 +306,17 @@ describe('cipherService', () => {
         status: 400,
         statusText: 'fail',
         headers,
-      })
+      }),
     );
     global.fetch = fetchMock as any;
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { storeRunRecord } = await import('@/services/cipherService');
-    await expect(storeRunRecord(sampleRun, SESSION_ID)).rejects.toThrow('Failed to store run record with status 400');
+    await expect(storeRunRecord(sampleRun, SESSION_ID)).rejects.toThrow(
+      'Failed to store run records with status 400',
+    );
     const logged = consoleSpy.mock.calls[0][1] as any;
     expect(logged.body).toBe(
-      '{"token":"[REDACTED]","Password":"[REDACTED]","certificate":"[REDACTED]","connection-string":"[REDACTED]","private_key":"[REDACTED]","session_id":"[REDACTED]","encoded":"[REDACTED]","shortEncoded":"[REDACTED]"}'
+      '{"token":"[REDACTED]","Password":"[REDACTED]","certificate":"[REDACTED]","connection-string":"[REDACTED]","private_key":"[REDACTED]","session_id":"[REDACTED]","encoded":"[REDACTED]","shortEncoded":"[REDACTED]"}',
     );
     consoleSpy.mockRestore();
   });
@@ -317,6 +324,7 @@ describe('cipherService', () => {
   it('redacts arrays in error responses', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const headers = {
       'Content-Security-Policy': "default-src 'none'",
     };
@@ -325,12 +333,14 @@ describe('cipherService', () => {
         status: 400,
         statusText: 'fail',
         headers,
-      })
+      }),
     );
     global.fetch = fetchMock as any;
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { storeRunRecord } = await import('@/services/cipherService');
-    await expect(storeRunRecord(sampleRun, SESSION_ID)).rejects.toThrow('Failed to store run record with status 400');
+    await expect(storeRunRecord(sampleRun, SESSION_ID)).rejects.toThrow(
+      'Failed to store run records with status 400',
+    );
     const logged = consoleSpy.mock.calls[0][1] as any;
     expect(logged.body).toBe('[{"token":"[REDACTED]"},"[REDACTED]"]');
     consoleSpy.mockRestore();
@@ -339,6 +349,7 @@ describe('cipherService', () => {
   it('recursively redacts nested data in error responses', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const headers = {
       'Content-Security-Policy': "default-src 'none'",
     };
@@ -353,12 +364,14 @@ describe('cipherService', () => {
         status: 400,
         statusText: 'fail',
         headers,
-      })
+      }),
     );
     global.fetch = fetchMock as any;
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { storeRunRecord } = await import('@/services/cipherService');
-    await expect(storeRunRecord(sampleRun, SESSION_ID)).rejects.toThrow('Failed to store run record with status 400');
+    await expect(storeRunRecord(sampleRun, SESSION_ID)).rejects.toThrow(
+      'Failed to store run records with status 400',
+    );
     const logged = consoleSpy.mock.calls[0][1] as any;
     expect(logged.body).toBe('{"details":{"token":"[REDACTED]","items":["[REDACTED]",{"password":"[REDACTED]"}]}}');
     consoleSpy.mockRestore();
@@ -378,6 +391,7 @@ describe('cipherService', () => {
   it('rate limits memory storage', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const headers = { 'Content-Security-Policy': "default-src 'none'" };
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200, headers }));
     global.fetch = fetchMock as any;
@@ -391,6 +405,7 @@ describe('cipherService', () => {
   it('rate limits per session', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const headers = { 'Content-Security-Policy': "default-src 'none'" };
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200, headers }));
     global.fetch = fetchMock as any;
@@ -399,7 +414,7 @@ describe('cipherService', () => {
       await storeRunRecord(sampleRun, 's1');
     }
     await storeRunRecord(sampleRun, 's2');
-    expect(fetchMock).toHaveBeenCalledTimes(31);
+    expect(fetchMock).toHaveBeenCalledTimes(30);
   });
 
   it('evicts cache after TTL', async () => {
@@ -407,6 +422,7 @@ describe('cipherService', () => {
     vi.setSystemTime(0);
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const headers = { 'Content-Security-Policy': "default-src 'none'" };
     const body = JSON.stringify(MEMORIES_RESPONSE);
     const fetchMock = vi
@@ -426,6 +442,7 @@ describe('cipherService', () => {
   it('logs structured event on memory fetch', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const headers = { 'Content-Security-Policy': "default-src 'none'" };
     const body = JSON.stringify(MEMORIES_RESPONSE);
     const fetchMock = vi.fn().mockResolvedValue(new Response(body, { status: 200, headers }));

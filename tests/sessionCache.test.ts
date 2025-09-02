@@ -190,7 +190,10 @@ describe('sessionCache', () => {
   });
 
   it('uses imported sessionId when localStorage write fails', async () => {
-    const serialized = JSON.stringify({ sessionId: 'imp', messages: [] });
+    const serialized = JSON.stringify({
+      sessionId: '123e4567-e89b-12d3-a456-426614174111',
+      messages: [],
+    });
     (globalThis as any).window = {
       localStorage: {
         getItem: () => {
@@ -203,9 +206,9 @@ describe('sessionCache', () => {
     };
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const id = await importSession(serialized);
-    expect(id).toBe('imp');
+    expect(id).toBe('123e4567-e89b-12d3-a456-426614174111');
     const resolved = await getSessionId();
-    expect(resolved).toBe('imp');
+    expect(resolved).toBe('123e4567-e89b-12d3-a456-426614174111');
     warn.mockRestore();
   });
 
@@ -216,7 +219,7 @@ describe('sessionCache', () => {
 
   it('rate limits session imports', async () => {
     const serialized = JSON.stringify({
-      sessionId: 'r',
+      sessionId: '123e4567-e89b-12d3-a456-426614174222',
       messages: [],
     });
     const calls = Array.from({ length: SESSION_IMPORTS_PER_MINUTE + 1 }, () =>
@@ -268,12 +271,12 @@ describe('sessionCache', () => {
 
   it('sanitizes imported messages', async () => {
     const serialized = JSON.stringify({
-      sessionId: 's',
+      sessionId: '123e4567-e89b-12d3-a456-426614174333',
       messages: [{ role: 'user', content: '<b>hi</b>', timestamp: Date.now() }],
     });
     const id = await importSession(serialized);
-    expect(id).toBe('s');
-    const ctx = loadSessionContext('s');
+    expect(id).toBe('123e4567-e89b-12d3-a456-426614174333');
+    const ctx = loadSessionContext('123e4567-e89b-12d3-a456-426614174333');
     expect(ctx[0].content).toBe('&lt;b&gt;hi&lt;/b&gt;');
   });
 
@@ -284,9 +287,15 @@ describe('sessionCache', () => {
       content: `m${i}`,
       timestamp: now + i,
     }));
-    const serialized = JSON.stringify({ sessionId: 'cap', messages });
+    const serialized = JSON.stringify({
+      sessionId: '123e4567-e89b-12d3-a456-426614174444',
+      messages,
+    });
+    (globalThis as any).navigator = {
+      storage: { estimate: () => Promise.resolve({ usage: 0, quota: 100 }) },
+    };
     await importSession(serialized);
-    const ctx = loadSessionContext('cap');
+    const ctx = loadSessionContext('123e4567-e89b-12d3-a456-426614174444');
     expect(ctx).toHaveLength(SESSION_CACHE_MAX_ENTRIES);
     expect(ctx[0].content).toBe(`m${messages.length - SESSION_CACHE_MAX_ENTRIES}`);
     expect(ctx[ctx.length - 1].content).toBe(`m${messages.length - 1}`);
