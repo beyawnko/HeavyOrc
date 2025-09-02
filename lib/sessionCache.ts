@@ -8,6 +8,7 @@ import {
   SESSION_SUMMARY_DEBOUNCE_MS,
   SESSION_IMPORTS_PER_MINUTE,
   SESSION_CONTEXT_TTL_MS,
+  MEMORY_PRESSURE_THRESHOLD,
 } from '@/constants';
 import { logMemory } from '@/lib/memoryLogger';
 import { escapeHtml } from '@/lib/utils';
@@ -17,15 +18,63 @@ export type CachedMessage = {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  hash?: string;
 };
 
 export type Summarizer = (text: string) => Promise<string>;
 
 const cache = new Map<string, CachedMessage[]>();
+export const __cache = cache; // for tests
+let dynamicMaxEntries = SESSION_CACHE_MAX_ENTRIES;
 let ephemeralSessionId: string | null = null;
 let sessionIdPromise: Promise<string> | null = null;
 const lastSummaryTime = new Map<string, number>();
 const importTimestamps: number[] = [];
+
+function integrityHash(input: string): string {
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    hash = (hash << 5) - hash + input.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(16);
+}
+
+function detectCacheLeak(): void {
+  if (cache.size > dynamicMaxEntries * 10) {
+    console.warn('session cache size unusually large');
+    logMemory('session.cache.leak', { size: cache.size });
+  }
+}
+
+function checkStorageQuota(): Promise<number> {
+  if (typeof navigator === 'undefined' || !(navigator as any).storage?.estimate) {
+    return Promise.resolve(1);
+  }
+  return (navigator as any).storage
+    .estimate()
+    .then(({ usage, quota }: any) => (usage && quota ? usage / quota : 1))
+    .catch(() => 1);
+}
+
+async function adjustCacheSize(): Promise<void> {
+  const pressure = await checkStorageQuota();
+  if (pressure > MEMORY_PRESSURE_THRESHOLD) {
+    const newSize = Math.max(1, Math.floor(dynamicMaxEntries * 0.75));
+    if (newSize < dynamicMaxEntries) {
+      dynamicMaxEntries = newSize;
+      for (const [id, msgs] of cache) {
+        if (msgs.length > dynamicMaxEntries) {
+          cache.set(id, msgs.slice(-dynamicMaxEntries));
+        }
+      }
+      logMemory('session.cache.shrink', { maxEntries: dynamicMaxEntries, pressure });
+    }
+  }
+}
+
+export const __adjustCacheSize = adjustCacheSize; // for tests
+export const __getMaxEntries = () => dynamicMaxEntries; // for tests
 
 function pruneSession(sessionId: string): void {
   const messages = cache.get(sessionId);
@@ -46,6 +95,10 @@ async function signSessionId(id: string): Promise<string> {
   const hash = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hash));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function isValidSessionId(id: string): boolean {
+  return /^[0-9a-f-]{36}$/.test(id) && new Set(id).size >= 10;
 }
 
 function timingSafeEqual(a: string, b: string): boolean {
@@ -75,7 +128,7 @@ async function readSessionId(): Promise<string | null> {
     const raw = window.localStorage.getItem(SESSION_ID_STORAGE_KEY);
     if (!raw) return null;
     const [id, sig] = raw.split('.');
-    if (!id || !sig) return null;
+    if (!id || !sig || !isValidSessionId(id)) return null;
     const expected = await signSessionId(id);
     return timingSafeEqual(expected, sig) ? id : null;
   } catch (e) {
@@ -122,13 +175,14 @@ export async function getSessionId(): Promise<string> {
 
 export function loadSessionContext(sessionId: string): CachedMessage[] {
   pruneSession(sessionId);
-  return cache.get(sessionId)?.slice() ?? [];
+  const messages = cache.get(sessionId) ?? [];
+  return messages.filter(m => m.hash === integrityHash(m.content)).slice();
 }
 
 export function appendSessionContext(
   sessionId: string,
   message: CachedMessage,
-  maxEntries = SESSION_CACHE_MAX_ENTRIES,
+  maxEntries = dynamicMaxEntries,
 ): void {
   if (!message.content || typeof message.content !== 'string') {
     throw new Error('Invalid message content');
@@ -137,7 +191,7 @@ export function appendSessionContext(
   if (sanitized.length > SESSION_MESSAGE_MAX_CHARS) {
     sanitized = sanitized.slice(0, SESSION_MESSAGE_MAX_CHARS);
   }
-  message = { ...message, content: sanitized };
+  message = { ...message, content: sanitized, hash: integrityHash(sanitized) };
   const messages = cache.get(sessionId) ?? [];
   messages.push(message);
   if (messages.length > maxEntries) {
@@ -147,6 +201,8 @@ export function appendSessionContext(
   pruneSession(sessionId);
   const final = cache.get(sessionId) ?? [];
   logMemory('session.append', { sessionId, size: final.length });
+  void adjustCacheSize();
+  detectCacheLeak();
 }
 
 export function __clearSessionCache(): void {
@@ -155,6 +211,7 @@ export function __clearSessionCache(): void {
   sessionIdPromise = null;
   lastSummaryTime.clear();
   importTimestamps.length = 0;
+  dynamicMaxEntries = SESSION_CACHE_MAX_ENTRIES;
 }
 
 export async function summarizeSessionIfNeeded(
@@ -189,6 +246,7 @@ export async function summarizeSessionIfNeeded(
       role: 'assistant',
       content: summary,
       timestamp: Date.now(),
+      hash: integrityHash(summary),
     };
     cache.set(sessionId, [...keep, summaryMsg]);
     logMemory('session.summarize', {
@@ -229,7 +287,11 @@ export async function importSession(serialized: string): Promise<string | null> 
       sessionId: string;
       messages: CachedMessage[];
     };
-    if (typeof parsed.sessionId !== 'string' || !Array.isArray(parsed.messages)) {
+    if (
+      typeof parsed.sessionId !== 'string' ||
+      !isValidSessionId(parsed.sessionId) ||
+      !Array.isArray(parsed.messages)
+    ) {
       throw new SessionImportError('Invalid session format');
     }
     const validated = parsed.messages.map(msg => {
@@ -247,11 +309,16 @@ export async function importSession(serialized: string): Promise<string | null> 
       if (content.length > SESSION_MESSAGE_MAX_CHARS) {
         content = content.slice(0, SESSION_MESSAGE_MAX_CHARS);
       }
-      return { role: (msg as any).role as 'user' | 'assistant', content, timestamp: (msg as any).timestamp };
+      return {
+        role: (msg as any).role as 'user' | 'assistant',
+        content,
+        timestamp: (msg as any).timestamp,
+        hash: integrityHash(content),
+      };
     });
     const cutoff = Date.now() - SESSION_CONTEXT_TTL_MS;
     const filtered = validated.filter(m => m.timestamp >= cutoff);
-    const capped = filtered.slice(-SESSION_CACHE_MAX_ENTRIES);
+    const capped = filtered.slice(-dynamicMaxEntries);
     const { sessionId } = parsed;
     if (hasLocalStorage()) {
       const persisted = await storeSessionId(sessionId);
@@ -264,6 +331,8 @@ export async function importSession(serialized: string): Promise<string | null> 
     }
     cache.set(sessionId, capped);
     logMemory('session.import', { sessionId, messages: capped.length });
+    void adjustCacheSize();
+    detectCacheLeak();
     return sessionId;
   } catch (e) {
     console.warn('Failed to import session', e);

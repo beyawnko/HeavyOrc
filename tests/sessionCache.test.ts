@@ -8,6 +8,9 @@ import {
   exportSession,
   importSession,
   __signSessionId,
+  __cache,
+  __adjustCacheSize,
+  __getMaxEntries,
 } from '@/lib/sessionCache';
 import {
   SESSION_CACHE_MAX_ENTRIES,
@@ -159,7 +162,7 @@ describe('sessionCache', () => {
   });
 
   it('exports and imports session data', async () => {
-    const sessionId = 'exp';
+    const sessionId = '123e4567-e89b-12d3-a456-426614174000';
     appendSessionContext(sessionId, {
       role: 'user',
       content: 'hello',
@@ -304,5 +307,36 @@ describe('sessionCache', () => {
     const ctx = loadSessionContext(sessionId);
     expect(ctx.some(m => m.content === 'm0')).toBe(false);
     expect(summarizer).toHaveBeenCalledOnce();
+  });
+
+  it('drops messages with invalid hash', () => {
+    const sessionId = 'hash';
+    appendSessionContext(sessionId, {
+      role: 'user',
+      content: 'hello',
+      timestamp: Date.now(),
+    });
+    const stored = __cache.get(sessionId)!;
+    stored[0].content = 'tamper';
+    const ctx = loadSessionContext(sessionId);
+    expect(ctx).toHaveLength(0);
+  });
+
+  it('shrinks cache under storage pressure', async () => {
+    const sessionId = 'pressure';
+    for (let i = 0; i < 20; i++) {
+      appendSessionContext(sessionId, {
+        role: 'user',
+        content: `m${i}`,
+        timestamp: Date.now() + i,
+      });
+    }
+    (globalThis as any).navigator = {
+      storage: {
+        estimate: () => Promise.resolve({ usage: 100, quota: 100 }),
+      },
+    };
+    await __adjustCacheSize();
+    expect(__getMaxEntries()).toBeLessThan(SESSION_CACHE_MAX_ENTRIES);
   });
 });

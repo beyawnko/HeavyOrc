@@ -33,6 +33,9 @@ if (SESSION_ID_SECRET === 'dev-session-secret') {
   );
 }
 
+// Cache tuning
+export const MEMORY_PRESSURE_THRESHOLD = 0.9; // 90% of available storage
+
 export const GEMINI_FLASH_MODEL = "gemini-2.5-flash";
 export const GEMINI_PRO_MODEL = "gemini-2.5-pro";
 

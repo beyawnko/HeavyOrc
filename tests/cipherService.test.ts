@@ -50,23 +50,26 @@ afterEach(() => {
   global.fetch = originalFetch;
   vi.unstubAllEnvs();
   vi.resetModules();
+  delete (globalThis as any).__TEST_IP__;
 });
 
 describe('cipherService', () => {
   it('stores run record when enabled', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     global.fetch = fetchMock as any;
     const { storeRunRecord } = await import('@/services/cipherService');
     await storeRunRecord(sampleRun, SESSION_ID);
-    expect(fetchMock).toHaveBeenCalledWith('http://cipher/memories', expect.any(Object));
+    expect(fetchMock).toHaveBeenCalledWith('http://cipher/memories/batch', expect.any(Object));
   });
 
   it('throws when CSP header missing', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
     vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     global.fetch = fetchMock as any;
     const { storeRunRecord } = await import('@/services/cipherService');
@@ -83,6 +86,7 @@ describe('cipherService', () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
     vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const fetchMock = vi
       .fn()
       .mockResolvedValue(new Response(null, { status: 200, headers }));
@@ -95,6 +99,7 @@ describe('cipherService', () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
     vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const fetchMock = vi
       .fn()
       .mockResolvedValue(new Response(null, { status: 200, headers: VALID_CSP_HEADER }));
@@ -106,6 +111,7 @@ describe('cipherService', () => {
   it('skips storing run record when an agent content exceeds limit', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const fetchMock = vi.fn();
     global.fetch = fetchMock as any;
     const { storeRunRecord } = await import('@/services/cipherService');
@@ -132,6 +138,7 @@ describe('cipherService', () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
     vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const fetchMock = vi
       .fn()
       .mockResolvedValue(
@@ -146,7 +153,10 @@ describe('cipherService', () => {
   it('caches memories by query', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ memories: [] }), { status: 200 }));
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ memories: [] }), { status: 200 }));
     global.fetch = fetchMock as any;
     const { fetchRelevantMemories } = await import('@/services/cipherService');
     await fetchRelevantMemories('q1', SESSION_ID);
@@ -154,9 +164,10 @@ describe('cipherService', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('avoids double counting cache size on concurrent fetches', async () => {
+  it('coalesces concurrent fetches', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const resp = new Response(JSON.stringify(MEMORIES_RESPONSE), { status: 200 });
     const fetchMock = vi
       .fn()
@@ -167,7 +178,7 @@ describe('cipherService', () => {
     const { fetchRelevantMemories } = await import('@/services/cipherService');
     await Promise.all([fetchRelevantMemories('q2', SESSION_ID), fetchRelevantMemories('q2', SESSION_ID)]);
     await fetchRelevantMemories('q2', SESSION_ID);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
 
@@ -175,6 +186,7 @@ describe('cipherService', () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
     vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const fetchMock = vi
       .fn()
       .mockResolvedValue(new Response(JSON.stringify(MEMORIES_RESPONSE), { status: 200, headers: VALID_CSP_HEADER }));
@@ -188,6 +200,7 @@ describe('cipherService', () => {
   it('scopes cache per session', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const fetchMock = vi
       .fn()
       .mockResolvedValue(new Response(JSON.stringify(MEMORIES_RESPONSE), { status: 200 }));
