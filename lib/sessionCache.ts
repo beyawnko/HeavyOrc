@@ -251,6 +251,7 @@ export async function importSession(serialized: string): Promise<string | null> 
     });
     const cutoff = Date.now() - SESSION_CONTEXT_TTL_MS;
     const filtered = validated.filter(m => m.timestamp >= cutoff);
+    const capped = filtered.slice(-SESSION_CACHE_MAX_ENTRIES);
     const { sessionId } = parsed;
     if (hasLocalStorage()) {
       const persisted = await storeSessionId(sessionId);
@@ -261,8 +262,8 @@ export async function importSession(serialized: string): Promise<string | null> 
     } else {
       ephemeralSessionId = sessionId;
     }
-    cache.set(sessionId, filtered);
-    logMemory('session.import', { sessionId, messages: filtered.length });
+    cache.set(sessionId, capped);
+    logMemory('session.import', { sessionId, messages: capped.length });
     return sessionId;
   } catch (e) {
     console.warn('Failed to import session', e);

@@ -274,6 +274,21 @@ describe('sessionCache', () => {
     expect(ctx[0].content).toBe('&lt;b&gt;hi&lt;/b&gt;');
   });
 
+  it('caps imported messages to max entries', async () => {
+    const now = Date.now();
+    const messages = Array.from({ length: SESSION_CACHE_MAX_ENTRIES + 5 }, (_, i) => ({
+      role: 'user' as const,
+      content: `m${i}`,
+      timestamp: now + i,
+    }));
+    const serialized = JSON.stringify({ sessionId: 'cap', messages });
+    await importSession(serialized);
+    const ctx = loadSessionContext('cap');
+    expect(ctx).toHaveLength(SESSION_CACHE_MAX_ENTRIES);
+    expect(ctx[0].content).toBe(`m${messages.length - SESSION_CACHE_MAX_ENTRIES}`);
+    expect(ctx[ctx.length - 1].content).toBe(`m${messages.length - 1}`);
+  });
+
   it('uses configurable keep ratio when summarizing', async () => {
     const sessionId = 'ratio';
     const base = Date.now();
