@@ -2,6 +2,7 @@ import { RunRecord } from '@/types';
 import { fetchWithRetry } from '@/services/llmService';
 import { sanitizeErrorResponse, validateUrl, readLimitedText, validateCsp } from '@/lib/security';
 import { MinHeap } from '@/lib/minHeap';
+import { logMemory } from '@/lib/memoryLogger';
 
 export interface MemoryEntry {
   id: string;
@@ -75,6 +76,7 @@ export const storeRunRecord = async (
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return;
   if (!(await consumeToken())) {
     console.warn('Rate limit exceeded for memory storage');
+    logMemory('cipher.store.rateLimit', { sessionId });
     return;
   }
   if (
@@ -83,6 +85,7 @@ export const storeRunRecord = async (
     run.agents.some(a => a.content.length > MAX_MEMORY_LENGTH)
   ) {
     console.warn('Run record exceeds memory size limit and will not be stored.');
+    logMemory('cipher.store.tooLarge', { sessionId });
     return;
   }
   try {
@@ -106,11 +109,18 @@ export const storeRunRecord = async (
       });
       throw new Error('Failed to store run record with status ' + response.status);
     }
+    logMemory('cipher.store', {
+      sessionId,
+      promptLength: run.prompt.length,
+      finalLength: run.finalAnswer.length,
+      agentCount: run.agents.length,
+    });
   } catch (e) {
     console.error('Failed to store run record', {
       url: `${baseUrl}/memories`,
       error: e,
     });
+    logMemory('cipher.store.error', { sessionId, error: e });
     throw e;
   }
 };
@@ -124,12 +134,18 @@ export const fetchRelevantMemories = async (
   const cacheKey = `${sessionId}:${query}`;
   const cached = memoryCache.get(cacheKey);
   if (cached && cached.expiry > Date.now()) {
+    logMemory('cipher.fetch.cacheHit', {
+      sessionId,
+      query,
+      count: cached.data.length,
+    });
     return cached.data;
   }
   if (query.length > MAX_MEMORY_LENGTH) return [];
 
   if (!(await consumeToken())) {
     console.warn('Rate limit exceeded for memory fetching');
+    logMemory('cipher.fetch.rateLimit', { sessionId, query });
     return [];
   }
 
@@ -175,12 +191,14 @@ export const fetchRelevantMemories = async (
     expiryHeap.push([cacheKey, expiry]);
     currentCacheSize += size;
     pruneCache();
+    logMemory('cipher.fetch', { sessionId, query, count: memories.length });
     return memories;
   } catch (e) {
     console.error('Failed to fetch relevant memories', {
       url: `${baseUrl}/memories/search`,
       error: e,
     });
+    logMemory('cipher.fetch.error', { sessionId, query, error: e });
     return [];
   }
 };

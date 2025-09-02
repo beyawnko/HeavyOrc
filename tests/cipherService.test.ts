@@ -395,4 +395,23 @@ describe('cipherService', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     vi.useRealTimers();
   });
+
+  it('logs structured event on memory fetch', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    const headers = { 'Content-Security-Policy': "default-src 'none'" };
+    const body = JSON.stringify(MEMORIES_RESPONSE);
+    const fetchMock = vi.fn().mockResolvedValue(new Response(body, { status: 200, headers }));
+    global.fetch = fetchMock as any;
+    const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    const { fetchRelevantMemories } = await import('@/services/cipherService');
+    await fetchRelevantMemories('q', SESSION_ID);
+    const hasEvent = debug.mock.calls.some(([arg]) =>
+      typeof arg === 'object' &&
+      (arg as any).event === 'cipher.fetch' &&
+      (arg as any).count === 1,
+    );
+    expect(hasEvent).toBe(true);
+    debug.mockRestore();
+  });
 });

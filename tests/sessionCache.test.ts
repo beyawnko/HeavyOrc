@@ -73,6 +73,23 @@ describe('sessionCache', () => {
     expect(ctx[1].content).toBe('summary');
   });
 
+  it('emits structured log on summarization', async () => {
+    const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    const sessionId = 'log';
+    const long = 'y'.repeat(2000);
+    appendSessionContext(sessionId, { role: 'user', content: long, timestamp: 0 });
+    appendSessionContext(sessionId, { role: 'assistant', content: long, timestamp: 1 });
+    const summarizer = vi.fn(async () => 'summary');
+    await summarizeSessionIfNeeded(sessionId, summarizer, 1000);
+    const hasEvent = debug.mock.calls.some(([arg]) =>
+      typeof arg === 'object' &&
+      (arg as any).event === 'session.summarize' &&
+      (arg as any).sessionId === sessionId,
+    );
+    expect(hasEvent).toBe(true);
+    debug.mockRestore();
+  });
+
   it('exports and imports session data', () => {
     const sessionId = 'exp';
     appendSessionContext(sessionId, {

@@ -4,6 +4,7 @@ import {
   SESSION_SUMMARY_CHAR_THRESHOLD,
   SESSION_ID_SECRET,
 } from '@/constants';
+import { logMemory } from '@/lib/memoryLogger';
 
 export type CachedMessage = {
   role: 'user' | 'assistant';
@@ -77,6 +78,7 @@ export function appendSessionContext(
     messages.shift();
   }
   cache.set(sessionId, messages);
+  logMemory('session.append', { sessionId, size: messages.length });
 }
 
 export function __clearSessionCache(): void {
@@ -108,15 +110,24 @@ export async function summarizeSessionIfNeeded(
       timestamp: Date.now(),
     };
     cache.set(sessionId, [...keep, summaryMsg]);
+    logMemory('session.summarize', {
+      sessionId,
+      removed: toSummarize.length,
+      summaryLength: summary.length,
+      finalSize: keep.length + 1,
+    });
   } catch (e) {
     console.warn('Failed to summarize session context', e);
+    logMemory('session.summarize.error', { sessionId, error: e });
     cache.set(sessionId, keep);
   }
 }
 
 export function exportSession(sessionId: string): string {
   const messages = cache.get(sessionId) ?? [];
-  return JSON.stringify({ sessionId, messages });
+  const serialized = JSON.stringify({ sessionId, messages });
+  logMemory('session.export', { sessionId, messages: messages.length });
+  return serialized;
 }
 
 export function importSession(serialized: string): string | null {
@@ -133,9 +144,11 @@ export function importSession(serialized: string): string | null {
       ephemeralSessionId = sessionId;
     }
     cache.set(sessionId, messages);
+    logMemory('session.import', { sessionId, messages: messages.length });
     return sessionId;
   } catch (e) {
     console.warn('Failed to import session', e);
+    logMemory('session.import.error', { error: e });
     return null;
   }
 }

@@ -51,5 +51,5 @@ This document tracks the phased implementation of persistent conversational cont
 - [x] Enforce rate limits and payload caps on memory operations.
 - [x] Add session export/import utilities for migrating context.
 - [x] Sign and validate session IDs to prevent tampering.
-- [ ] Emit structured logs/metrics for memory operations.
+- [x] Emit structured logs/metrics for memory operations.
 
