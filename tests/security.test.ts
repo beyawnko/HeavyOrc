@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { sanitizeErrorResponse } from '@/lib/security';
+import { sanitizeErrorResponse, validateUrl } from '@/lib/security';
 
 describe('sanitizeErrorResponse arrays', () => {
   test('retains non-sensitive array items', () => {
@@ -24,6 +24,36 @@ describe('sanitizeErrorResponse arrays', () => {
       ['safe', '[REDACTED]', ['[REDACTED]']],
       { safe: 'value', sensitive: '[REDACTED]' },
     ]);
+  });
+});
+
+describe('validateUrl', () => {
+  test('validates URLs in development', () => {
+    expect(validateUrl('http://example.com')).toBe('http://example.com');
+    expect(validateUrl('ftp://example.com')).toBeUndefined();
+    expect(validateUrl('http://localhost')).toBe('http://localhost');
+    expect(validateUrl('example.com')).toBeUndefined();
+    expect(validateUrl('http://bücher.de')).toBe('http://xn--bcher-kva.de');
+  });
+
+  test('blocks private URLs in production', () => {
+    expect(validateUrl('http://example.com', false)).toBe('http://example.com');
+    expect(validateUrl('https://example.com', false)).toBe('https://example.com');
+    expect(validateUrl('http://example.com:8080', false)).toBe('http://example.com:8080');
+    expect(validateUrl('http://localhost', false)).toBeUndefined();
+    expect(validateUrl('http://127.0.0.1', false)).toBeUndefined();
+    expect(validateUrl('http://192.168.0.1', false)).toBeUndefined();
+    expect(validateUrl('http://10.0.0.1', false)).toBeUndefined();
+    expect(validateUrl('http://172.16.0.1', false)).toBeUndefined();
+    expect(validateUrl('http://[::1]', false)).toBeUndefined();
+    expect(validateUrl('http://[::]', false)).toBeUndefined();
+    expect(validateUrl('http://[fd00::1]', false)).toBeUndefined();
+    expect(validateUrl('http://[fe80::1]', false)).toBeUndefined();
+    expect(validateUrl('http://[2001:db8::1]', false)).toBe('http://[2001:db8::1]');
+    expect(validateUrl('http://[2001:db8:0:1::]', false)).toBe('http://[2001:db8:0:1::]');
+    expect(validateUrl('http://[::ffff:192.168.0.1]', false)).toBeUndefined();
+    expect(validateUrl('http://[fe80:::1]', false)).toBeUndefined();
+    expect(validateUrl('ftp://example.com', false)).toBeUndefined();
   });
 });
 

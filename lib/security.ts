@@ -1,3 +1,5 @@
+import * as ipaddr from 'ipaddr.js';
+
 const SENSITIVE_KEY_PATTERNS = [
   /auth(orization)?/i,
   /token/i,
@@ -120,3 +122,127 @@ export function sanitizeErrorResponse(body: string): string {
   // For safety, non-JSON-object/array responses are fully redacted.
   return '[REDACTED]';
 }
+
+function isPrivateOrLocalhost(hostname: string): boolean {
+  const host = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
+  if (host === 'localhost') return true;
+  if (ipaddr.isValid(host)) {
+    let parsed = ipaddr.parse(host);
+    if (parsed.kind() === 'ipv6' && (parsed as ipaddr.IPv6).isIPv4MappedAddress()) {
+      parsed = (parsed as ipaddr.IPv6).toIPv4Address();
+    }
+    const range = parsed.range();
+    return ['loopback', 'linkLocal', 'uniqueLocal', 'private', 'unspecified'].includes(range);
+  }
+  return false;
+}
+
+export function validateUrl(url: string | undefined, dev: boolean = import.meta.env.DEV): string | undefined {
+  if (!url || url.length > 2048 || !/^https?:\/\//i.test(url)) return undefined;
+  try {
+    const parsed = new URL(url.normalize('NFKC'));
+    let hostname = parsed.hostname;
+    if (!ipaddr.isValid(hostname)) {
+      try {
+        hostname = new URL(`http://${hostname}`).hostname;
+      } catch {
+        return undefined;
+      }
+    }
+    const bareHost = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
+    if (
+      !['http:', 'https:'].includes(parsed.protocol) ||
+      hostname.length > 255 ||
+      (!ipaddr.isValid(bareHost) && !/^(?!-)[a-zA-Z0-9-]+(?<!-)(?:\.[a-zA-Z0-9-]+)*$/.test(bareHost)) ||
+      (!dev && isPrivateOrLocalhost(hostname))
+    ) {
+      return undefined;
+    }
+    parsed.hostname = hostname;
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return undefined;
+  }
+}
+
+export async function readLimitedText(response: Response, limit: number): Promise<string | undefined> {
+  if (!response.body) {
+    const text = await response.text();
+    return text.length > limit ? undefined : text;
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let received = 0;
+  let result = '';
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    received += value.length;
+    if (received > limit) {
+      reader.cancel();
+      return undefined;
+    }
+    result += decoder.decode(value, { stream: true });
+  }
+  result += decoder.decode();
+  return result;
+}
+
+export function validateCsp(response: Response): void {
+  const csp = response.headers.get('Content-Security-Policy');
+  if (!csp) {
+    console.error('Missing CSP headers from memory server');
+    throw new Error('Missing CSP headers');
+  }
+
+  type CSPDirective = { name: string; sources: string[] };
+  const parseDirective = (directive: string): CSPDirective => {
+    const [name, ...sources] = directive.trim().split(/\s+/);
+    return { name, sources };
+  };
+
+  const directives = csp
+    .split(';')
+    .map(d => d.trim())
+    .filter(Boolean)
+    .map(parseDirective)
+    .filter(d => d.name && d.sources.length > 0);
+  const defaultSrc = directives.find(d => d.name === 'default-src');
+  const connectSrc = directives.find(d => d.name === 'connect-src');
+  const objectSrc = directives.find(d => d.name === 'object-src');
+  const baseUri = directives.find(d => d.name === 'base-uri');
+
+  const hasUnsafeSource = directives.some(d =>
+    d.sources.some(
+      s =>
+        s === "'unsafe-inline'" ||
+        s === "'unsafe-eval'" ||
+        s === '*'
+    )
+  );
+  const isDefaultSrcStrict =
+    !!defaultSrc &&
+    defaultSrc.sources.length === 1 &&
+    defaultSrc.sources[0] === "'none'";
+  const isConnectSrcSelf =
+    !!connectSrc &&
+    connectSrc.sources.length === 1 &&
+    connectSrc.sources[0] === "'self'";
+  const isObjectSrcSafe =
+    !objectSrc ||
+    (objectSrc.sources.length === 1 && objectSrc.sources[0] === "'none'");
+  const isBaseUriSafe =
+    !baseUri || (baseUri.sources.length === 1 && baseUri.sources[0] === "'none'");
+
+  if (
+    !isDefaultSrcStrict ||
+    !isConnectSrcSelf ||
+    hasUnsafeSource ||
+    !isObjectSrcSafe ||
+    !isBaseUriSafe
+  ) {
+    console.error('Invalid or insufficient CSP headers from memory server');
+    throw new Error('Invalid CSP headers');
+  }
+}
+
