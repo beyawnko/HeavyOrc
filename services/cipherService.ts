@@ -52,6 +52,7 @@ function pruneCache() {
 }
 
 async function consumeToken(): Promise<boolean> {
+  // TODO: replace with a distributed rate limiter (e.g., Redis) for multi-instance deployments
   const exec = () => {
     const now = Date.now();
     const elapsed = now - lastRefill;

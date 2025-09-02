@@ -13,11 +13,16 @@ export interface ContextualPrompt {
   sessionContext: CachedMessage[];
 }
 
+async function defaultSummarizer(text: string): Promise<string> {
+  const truncated = text.slice(0, 1000);
+  const match = truncated.match(/.*[.!?]/s);
+  return match ? match[0] : truncated + (text.length > 1000 ? '…' : '');
+}
+
 export async function buildContextualPrompt(
   userPrompt: string,
   sessionId: string,
-  summarizer: Summarizer = async (text: string) =>
-    text.slice(0, 1000) + (text.length > 1000 ? '…' : ''),
+  summarizer: Summarizer = defaultSummarizer,
 ): Promise<ContextualPrompt> {
   await summarizeSessionIfNeeded(sessionId, summarizer);
   let prompt = userPrompt;

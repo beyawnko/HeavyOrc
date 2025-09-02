@@ -3,6 +3,7 @@ import {
   SESSION_ID_STORAGE_KEY,
   SESSION_SUMMARY_CHAR_THRESHOLD,
   SESSION_ID_SECRET,
+  SESSION_MESSAGE_MAX_CHARS,
 } from '@/constants';
 import { logMemory } from '@/lib/memoryLogger';
 
@@ -17,29 +18,39 @@ export type Summarizer = (text: string) => Promise<string>;
 const cache = new Map<string, CachedMessage[]>();
 let ephemeralSessionId: string | null = null;
 
-function signSessionId(id: string): string {
-  let hash = 0;
-  const input = id + SESSION_ID_SECRET;
-  for (let i = 0; i < input.length; i++) {
-    hash = (hash << 5) - hash + input.charCodeAt(i);
-    hash |= 0; // Convert to 32bit integer
+async function signSessionId(id: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(id + SESSION_ID_SECRET);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hash));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function storeSessionId(id: string): Promise<boolean> {
+  if (!hasLocalStorage()) return false;
+  try {
+    const sig = await signSessionId(id);
+    window.localStorage.setItem(SESSION_ID_STORAGE_KEY, `${id}.${sig}`);
+    return true;
+  } catch (e) {
+    console.warn('Failed to persist sessionId', e);
+    return false;
   }
-  return Math.abs(hash).toString(16);
 }
 
-function storeSessionId(id: string): void {
-  if (!hasLocalStorage()) return;
-  const sig = signSessionId(id);
-  window.localStorage.setItem(SESSION_ID_STORAGE_KEY, `${id}.${sig}`);
-}
-
-function readSessionId(): string | null {
+async function readSessionId(): Promise<string | null> {
   if (!hasLocalStorage()) return null;
-  const raw = window.localStorage.getItem(SESSION_ID_STORAGE_KEY);
-  if (!raw) return null;
-  const [id, sig] = raw.split('.');
-  if (!id || !sig) return null;
-  return signSessionId(id) === sig ? id : null;
+  try {
+    const raw = window.localStorage.getItem(SESSION_ID_STORAGE_KEY);
+    if (!raw) return null;
+    const [id, sig] = raw.split('.');
+    if (!id || !sig) return null;
+    const expected = await signSessionId(id);
+    return expected === sig ? id : null;
+  } catch (e) {
+    console.warn('Failed to read sessionId', e);
+    return null;
+  }
 }
 
 export const __signSessionId = signSessionId; // for tests
@@ -48,8 +59,8 @@ function hasLocalStorage(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
 }
 
-export function getSessionId(): string {
-  const stored = readSessionId();
+export async function getSessionId(): Promise<string> {
+  const stored = await readSessionId();
   if (stored) return stored;
   if (!hasLocalStorage()) {
     if (!ephemeralSessionId) {
@@ -59,7 +70,14 @@ export function getSessionId(): string {
     return ephemeralSessionId;
   }
   const id = crypto.randomUUID();
-  storeSessionId(id);
+  const persisted = await storeSessionId(id);
+  if (!persisted) {
+    if (!ephemeralSessionId) {
+      ephemeralSessionId = id;
+      console.warn('localStorage unavailable; using ephemeral sessionId');
+    }
+    return ephemeralSessionId;
+  }
   return id;
 }
 
@@ -72,6 +90,12 @@ export function appendSessionContext(
   message: CachedMessage,
   maxEntries = SESSION_CACHE_MAX_ENTRIES,
 ): void {
+  if (message.content.length > SESSION_MESSAGE_MAX_CHARS) {
+    message = {
+      ...message,
+      content: message.content.slice(0, SESSION_MESSAGE_MAX_CHARS),
+    };
+  }
   const messages = cache.get(sessionId) ?? [];
   messages.push(message);
   if (messages.length > maxEntries) {
@@ -130,7 +154,7 @@ export function exportSession(sessionId: string): string {
   return serialized;
 }
 
-export function importSession(serialized: string): string | null {
+export async function importSession(serialized: string): Promise<string | null> {
   try {
     const parsed = JSON.parse(serialized) as {
       sessionId: string;
@@ -139,7 +163,7 @@ export function importSession(serialized: string): string | null {
     if (!parsed.sessionId || !Array.isArray(parsed.messages)) return null;
     const { sessionId, messages } = parsed;
     if (hasLocalStorage()) {
-      storeSessionId(sessionId);
+      await storeSessionId(sessionId);
     } else {
       ephemeralSessionId = sessionId;
     }

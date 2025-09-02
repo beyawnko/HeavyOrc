@@ -9,7 +9,11 @@ import {
   importSession,
   __signSessionId,
 } from '@/lib/sessionCache';
-import { SESSION_CACHE_MAX_ENTRIES, SESSION_ID_STORAGE_KEY } from '@/constants';
+import {
+  SESSION_CACHE_MAX_ENTRIES,
+  SESSION_ID_STORAGE_KEY,
+  SESSION_MESSAGE_MAX_CHARS,
+} from '@/constants';
 
 describe('sessionCache', () => {
   beforeEach(() => {
@@ -33,16 +37,28 @@ describe('sessionCache', () => {
     expect(ctx[ctx.length - 1].content).toBe(`m${SESSION_CACHE_MAX_ENTRIES + 4}`);
   });
 
-  it('generates stable sessionId with ephemeral fallback', () => {
+  it('enforces per-message size limit', () => {
+    const sessionId = 'limit';
+    const long = 'a'.repeat(SESSION_MESSAGE_MAX_CHARS + 100);
+    appendSessionContext(sessionId, {
+      role: 'user',
+      content: long,
+      timestamp: 0,
+    });
+    const ctx = loadSessionContext(sessionId);
+    expect(ctx[0].content.length).toBe(SESSION_MESSAGE_MAX_CHARS);
+  });
+
+  it('generates stable sessionId with ephemeral fallback', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const id1 = getSessionId();
-    const id2 = getSessionId();
+    const id1 = await getSessionId();
+    const id2 = await getSessionId();
     expect(id1).toBe(id2);
     expect(warn).toHaveBeenCalledTimes(1);
     warn.mockRestore();
   });
 
-  it('persists sessionId to localStorage when available', () => {
+  it('persists sessionId to localStorage when available', async () => {
     const store: Record<string, string> = {};
     (globalThis as any).window = {
       localStorage: {
@@ -52,12 +68,31 @@ describe('sessionCache', () => {
         },
       },
     };
-    const id1 = getSessionId();
-    const id2 = getSessionId();
+    const id1 = await getSessionId();
+    const id2 = await getSessionId();
     expect(id1).toBe(id2);
     expect(store[SESSION_ID_STORAGE_KEY]).toBe(
-      `${id1}.${__signSessionId(id1)}`,
+      `${id1}.${await __signSessionId(id1)}`,
     );
+  });
+
+  it('falls back when localStorage errors', async () => {
+    (globalThis as any).window = {
+      localStorage: {
+        getItem: () => {
+          throw new Error('QuotaExceededError');
+        },
+        setItem: () => {
+          throw new Error('QuotaExceededError');
+        },
+      },
+    };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const id1 = await getSessionId();
+    const id2 = await getSessionId();
+    expect(id1).toBe(id2);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it('summarizes overflowing context', async () => {
@@ -90,7 +125,7 @@ describe('sessionCache', () => {
     debug.mockRestore();
   });
 
-  it('exports and imports session data', () => {
+  it('exports and imports session data', async () => {
     const sessionId = 'exp';
     appendSessionContext(sessionId, {
       role: 'user',
@@ -108,22 +143,22 @@ describe('sessionCache', () => {
         },
       },
     };
-    const importedId = importSession(serialized);
+    const importedId = await importSession(serialized);
     expect(importedId).toBe(sessionId);
     expect(store[SESSION_ID_STORAGE_KEY]).toBe(
-      `${sessionId}.${__signSessionId(sessionId)}`,
+      `${sessionId}.${await __signSessionId(sessionId)}`,
     );
     const ctx = loadSessionContext(sessionId);
     expect(ctx).toHaveLength(1);
     expect(ctx[0].content).toBe('hello');
   });
 
-  it('returns null on malformed import', () => {
-    const res = importSession('not-json');
+  it('returns null on malformed import', async () => {
+    const res = await importSession('not-json');
     expect(res).toBeNull();
   });
 
-  it('regenerates sessionId if signature mismatch', () => {
+  it('regenerates sessionId if signature mismatch', async () => {
     const store: Record<string, string> = {};
     (globalThis as any).window = {
       localStorage: {
@@ -133,12 +168,12 @@ describe('sessionCache', () => {
         },
       },
     };
-    const id1 = getSessionId();
+    const id1 = await getSessionId();
     store[SESSION_ID_STORAGE_KEY] = `${id1}.bogus`;
-    const id2 = getSessionId();
+    const id2 = await getSessionId();
     expect(id2).not.toBe(id1);
     expect(store[SESSION_ID_STORAGE_KEY]).toBe(
-      `${id2}.${__signSessionId(id2)}`,
+      `${id2}.${await __signSessionId(id2)}`,
     );
   });
 });

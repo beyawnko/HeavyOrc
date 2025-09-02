@@ -56,8 +56,8 @@ import {
     setOpenRouterApiKey as storeOpenRouterApiKey,
 } from '@/services/llmService';
 import { storeRunRecord } from '@/services/cipherService';
-import { getSessionId, appendSessionContext } from '@/lib/sessionCache';
 import { buildContextualPrompt } from '@/lib/contextBuilder';
+import { useSessionContext } from '@/lib/useSessionContext';
 
 // Hooks
 import useViewportHeight from '@/lib/useViewportHeight';
@@ -280,8 +280,15 @@ const App: React.FC = () => {
     const isRunCompletedRef = useRef(false);
     const orchestratorAbortRef = useRef<(() => void) | null>(null);
     const currentRunDataRef = useRef<Pick<RunRecord, 'prompt' | 'images' | 'agentConfigs' | 'arbiterModel' | 'openAIArbiterVerbosity' | 'openAIArbiterEffort' | 'geminiArbiterEffort'> | undefined>(undefined);
-    const sessionIdRef = useRef<string>(getSessionId());
+    const { sessionId, append: appendSession } = useSessionContext();
+    const sessionIdRef = useRef<string>('');
     const userPromptRef = useRef<string>('');
+
+    useEffect(() => {
+        if (sessionId) {
+            sessionIdRef.current = sessionId;
+        }
+    }, [sessionId]);
 
 
     useEffect(() => { finalAnswerRef.current = finalAnswer; }, [finalAnswer]);
@@ -316,12 +323,12 @@ const App: React.FC = () => {
                         type: 'error',
                     })
                 );
-                appendSessionContext(sessionIdRef.current, {
+                appendSession({
                     role: 'user',
                     content: userPromptRef.current,
                     timestamp: Date.now(),
                 });
-                appendSessionContext(sessionIdRef.current, {
+                appendSession({
                     role: 'assistant',
                     content: finalAnswerRef.current,
                     timestamp: Date.now(),
@@ -378,6 +385,7 @@ const App: React.FC = () => {
         }
 
         const sessionId = sessionIdRef.current;
+        if (!sessionId) return;
         const userPrompt =
             prompt.trim() || (images.length > 0 ? `Analyze these ${images.length} image(s) and provide a detailed description.` : "");
         userPromptRef.current = userPrompt;

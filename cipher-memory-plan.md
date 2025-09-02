@@ -28,8 +28,9 @@ This document tracks the phased implementation of persistent conversational cont
 
 ## Phase 4 – Migration & Security
 - Allow clients to export/import `sessionId` to migrate context across devices.
-- Sign `sessionId` tokens server‑side to prevent tampering.
+- Sign `sessionId` tokens using HMAC and guard storage against quota errors.
 - Enforce rate limits (30 req/min) and max payload sizes (~400KB) for memory operations.
+- Cap individual session messages (~4KB) to prevent memory exhaustion.
 - **Fallback:** If signing service is unavailable, fall back to opaque UUIDs and flag this section for follow‑up.
 
 ## Phase 5 – Testing & Observability
@@ -51,6 +52,8 @@ This document tracks the phased implementation of persistent conversational cont
 - [x] Enforce rate limits and payload caps on memory operations.
 - [x] Add session export/import utilities for migrating context.
 - [x] Sign and validate session IDs to prevent tampering.
+- [x] Harden session ID signing with SHA-256 HMAC and handle storage quota failures.
+- [x] Enforce per-message size limits in the session cache.
 - [x] Emit structured logs/metrics for memory operations.
 
 ## Phase 6 – Future Enhancements
