@@ -9,7 +9,8 @@ export interface MemoryEntry {
 }
 
 const useCipher = import.meta.env.VITE_USE_CIPHER_MEMORY === 'true';
-const baseUrl = validateUrl(import.meta.env.VITE_CIPHER_SERVER_URL, import.meta.env.DEV);
+const baseUrl = validateUrl(import.meta.env.VITE_CIPHER_SERVER_URL, [], import.meta.env.DEV);
+const allowedHosts = baseUrl ? [new URL(baseUrl).hostname] : [];
 const enforceCsp = import.meta.env.VITE_ENFORCE_CIPHER_CSP === 'true';
 
 const RATE_LIMIT_WINDOW = 60000; // 1 minute
@@ -68,7 +69,7 @@ async function consumeToken(): Promise<boolean> {
 }
 
 export const storeRunRecord = async (run: RunRecord): Promise<void> => {
-  if (!useCipher || !baseUrl || !validateUrl(baseUrl)) return;
+  if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return;
   if (!(await consumeToken())) {
     console.warn('Rate limit exceeded for memory storage');
     return;
@@ -112,7 +113,7 @@ export const storeRunRecord = async (run: RunRecord): Promise<void> => {
 };
 
 export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[]> => {
-  if (!useCipher || !baseUrl || !validateUrl(baseUrl)) return [];
+  if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return [];
   pruneCache();
   const cached = memoryCache.get(query);
   if (cached && cached.expiry > Date.now()) {

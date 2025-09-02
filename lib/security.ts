@@ -128,8 +128,12 @@ function isPrivateOrLocalhost(hostname: string): boolean {
   if (host === 'localhost') return true;
   if (ipaddr.isValid(host)) {
     let parsed = ipaddr.parse(host);
-    if (parsed.kind() === 'ipv6' && (parsed as ipaddr.IPv6).isIPv4MappedAddress()) {
-      parsed = (parsed as ipaddr.IPv6).toIPv4Address();
+    if (parsed.kind() === 'ipv6') {
+      const ipv6 = parsed as ipaddr.IPv6;
+      if (host.includes('%')) return true;
+      if (ipv6.isIPv4MappedAddress()) {
+        parsed = ipv6.toIPv4Address();
+      }
     }
     const range = parsed.range();
     return ['loopback', 'linkLocal', 'uniqueLocal', 'private', 'unspecified'].includes(range);
@@ -137,8 +141,12 @@ function isPrivateOrLocalhost(hostname: string): boolean {
   return false;
 }
 
-export function validateUrl(url: string | undefined, dev: boolean = import.meta.env.DEV): string | undefined {
-  if (!url || url.length > 2048 || !/^https?:\/\//i.test(url)) return undefined;
+export function validateUrl(
+  url: string | undefined,
+  allowedHosts: string[] = [],
+  dev: boolean = import.meta.env.DEV,
+): string | undefined {
+  if (!url || url.length > 2048) return undefined;
   try {
     const parsed = new URL(url.normalize('NFKC'));
     let hostname = parsed.hostname;
@@ -151,10 +159,11 @@ export function validateUrl(url: string | undefined, dev: boolean = import.meta.
     }
     const bareHost = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
     if (
-      !['http:', 'https:'].includes(parsed.protocol) ||
+      parsed.protocol !== 'http:' && parsed.protocol !== 'https:' ||
       hostname.length > 255 ||
       (!ipaddr.isValid(bareHost) && !/^(?!-)[a-zA-Z0-9-]+(?<!-)(?:\.[a-zA-Z0-9-]+)*$/.test(bareHost)) ||
-      (!dev && isPrivateOrLocalhost(hostname))
+      (!dev && (parsed.protocol !== 'https:' || isPrivateOrLocalhost(hostname))) ||
+      (allowedHosts.length > 0 && !allowedHosts.includes(hostname))
     ) {
       return undefined;
     }
@@ -165,27 +174,50 @@ export function validateUrl(url: string | undefined, dev: boolean = import.meta.
   }
 }
 
-export async function readLimitedText(response: Response, limit: number): Promise<string | undefined> {
-  if (!response.body) {
-    const text = await response.text();
-    return text.length > limit ? undefined : text;
-  }
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let received = 0;
-  let result = '';
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    received += value.length;
-    if (received > limit) {
-      reader.cancel();
-      return undefined;
+export async function readLimitedText(
+  response: Response,
+  limit: number,
+  timeout: number = 5000,
+): Promise<string | undefined> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  try {
+    if (!response.body) {
+      const text = await Promise.race([
+        response.text(),
+        new Promise<string>((_, reject) =>
+          controller.signal.addEventListener('abort', () => reject(new Error('timeout'))),
+        ),
+      ]).catch(() => undefined);
+      if (text === undefined) return undefined;
+      return text.length > limit ? undefined : text;
     }
-    result += decoder.decode(value, { stream: true });
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let received = 0;
+    let result = '';
+    while (true) {
+      const { value, done } = await Promise.race([
+        reader.read(),
+        new Promise<never>((_, reject) =>
+          controller.signal.addEventListener('abort', () => reject(new Error('timeout'))),
+        ),
+      ]);
+      if (done) break;
+      received += value.length;
+      if (received > limit) {
+        reader.cancel();
+        return undefined;
+      }
+      result += decoder.decode(value, { stream: true });
+    }
+    result += decoder.decode();
+    return result;
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  result += decoder.decode();
-  return result;
 }
 
 export function validateCsp(response: Response): void {
@@ -211,6 +243,8 @@ export function validateCsp(response: Response): void {
   const connectSrc = directives.find(d => d.name === 'connect-src');
   const objectSrc = directives.find(d => d.name === 'object-src');
   const baseUri = directives.find(d => d.name === 'base-uri');
+  const scriptSrc = directives.find(d => d.name === 'script-src');
+  const styleSrc = directives.find(d => d.name === 'style-src');
 
   const hasUnsafeSource = directives.some(d =>
     d.sources.some(
@@ -233,13 +267,19 @@ export function validateCsp(response: Response): void {
     (objectSrc.sources.length === 1 && objectSrc.sources[0] === "'none'");
   const isBaseUriSafe =
     !baseUri || (baseUri.sources.length === 1 && baseUri.sources[0] === "'none'");
+  const isScriptSrcSafe =
+    !!scriptSrc && scriptSrc.sources.length === 1 && scriptSrc.sources[0] === "'none'";
+  const isStyleSrcSafe =
+    !!styleSrc && styleSrc.sources.length === 1 && styleSrc.sources[0] === "'none'";
 
   if (
     !isDefaultSrcStrict ||
     !isConnectSrcSelf ||
     hasUnsafeSource ||
     !isObjectSrcSafe ||
-    !isBaseUriSafe
+    !isBaseUriSafe ||
+    !isScriptSrcSafe ||
+    !isStyleSrcSafe
   ) {
     console.error('Invalid or insufficient CSP headers from memory server');
     throw new Error('Invalid CSP headers');

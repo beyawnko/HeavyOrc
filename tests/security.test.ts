@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { sanitizeErrorResponse, validateUrl } from '@/lib/security';
+import { sanitizeErrorResponse, validateUrl, readLimitedText, validateCsp } from '@/lib/security';
 
 describe('sanitizeErrorResponse arrays', () => {
   test('retains non-sensitive array items', () => {
@@ -36,24 +36,66 @@ describe('validateUrl', () => {
     expect(validateUrl('http://bücher.de')).toBe('http://xn--bcher-kva.de');
   });
 
-  test('blocks private URLs in production', () => {
-    expect(validateUrl('http://example.com', false)).toBe('http://example.com');
-    expect(validateUrl('https://example.com', false)).toBe('https://example.com');
-    expect(validateUrl('http://example.com:8080', false)).toBe('http://example.com:8080');
-    expect(validateUrl('http://localhost', false)).toBeUndefined();
-    expect(validateUrl('http://127.0.0.1', false)).toBeUndefined();
-    expect(validateUrl('http://192.168.0.1', false)).toBeUndefined();
-    expect(validateUrl('http://10.0.0.1', false)).toBeUndefined();
-    expect(validateUrl('http://172.16.0.1', false)).toBeUndefined();
-    expect(validateUrl('http://[::1]', false)).toBeUndefined();
-    expect(validateUrl('http://[::]', false)).toBeUndefined();
-    expect(validateUrl('http://[fd00::1]', false)).toBeUndefined();
-    expect(validateUrl('http://[fe80::1]', false)).toBeUndefined();
-    expect(validateUrl('http://[2001:db8::1]', false)).toBe('http://[2001:db8::1]');
-    expect(validateUrl('http://[2001:db8:0:1::]', false)).toBe('http://[2001:db8:0:1::]');
-    expect(validateUrl('http://[::ffff:192.168.0.1]', false)).toBeUndefined();
-    expect(validateUrl('http://[fe80:::1]', false)).toBeUndefined();
-    expect(validateUrl('ftp://example.com', false)).toBeUndefined();
+  test('enforces https and blocks private URLs in production', () => {
+    expect(validateUrl('http://example.com', [], false)).toBeUndefined();
+    expect(validateUrl('https://example.com', [], false)).toBe('https://example.com');
+    expect(validateUrl('http://example.com:8080', [], false)).toBeUndefined();
+    expect(validateUrl('http://localhost', [], false)).toBeUndefined();
+    expect(validateUrl('http://127.0.0.1', [], false)).toBeUndefined();
+    expect(validateUrl('http://192.168.0.1', [], false)).toBeUndefined();
+    expect(validateUrl('http://10.0.0.1', [], false)).toBeUndefined();
+    expect(validateUrl('http://172.16.0.1', [], false)).toBeUndefined();
+    expect(validateUrl('http://[::1]', [], false)).toBeUndefined();
+    expect(validateUrl('http://[::]', [], false)).toBeUndefined();
+    expect(validateUrl('http://[fd00::1]', [], false)).toBeUndefined();
+    expect(validateUrl('http://[fe80::1]', [], false)).toBeUndefined();
+    expect(validateUrl('http://[fe80::1%eth0]', [], false)).toBeUndefined();
+    expect(validateUrl('https://example.com', ['example.com'], false)).toBe('https://example.com');
+    expect(validateUrl('https://evil.com', ['example.com'], false)).toBeUndefined();
+    expect(validateUrl('https://example.com:8080', [], false)).toBe('https://example.com:8080');
+    expect(validateUrl('ftp://example.com', [], false)).toBeUndefined();
+  });
+});
+
+describe('validateCsp', () => {
+  test('accepts strict policy', () => {
+    const headers = new Headers({
+      'Content-Security-Policy':
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'",
+    });
+    const response = new Response('', { headers });
+    expect(() => validateCsp(response)).not.toThrow();
+  });
+
+  test('rejects missing script-src', () => {
+    const headers = new Headers({
+      'Content-Security-Policy':
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; style-src 'none'",
+    });
+    const response = new Response('', { headers });
+    expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
+  });
+
+  test('rejects unsafe style-src', () => {
+    const headers = new Headers({
+      'Content-Security-Policy':
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src *",
+    });
+    const response = new Response('', { headers });
+    expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
+  });
+});
+
+describe('readLimitedText', () => {
+  test('times out when stream is slow', async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        setTimeout(() => controller.enqueue(new TextEncoder().encode('a')), 20);
+      },
+    });
+    const response = new Response(stream);
+    const text = await readLimitedText(response, 10, 10);
+    expect(text).toBeUndefined();
   });
 });
 

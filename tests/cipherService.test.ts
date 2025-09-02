@@ -21,17 +21,27 @@ const sampleRun: RunRecord = {
 const originalFetch = global.fetch;
 const VALID_CSP_HEADER = {
   'Content-Security-Policy':
-    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'",
+    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'",
 };
 const WILDCARD_CSP_HEADER = {
-  'Content-Security-Policy': "default-src 'none'; connect-src *",
+  'Content-Security-Policy':
+    "default-src 'none'; connect-src *; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'",
 };
 const UNSAFE_CSP_HEADER = {
-  'Content-Security-Policy': "default-src 'none'; connect-src 'self'; script-src 'unsafe-inline'",
+  'Content-Security-Policy':
+    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'unsafe-inline'; style-src 'none'",
 };
 const DANGEROUS_CSP_HEADER = {
   'Content-Security-Policy':
-    "default-src 'none'; connect-src 'self'; object-src *; base-uri *",
+    "default-src 'none'; connect-src 'self'; object-src *; base-uri *; script-src 'none'; style-src 'none'",
+};
+const MISSING_SCRIPT_CSP_HEADER = {
+  'Content-Security-Policy':
+    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; style-src 'none'",
+};
+const MISSING_STYLE_CSP_HEADER = {
+  'Content-Security-Policy':
+    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'",
 };
 const MEMORIES_RESPONSE = { memories: [{ id: '1', content: 'note' }] };
 
@@ -66,6 +76,8 @@ describe('cipherService', () => {
     { name: 'wildcard', headers: WILDCARD_CSP_HEADER },
     { name: 'unsafe', headers: UNSAFE_CSP_HEADER },
     { name: 'dangerous', headers: DANGEROUS_CSP_HEADER },
+    { name: 'missing script', headers: MISSING_SCRIPT_CSP_HEADER },
+    { name: 'missing style', headers: MISSING_STYLE_CSP_HEADER },
   ])('throws when CSP header is $name', async ({ headers }) => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
@@ -177,6 +189,8 @@ describe('cipherService', () => {
     { name: 'invalid', headers: WILDCARD_CSP_HEADER },
     { name: 'unsafe', headers: UNSAFE_CSP_HEADER },
     { name: 'dangerous', headers: DANGEROUS_CSP_HEADER },
+    { name: 'no-script', headers: MISSING_SCRIPT_CSP_HEADER },
+    { name: 'no-style', headers: MISSING_STYLE_CSP_HEADER },
   ])(
     'returns empty array when CSP header is $name and enforcement enabled',
     async ({ headers }) => {
