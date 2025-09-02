@@ -15,15 +15,14 @@ const allowedHosts = baseUrl ? [new URL(baseUrl).hostname] : [];
 const enforceCsp = import.meta.env.VITE_ENFORCE_CIPHER_CSP === 'true';
 
 const RATE_LIMIT_WINDOW = 60000; // 1 minute
-const MAX_REQUESTS = 30; // 30 requests per minute
+const MAX_REQUESTS = 30; // 30 requests per minute per session
 const MAX_MEMORY_LENGTH = 4000; // 4KB safety limit per entry
 const MAX_RESPONSE_SIZE = MAX_MEMORY_LENGTH * 100; // 400KB total response cap
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_ENTRIES = 1000;
 const MAX_CACHE_SIZE = MAX_RESPONSE_SIZE; // 400KB overall cache limit
 
-let tokens = MAX_REQUESTS;
-let lastRefill = Date.now();
+const sessionBuckets = new Map<string, { tokens: number; lastRefill: number }>();
 const memoryCache = new Map<string, { data: MemoryEntry[]; expiry: number; size: number }>();
 let currentCacheSize = 0;
 const expiryHeap = new MinHeap<[string, number]>((a, b) => a[1] - b[1]);
@@ -51,21 +50,31 @@ function pruneCache() {
   }
 }
 
-async function consumeToken(): Promise<boolean> {
+async function consumeToken(sessionId: string): Promise<boolean> {
   // TODO: replace with a distributed rate limiter (e.g., Redis) for multi-instance deployments
   const exec = () => {
+    const bucket =
+      sessionBuckets.get(sessionId) ||
+      { tokens: MAX_REQUESTS, lastRefill: Date.now() };
     const now = Date.now();
-    const elapsed = now - lastRefill;
+    const elapsed = now - bucket.lastRefill;
     if (elapsed > 0) {
-      tokens = Math.min(MAX_REQUESTS, tokens + (elapsed / RATE_LIMIT_WINDOW) * MAX_REQUESTS);
-      lastRefill = now;
+      bucket.tokens = Math.min(
+        MAX_REQUESTS,
+        bucket.tokens + (elapsed / RATE_LIMIT_WINDOW) * MAX_REQUESTS,
+      );
+      bucket.lastRefill = now;
     }
-    if (tokens < 1) return false;
-    tokens -= 1;
+    if (bucket.tokens < 1) {
+      sessionBuckets.set(sessionId, bucket);
+      return false;
+    }
+    bucket.tokens -= 1;
+    sessionBuckets.set(sessionId, bucket);
     return true;
   };
   if (typeof navigator !== 'undefined' && 'locks' in navigator && navigator.locks) {
-    return navigator.locks.request('cipher-rate', exec);
+    return navigator.locks.request(`cipher-rate:${sessionId}`, exec);
   }
   return exec();
 }
@@ -75,7 +84,7 @@ export const storeRunRecord = async (
   sessionId: string,
 ): Promise<void> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return;
-  if (!(await consumeToken())) {
+  if (!(await consumeToken(sessionId))) {
     console.warn('Rate limit exceeded for memory storage');
     logMemory('cipher.store.rateLimit', { sessionId });
     return;
@@ -144,7 +153,7 @@ export const fetchRelevantMemories = async (
   }
   if (query.length > MAX_MEMORY_LENGTH) return [];
 
-  if (!(await consumeToken())) {
+  if (!(await consumeToken(sessionId))) {
     console.warn('Rate limit exceeded for memory fetching');
     logMemory('cipher.fetch.rateLimit', { sessionId, query });
     return [];

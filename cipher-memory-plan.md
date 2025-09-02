@@ -55,6 +55,10 @@ This document tracks the phased implementation of persistent conversational cont
 - [x] Harden session ID signing with SHA-256 HMAC and handle storage quota failures.
 - [x] Enforce per-message size limits in the session cache.
 - [x] Emit structured logs/metrics for memory operations.
+- [x] Sanitize session messages and validate imported sessions.
+- [x] Verify session ID signatures using constant-time comparison.
+- [x] Make session summarization thresholds and ratios configurable.
+- [x] Apply session-scoped rate limiting to Cipher API calls.
 
 ## Phase 6 – Future Enhancements
 - Merge session histories when a user authenticates so long-term memories persist across devices.

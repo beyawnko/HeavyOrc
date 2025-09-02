@@ -17,6 +17,8 @@ export const SESSION_ID_STORAGE_KEY = 'cipher:sessionId';
 export const SESSION_CACHE_MAX_ENTRIES = 20;
 export const SESSION_SUMMARY_CHAR_THRESHOLD = 4000;
 export const SESSION_MESSAGE_MAX_CHARS = 4000;
+export const SESSION_SUMMARY_KEEP_RATIO = 0.5;
+export const SUMMARIZER_MAX_CHARS = 1000;
 export const SESSION_ID_SECRET =
   (typeof process !== 'undefined' && process.env.SESSION_ID_SECRET) ||
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SESSION_ID_SECRET) ||

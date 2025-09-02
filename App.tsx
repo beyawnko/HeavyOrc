@@ -58,6 +58,7 @@ import {
 import { storeRunRecord } from '@/services/cipherService';
 import { buildContextualPrompt } from '@/lib/contextBuilder';
 import { useSessionContext } from '@/lib/useSessionContext';
+import { getSessionId } from '@/lib/sessionCache';
 
 // Hooks
 import useViewportHeight from '@/lib/useViewportHeight';
@@ -384,8 +385,11 @@ const App: React.FC = () => {
             setSelectedRunId(null);
         }
 
-        const sessionId = sessionIdRef.current;
-        if (!sessionId) return;
+        let sessionId = sessionIdRef.current;
+        if (!sessionId) {
+            sessionId = await getSessionId();
+            sessionIdRef.current = sessionId;
+        }
         const userPrompt =
             prompt.trim() || (images.length > 0 ? `Analyze these ${images.length} image(s) and provide a detailed description.` : "");
         userPromptRef.current = userPrompt;

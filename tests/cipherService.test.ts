@@ -375,6 +375,20 @@ describe('cipherService', () => {
     expect(fetchMock).toHaveBeenCalledTimes(30);
   });
 
+  it('rate limits per session', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    const headers = { 'Content-Security-Policy': "default-src 'none'" };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200, headers }));
+    global.fetch = fetchMock as any;
+    const { storeRunRecord } = await import('@/services/cipherService');
+    for (let i = 0; i < 35; i++) {
+      await storeRunRecord(sampleRun, 's1');
+    }
+    await storeRunRecord(sampleRun, 's2');
+    expect(fetchMock).toHaveBeenCalledTimes(31);
+  });
+
   it('evicts cache after TTL', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);

@@ -176,4 +176,51 @@ describe('sessionCache', () => {
       `${id2}.${await __signSessionId(id2)}`,
     );
   });
+
+  it('sanitizes message content on append', () => {
+    const sessionId = 'xss';
+    appendSessionContext(sessionId, {
+      role: 'user',
+      content: '<img src=x onerror=alert(1)>',
+      timestamp: 0,
+    });
+    const ctx = loadSessionContext(sessionId);
+    expect(ctx[0].content).toBe('&lt;img src=x onerror=alert(1)&gt;');
+  });
+
+  it('validates imported session', async () => {
+    const bad = JSON.stringify({
+      sessionId: 's',
+      messages: [{ role: 'bad', content: 1, timestamp: 'x' }],
+    });
+    const res = await importSession(bad);
+    expect(res).toBeNull();
+  });
+
+  it('sanitizes imported messages', async () => {
+    const serialized = JSON.stringify({
+      sessionId: 's',
+      messages: [{ role: 'user', content: '<b>hi</b>', timestamp: 1 }],
+    });
+    const id = await importSession(serialized);
+    expect(id).toBe('s');
+    const ctx = loadSessionContext('s');
+    expect(ctx[0].content).toBe('&lt;b&gt;hi&lt;/b&gt;');
+  });
+
+  it('uses configurable keep ratio when summarizing', async () => {
+    const sessionId = 'ratio';
+    for (let i = 0; i < 4; i++) {
+      appendSessionContext(sessionId, {
+        role: 'user',
+        content: `m${i}`,
+        timestamp: i,
+      });
+    }
+    const summarizer = vi.fn(async () => 'sum');
+    await summarizeSessionIfNeeded(sessionId, summarizer, 0, 0.25);
+    const ctx = loadSessionContext(sessionId);
+    expect(ctx.some(m => m.content === 'm0')).toBe(false);
+    expect(summarizer).toHaveBeenCalledOnce();
+  });
 });

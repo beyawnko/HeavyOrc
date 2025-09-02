@@ -4,8 +4,10 @@ import {
   SESSION_SUMMARY_CHAR_THRESHOLD,
   SESSION_ID_SECRET,
   SESSION_MESSAGE_MAX_CHARS,
+  SESSION_SUMMARY_KEEP_RATIO,
 } from '@/constants';
 import { logMemory } from '@/lib/memoryLogger';
+import { escapeHtml } from '@/lib/utils';
 
 export type CachedMessage = {
   role: 'user' | 'assistant';
@@ -24,6 +26,15 @@ async function signSessionId(id: string): Promise<string> {
   const hash = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hash));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
 }
 
 async function storeSessionId(id: string): Promise<boolean> {
@@ -46,7 +57,7 @@ async function readSessionId(): Promise<string | null> {
     const [id, sig] = raw.split('.');
     if (!id || !sig) return null;
     const expected = await signSessionId(id);
-    return expected === sig ? id : null;
+    return timingSafeEqual(expected, sig) ? id : null;
   } catch (e) {
     console.warn('Failed to read sessionId', e);
     return null;
@@ -90,12 +101,14 @@ export function appendSessionContext(
   message: CachedMessage,
   maxEntries = SESSION_CACHE_MAX_ENTRIES,
 ): void {
-  if (message.content.length > SESSION_MESSAGE_MAX_CHARS) {
-    message = {
-      ...message,
-      content: message.content.slice(0, SESSION_MESSAGE_MAX_CHARS),
-    };
+  if (!message.content || typeof message.content !== 'string') {
+    throw new Error('Invalid message content');
   }
+  let sanitized = escapeHtml(message.content);
+  if (sanitized.length > SESSION_MESSAGE_MAX_CHARS) {
+    sanitized = sanitized.slice(0, SESSION_MESSAGE_MAX_CHARS);
+  }
+  message = { ...message, content: sanitized };
   const messages = cache.get(sessionId) ?? [];
   messages.push(message);
   if (messages.length > maxEntries) {
@@ -114,20 +127,25 @@ export async function summarizeSessionIfNeeded(
   sessionId: string,
   summarize: Summarizer,
   threshold = SESSION_SUMMARY_CHAR_THRESHOLD,
+  keepRatio = SESSION_SUMMARY_KEEP_RATIO,
 ): Promise<void> {
   const messages = cache.get(sessionId);
   if (!messages || messages.length === 0) return;
   const totalChars = messages.reduce((sum, m) => sum + m.content.length, 0);
   if (totalChars <= threshold) return;
 
-  const keepStart = Math.floor(messages.length / 2);
+  const ratio = Math.min(Math.max(keepRatio, 0), 1);
+  const keepStart = Math.floor(messages.length * ratio);
   const toSummarize = messages.slice(0, keepStart);
   const keep = messages.slice(keepStart);
   const summaryInput = toSummarize
     .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
     .join('\n');
   try {
-    const summary = await summarize(summaryInput);
+    let summary = escapeHtml(await summarize(summaryInput));
+    if (summary.length > SESSION_MESSAGE_MAX_CHARS) {
+      summary = summary.slice(0, SESSION_MESSAGE_MAX_CHARS);
+    }
     const summaryMsg: CachedMessage = {
       role: 'assistant',
       content: summary,
@@ -160,15 +178,34 @@ export async function importSession(serialized: string): Promise<string | null> 
       sessionId: string;
       messages: CachedMessage[];
     };
-    if (!parsed.sessionId || !Array.isArray(parsed.messages)) return null;
-    const { sessionId, messages } = parsed;
+    if (typeof parsed.sessionId !== 'string' || !Array.isArray(parsed.messages)) {
+      throw new Error('Invalid session format');
+    }
+    const validated = parsed.messages.map(msg => {
+      if (typeof msg !== 'object' || !msg) throw new Error('Invalid message');
+      if (!['user', 'assistant'].includes((msg as any).role)) {
+        throw new Error('Invalid message role');
+      }
+      if (typeof (msg as any).content !== 'string') {
+        throw new Error('Invalid message content');
+      }
+      if (typeof (msg as any).timestamp !== 'number' || isNaN((msg as any).timestamp)) {
+        throw new Error('Invalid message timestamp');
+      }
+      let content = escapeHtml((msg as any).content);
+      if (content.length > SESSION_MESSAGE_MAX_CHARS) {
+        content = content.slice(0, SESSION_MESSAGE_MAX_CHARS);
+      }
+      return { role: (msg as any).role as 'user' | 'assistant', content, timestamp: (msg as any).timestamp };
+    });
+    const { sessionId } = parsed;
     if (hasLocalStorage()) {
       await storeSessionId(sessionId);
     } else {
       ephemeralSessionId = sessionId;
     }
-    cache.set(sessionId, messages);
-    logMemory('session.import', { sessionId, messages: messages.length });
+    cache.set(sessionId, validated);
+    logMemory('session.import', { sessionId, messages: validated.length });
     return sessionId;
   } catch (e) {
     console.warn('Failed to import session', e);
