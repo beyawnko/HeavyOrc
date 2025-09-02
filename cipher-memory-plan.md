@@ -40,7 +40,7 @@ This document tracks the phased implementation of persistent conversational cont
 
 ---
 
-### Next Steps
+### Completed Steps
 - [x] Implement Phase 1 helpers (`loadSessionContext`, `appendSessionContext`).
 - [x] Draft unit tests for LRU cache behavior.
 - [x] Stub Cipher client with session-aware `storeRun` and `search` calls.
@@ -53,3 +53,13 @@ This document tracks the phased implementation of persistent conversational cont
 - [x] Sign and validate session IDs to prevent tampering.
 - [x] Emit structured logs/metrics for memory operations.
 
+## Phase 6 – Future Enhancements
+- Merge session histories when a user authenticates so long-term memories persist across devices.
+- Cache `cipher.search` results with a short TTL to avoid redundant vector queries.
+- Surface memory operation metrics in a lightweight dashboard for debugging.
+- **Fallback:** If metrics tooling is unavailable, emit console logs and revisit instrumentation later.
+
+### Next Steps
+- [ ] Consolidate session histories on sign-in.
+- [ ] Introduce TTL-based caching for `cipher.search`.
+- [ ] Display memory metrics in a debug view.
