@@ -73,10 +73,12 @@ export function validateUrl(url: string | undefined, dev: boolean = import.meta.
   try {
     const parsed = new URL(url.normalize('NFKC'));
     let hostname = parsed.hostname;
-    try {
-      hostname = new URL(`http://${hostname}`).hostname;
-    } catch {
-      return undefined;
+    if (!ipaddr.isValid(hostname)) {
+      try {
+        hostname = new URL(`http://${hostname}`).hostname;
+      } catch {
+        return undefined;
+      }
     }
     const bareHost = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
     if (
