@@ -17,19 +17,21 @@ export const fetchWithTimeout = async (
     }
     for (let attempt = 0; attempt <= retries; attempt++) {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), timeoutMs * (attempt + 1));
+        const timeout = timeoutMs * (attempt + 1);
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
         try {
-            return await fetch(input, { ...init, signal: controller.signal });
+            const response = await fetch(input, { ...init, signal: controller.signal });
+            clearTimeout(timeoutId);
+            return response;
         } catch (error) {
+            clearTimeout(timeoutId);
             if ((error as { name?: string }).name === 'AbortError') {
                 if (attempt === retries) {
-                    throw new Error(`Request timeout after ${timeoutMs * (attempt + 1)}ms`);
+                    throw new Error(`Request timeout after ${timeout}ms`);
                 }
             } else if (attempt === retries) {
                 throw error;
             }
-        } finally {
-            clearTimeout(timer);
         }
         await sleep(baseDelayMs * Math.pow(2, attempt));
     }

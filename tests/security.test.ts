@@ -28,10 +28,17 @@ describe('sanitizeErrorResponse arrays', () => {
 });
 
 describe('sanitizeErrorResponse limits', () => {
-  test('redacts short base64 strings', () => {
-    const input = JSON.stringify({ token: 'YWJjZA==' });
+  test('redacts high entropy base64 strings', () => {
+    const secret = Buffer.from('secret').toString('base64');
+    const input = JSON.stringify({ data: secret });
     const output = sanitizeErrorResponse(input);
-    expect(JSON.parse(output)).toEqual({ token: '[REDACTED]' });
+    expect(JSON.parse(output)).toEqual({ data: '[REDACTED]' });
+  });
+
+  test('ignores low entropy base64-like strings', () => {
+    const input = JSON.stringify({ data: 'AAAAAAAAAAAAAA==' });
+    const output = sanitizeErrorResponse(input);
+    expect(JSON.parse(output)).toEqual({ data: 'AAAAAAAAAAAAAA==' });
   });
 
   test('ignores plain alphanumeric strings', () => {

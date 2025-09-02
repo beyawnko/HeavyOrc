@@ -28,15 +28,29 @@ const SENSITIVE_VALUE_PATTERNS = [
 ];
 
 const BASE64_VALUE = /^(?!.*[^A-Za-z0-9+/=])(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
-// Catch shorter base64-encoded secrets (8+ chars) that may still be sensitive
-// Require at least one non-alphanumeric character to reduce false positives
-const BASE64_SHORT = /^(?![A-Za-z0-9]{8,}$)(?!.*[^A-Za-z0-9+/=])(?:[A-Za-z0-9+/]{4}){2,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+
+function shannonEntropy(str: string): number {
+  const counts: Record<string, number> = {};
+  for (const ch of str) counts[ch] = (counts[ch] || 0) + 1;
+  const len = str.length;
+  let entropy = 0;
+  for (const c of Object.values(counts)) {
+    const p = c / len;
+    entropy -= p * Math.log2(p);
+  }
+  return entropy;
+}
+
+function isHighEntropyBase64(value: string): boolean {
+  if (value.length < 8 || !BASE64_VALUE.test(value)) return false;
+  if (/^[A-Za-z]+$/.test(value) && !( /[A-Z]/.test(value) && /[a-z]/.test(value))) return false;
+  return shannonEntropy(value) >= 2.5;
+}
 
 function isSensitiveString(value: string): boolean {
   return (
     SENSITIVE_VALUE_PATTERNS.some(p => p.test(value)) ||
-    (value.length >= 20 && BASE64_VALUE.test(value)) ||
-    BASE64_SHORT.test(value)
+    isHighEntropyBase64(value)
   );
 }
 

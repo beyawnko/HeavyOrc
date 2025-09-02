@@ -3,6 +3,56 @@ import { fetchWithRetry, fetchWithTimeout } from '@/services/llmService';
 import { sanitizeErrorResponse } from '@/lib/security';
 import * as ipaddr from 'ipaddr.js';
 
+class MinHeap<T> {
+  private data: T[] = [];
+  constructor(private compare: (a: T, b: T) => number) {}
+  push(item: T): void {
+    this.data.push(item);
+    this.bubbleUp(this.data.length - 1);
+  }
+  pop(): T | undefined {
+    if (this.data.length === 0) return undefined;
+    const top = this.data[0];
+    const end = this.data.pop()!;
+    if (this.data.length > 0) {
+      this.data[0] = end;
+      this.bubbleDown(0);
+    }
+    return top;
+  }
+  peek(): T | undefined {
+    return this.data[0];
+  }
+  size(): number {
+    return this.data.length;
+  }
+  private bubbleUp(index: number): void {
+    while (index > 0) {
+      const parent = Math.floor((index - 1) / 2);
+      if (this.compare(this.data[index], this.data[parent]) >= 0) break;
+      [this.data[index], this.data[parent]] = [this.data[parent], this.data[index]];
+      index = parent;
+    }
+  }
+  private bubbleDown(index: number): void {
+    const length = this.data.length;
+    while (true) {
+      let left = 2 * index + 1;
+      let right = left + 1;
+      let smallest = index;
+      if (left < length && this.compare(this.data[left], this.data[smallest]) < 0) {
+        smallest = left;
+      }
+      if (right < length && this.compare(this.data[right], this.data[smallest]) < 0) {
+        smallest = right;
+      }
+      if (smallest === index) break;
+      [this.data[index], this.data[smallest]] = [this.data[smallest], this.data[index]];
+      index = smallest;
+    }
+  }
+}
+
 export interface MemoryEntry {
   id: string;
   content: string;
@@ -24,22 +74,28 @@ let tokens = MAX_REQUESTS;
 let lastRefill = Date.now();
 const memoryCache = new Map<string, { data: MemoryEntry[]; expiry: number; size: number }>();
 let currentCacheSize = 0;
+const expiryHeap = new MinHeap<[string, number]>((a, b) => a[1] - b[1]);
 
 function pruneCache() {
   const now = Date.now();
-  for (const [key, value] of memoryCache) {
-    if (value.expiry <= now) {
-      currentCacheSize -= value.size;
-      memoryCache.delete(key);
+  while (expiryHeap.size() > 0) {
+    const [key, exp] = expiryHeap.peek()!;
+    const entry = memoryCache.get(key);
+    if (!entry) {
+      expiryHeap.pop();
+      continue;
     }
-  }
-  if (memoryCache.size > MAX_CACHE_ENTRIES || currentCacheSize > MAX_CACHE_SIZE) {
-    const entries = Array.from(memoryCache.entries()).sort((a, b) => a[1].expiry - b[1].expiry);
-    while (memoryCache.size > MAX_CACHE_ENTRIES || currentCacheSize > MAX_CACHE_SIZE) {
-      const [key, value] = entries.shift()!;
+    if (
+      exp <= now ||
+      memoryCache.size > MAX_CACHE_ENTRIES ||
+      currentCacheSize > MAX_CACHE_SIZE
+    ) {
+      expiryHeap.pop();
       memoryCache.delete(key);
-      currentCacheSize -= value.size;
+      currentCacheSize -= entry.size;
+      continue;
     }
+    break;
   }
 }
 
@@ -64,8 +120,13 @@ async function consumeToken(): Promise<boolean> {
 export function validateUrl(url: string | undefined, dev: boolean = import.meta.env.DEV): string | undefined {
   if (!url || url.length > 2048 || !/^https?:\/\//i.test(url)) return undefined;
   try {
-    const parsed = new URL(url);
-    const hostname = parsed.hostname;
+    const parsed = new URL(url.normalize('NFKC'));
+    let hostname = parsed.hostname;
+    try {
+      hostname = new URL(`http://${hostname}`).hostname;
+    } catch {
+      return undefined;
+    }
     const bareHost = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
     if (
       !['http:', 'https:'].includes(parsed.protocol) ||
@@ -75,10 +136,34 @@ export function validateUrl(url: string | undefined, dev: boolean = import.meta.
     ) {
       return undefined;
     }
-    return url;
+    parsed.hostname = hostname;
+    return parsed.toString().replace(/\/$/, '');
   } catch {
     return undefined;
   }
+}
+
+async function readLimitedText(response: Response, limit: number): Promise<string | undefined> {
+  if (!response.body) {
+    const text = await response.text();
+    return text.length > limit ? undefined : text;
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let received = 0;
+  let result = '';
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    received += value.length;
+    if (received > limit) {
+      reader.cancel();
+      return undefined;
+    }
+    result += decoder.decode(value, { stream: true });
+  }
+  result += decoder.decode();
+  return result;
 }
 
 /**
@@ -237,8 +322,8 @@ export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[
       return [];
     }
 
-    const text = await response.text();
-    if (text.length > MAX_RESPONSE_SIZE) {
+    const text = await readLimitedText(response, MAX_RESPONSE_SIZE);
+    if (text === undefined) {
       console.error('Memory response too large', {
         url: `${baseUrl}/memories/search`,
       });
@@ -249,7 +334,9 @@ export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[
       ? data.memories.filter(m => m.content.length <= MAX_MEMORY_LENGTH)
       : [];
     const size = memories.reduce((sum, m) => sum + m.content.length, 0);
-    memoryCache.set(query, { data: memories, expiry: Date.now() + CACHE_TTL_MS, size });
+    const expiry = Date.now() + CACHE_TTL_MS;
+    memoryCache.set(query, { data: memories, expiry, size });
+    expiryHeap.push([query, expiry]);
     currentCacheSize += size;
     pruneCache();
     return memories;

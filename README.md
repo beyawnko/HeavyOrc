@@ -57,7 +57,7 @@ VITE_ENFORCE_CIPHER_CSP=false
 
 If the server is not running, HeavyOrc continues to operate with ephemeral in-memory history. Cipher speaks the Model Context Protocol, so the same memory store can be shared with other tools in the future.
 
-Fetched memory snippets are HTML-escaped with [`escape-html`](https://www.npmjs.com/package/escape-html), replacing characters like `&`, `<`, `>`, `"` and `'` before including them in prompts. Error responses are recursively redacted: keys such as `token`, `password`, `secret`, `apiKey` and other credential-like fields—or string values that match those patterns or appear base64-encoded—are replaced with `[REDACTED]`. Redaction patterns are currently hardcoded in [`lib/security.ts`](./lib/security.ts) and can be customized there if needed.
+Fetched memory snippets are HTML-escaped with [`escape-html`](https://www.npmjs.com/package/escape-html), replacing characters like `&`, `<`, `>`, `"` and `'` before including them in prompts. Error responses are recursively redacted: keys such as `token`, `password`, `secret`, `apiKey` and other credential-like fields—or high-entropy strings that look base64-encoded—are replaced with `[REDACTED]`. Redaction patterns and entropy checks are hardcoded in [`lib/security.ts`](./lib/security.ts) and can be customized there if needed. Responses from the memory server are streamed and capped at 400KB to mitigate denial-of-service attempts.
 Review and update these patterns regularly to catch newly emerging sensitive data types.
 
 ## ESM imports integrity
