@@ -62,4 +62,13 @@ describe('sanitizeErrorResponse limits', () => {
     expect(parsed.message.length).toBe(1000);
     expect(parsed.token).toBe('[REDACTED]');
   });
+
+  test('redacts sensitive message in oversized JSON', () => {
+    const bigMessage = 'token123' + 'x'.repeat(40_000);
+    const input = JSON.stringify({ message: bigMessage });
+    const output = sanitizeErrorResponse(input);
+    const parsed = JSON.parse(output);
+    expect(parsed._truncated).toBe(true);
+    expect(parsed.message).toBe('[REDACTED]');
+  });
 });

@@ -44,8 +44,11 @@ export const fetchWithTimeout = async (
                 signal!.removeEventListener('abort', abortListener);
             }
             if ((error as { name?: string }).name === 'AbortError') {
+                if (signal?.aborted) {
+                    throw error;
+                }
                 if (attempt === retries) {
-                    throw new Error(`Request timeout after ${timeout}ms`);
+                    throw new DOMException(`Request timeout after ${timeout}ms`, 'AbortError');
                 }
             } else if (attempt === retries) {
                 throw error;

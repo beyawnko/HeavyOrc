@@ -97,7 +97,11 @@ export function sanitizeErrorResponse(body: string): string {
       const parsed = JSON.parse(body);
       if (parsed && typeof parsed === 'object' && parsed !== null) {
         const sanitized = sanitize(parsed);
-        const message = (parsed as { message?: string }).message?.slice(0, 1000) || '[REDACTED: Response too large]';
+        const rawMsg = (parsed as { message?: unknown }).message;
+        const message =
+          typeof rawMsg === 'string'
+            ? String(sanitize(rawMsg)).slice(0, 1000)
+            : '[REDACTED: Response too large]';
         return JSON.stringify({ ...(sanitized as Record<string, unknown>), _truncated: true, message });
       }
     } catch {
