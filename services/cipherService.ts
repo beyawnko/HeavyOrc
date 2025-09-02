@@ -32,7 +32,7 @@ function pruneCache() {
   while (expiryHeap.size() > 0) {
     const [key, exp] = expiryHeap.peek()!;
     const entry = memoryCache.get(key);
-    if (!entry) {
+    if (!entry || entry.expiry !== exp) {
       expiryHeap.pop();
       continue;
     }
@@ -284,6 +284,10 @@ export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[
       ? data.memories.filter(m => m.content.length <= MAX_MEMORY_LENGTH)
       : [];
     const size = memories.reduce((sum, m) => sum + m.content.length, 0);
+    const existing = memoryCache.get(query);
+    if (existing) {
+      currentCacheSize -= existing.size;
+    }
     const expiry = Date.now() + CACHE_TTL_MS;
     memoryCache.set(query, { data: memories, expiry, size });
     expiryHeap.push([query, expiry]);

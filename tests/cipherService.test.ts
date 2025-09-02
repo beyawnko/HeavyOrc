@@ -141,6 +141,22 @@ describe('cipherService', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('avoids double counting cache size on concurrent fetches', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    const resp = new Response(JSON.stringify(MEMORIES_RESPONSE), { status: 200 });
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(
+        () => new Promise(resolve => setTimeout(() => resolve(resp.clone()), 10))
+      );
+    global.fetch = fetchMock as any;
+    const { fetchRelevantMemories } = await import('@/services/cipherService');
+    await Promise.all([fetchRelevantMemories('q2'), fetchRelevantMemories('q2')]);
+    await fetchRelevantMemories('q2');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
 
   it('caches memory responses', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
