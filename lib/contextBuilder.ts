@@ -51,7 +51,7 @@ export async function buildContextualPrompt(
   const sessionContext = loadSessionContext(sessionId);
   if (sessionContext.length > 0) {
     const sessionText = sessionContext
-      .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${escapeHtml(m.content)}`)
+      .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
       .join('\n');
     prompt = `Recent session context:\n${sessionText}\n\n${prompt}`;
   }

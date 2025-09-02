@@ -60,6 +60,7 @@ This document tracks the phased implementation of persistent conversational cont
 - [x] Make session summarization thresholds and ratios configurable.
 - [x] Apply session-scoped rate limiting to Cipher API calls.
 - [x] Debounce session summarization and rate-limit session imports.
+- [x] Evict stale session context with TTL and fallback when storage persistence fails.
 
 ## Phase 6 – Future Enhancements
 - Merge session histories when a user authenticates so long-term memories persist across devices.

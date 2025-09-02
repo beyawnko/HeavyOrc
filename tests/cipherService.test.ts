@@ -4,7 +4,7 @@ import { GEMINI_PRO_MODEL } from '@/constants';
 
 const sampleRun: RunRecord = {
   id: '1',
-  timestamp: 0,
+  timestamp: Date.now(),
   prompt: 'p',
   images: [],
   agentConfigs: [],

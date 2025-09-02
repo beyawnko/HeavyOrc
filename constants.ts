@@ -21,10 +21,17 @@ export const SESSION_SUMMARY_KEEP_RATIO = 0.5;
 export const SUMMARIZER_MAX_CHARS = 1000;
 export const SESSION_SUMMARY_DEBOUNCE_MS = 500;
 export const SESSION_IMPORTS_PER_MINUTE = 5;
+export const SESSION_CONTEXT_TTL_MS = 86_400_000; // 24 hours
 export const SESSION_ID_SECRET =
   (typeof process !== 'undefined' && process.env.SESSION_ID_SECRET) ||
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SESSION_ID_SECRET) ||
   'dev-session-secret';
+
+if (SESSION_ID_SECRET === 'dev-session-secret') {
+  console.warn(
+    'SESSION_ID_SECRET is using a default development value; set a strong secret in production.',
+  );
+}
 
 export const GEMINI_FLASH_MODEL = "gemini-2.5-flash";
 export const GEMINI_PRO_MODEL = "gemini-2.5-pro";

@@ -14,6 +14,7 @@ import {
   SESSION_ID_STORAGE_KEY,
   SESSION_MESSAGE_MAX_CHARS,
   SESSION_IMPORTS_PER_MINUTE,
+  SESSION_CONTEXT_TTL_MS,
 } from '@/constants';
 
 describe('sessionCache', () => {
@@ -25,11 +26,12 @@ describe('sessionCache', () => {
 
   it('appends messages and enforces LRU size', () => {
     const sessionId = 'test';
+    const base = Date.now();
     for (let i = 0; i < SESSION_CACHE_MAX_ENTRIES + 5; i++) {
       appendSessionContext(sessionId, {
         role: 'user',
         content: `m${i}`,
-        timestamp: i,
+        timestamp: base + i,
       });
     }
     const ctx = loadSessionContext(sessionId);
@@ -38,13 +40,24 @@ describe('sessionCache', () => {
     expect(ctx[ctx.length - 1].content).toBe(`m${SESSION_CACHE_MAX_ENTRIES + 4}`);
   });
 
+  it('evicts messages past TTL', () => {
+    const sessionId = 'ttl';
+    appendSessionContext(sessionId, {
+      role: 'user',
+      content: 'old',
+      timestamp: Date.now() - SESSION_CONTEXT_TTL_MS - 1000,
+    });
+    const ctx = loadSessionContext(sessionId);
+    expect(ctx).toHaveLength(0);
+  });
+
   it('enforces per-message size limit', () => {
     const sessionId = 'limit';
     const long = 'a'.repeat(SESSION_MESSAGE_MAX_CHARS + 100);
     appendSessionContext(sessionId, {
       role: 'user',
       content: long,
-      timestamp: 0,
+      timestamp: Date.now(),
     });
     const ctx = loadSessionContext(sessionId);
     expect(ctx[0].content.length).toBe(SESSION_MESSAGE_MAX_CHARS);
@@ -104,8 +117,9 @@ describe('sessionCache', () => {
   it('summarizes overflowing context', async () => {
     const sessionId = 's';
     const long = 'x'.repeat(SESSION_CACHE_MAX_ENTRIES * 300);
-    appendSessionContext(sessionId, { role: 'user', content: long, timestamp: 0 });
-    appendSessionContext(sessionId, { role: 'assistant', content: long, timestamp: 1 });
+    const base = Date.now();
+    appendSessionContext(sessionId, { role: 'user', content: long, timestamp: base });
+    appendSessionContext(sessionId, { role: 'assistant', content: long, timestamp: base + 1 });
     const summarizer = vi.fn(async () => 'summary');
     await summarizeSessionIfNeeded(sessionId, summarizer, 1000);
     expect(summarizer).toHaveBeenCalledOnce();
@@ -117,8 +131,9 @@ describe('sessionCache', () => {
   it('throttles rapid summarization', async () => {
     const sessionId = 'throttle';
     const long = 'z'.repeat(2000);
-    appendSessionContext(sessionId, { role: 'user', content: long, timestamp: 0 });
-    appendSessionContext(sessionId, { role: 'assistant', content: long, timestamp: 1 });
+    const base = Date.now();
+    appendSessionContext(sessionId, { role: 'user', content: long, timestamp: base });
+    appendSessionContext(sessionId, { role: 'assistant', content: long, timestamp: base + 1 });
     const summarizer = vi.fn(async () => 'summary');
     await summarizeSessionIfNeeded(sessionId, summarizer, 1000);
     await summarizeSessionIfNeeded(sessionId, summarizer, 1000);
@@ -129,8 +144,9 @@ describe('sessionCache', () => {
     const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
     const sessionId = 'log';
     const long = 'y'.repeat(2000);
-    appendSessionContext(sessionId, { role: 'user', content: long, timestamp: 0 });
-    appendSessionContext(sessionId, { role: 'assistant', content: long, timestamp: 1 });
+    const base = Date.now();
+    appendSessionContext(sessionId, { role: 'user', content: long, timestamp: base });
+    appendSessionContext(sessionId, { role: 'assistant', content: long, timestamp: base + 1 });
     const summarizer = vi.fn(async () => 'summary');
     await summarizeSessionIfNeeded(sessionId, summarizer, 1000);
     const hasEvent = debug.mock.calls.some(([arg]) =>
@@ -147,7 +163,7 @@ describe('sessionCache', () => {
     appendSessionContext(sessionId, {
       role: 'user',
       content: 'hello',
-      timestamp: 1,
+      timestamp: Date.now(),
     });
     const serialized = exportSession(sessionId);
     __clearSessionCache();
@@ -168,6 +184,26 @@ describe('sessionCache', () => {
     const ctx = loadSessionContext(sessionId);
     expect(ctx).toHaveLength(1);
     expect(ctx[0].content).toBe('hello');
+  });
+
+  it('uses imported sessionId when localStorage write fails', async () => {
+    const serialized = JSON.stringify({ sessionId: 'imp', messages: [] });
+    (globalThis as any).window = {
+      localStorage: {
+        getItem: () => {
+          throw new Error('QuotaExceededError');
+        },
+        setItem: () => {
+          throw new Error('QuotaExceededError');
+        },
+      },
+    };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const id = await importSession(serialized);
+    expect(id).toBe('imp');
+    const resolved = await getSessionId();
+    expect(resolved).toBe('imp');
+    warn.mockRestore();
   });
 
   it('returns null on malformed import', async () => {
@@ -212,7 +248,7 @@ describe('sessionCache', () => {
     appendSessionContext(sessionId, {
       role: 'user',
       content: '<img src=x onerror=alert(1)>',
-      timestamp: 0,
+      timestamp: Date.now(),
     });
     const ctx = loadSessionContext(sessionId);
     expect(ctx[0].content).toBe('&lt;img src=x onerror=alert(1)&gt;');
@@ -230,7 +266,7 @@ describe('sessionCache', () => {
   it('sanitizes imported messages', async () => {
     const serialized = JSON.stringify({
       sessionId: 's',
-      messages: [{ role: 'user', content: '<b>hi</b>', timestamp: 1 }],
+      messages: [{ role: 'user', content: '<b>hi</b>', timestamp: Date.now() }],
     });
     const id = await importSession(serialized);
     expect(id).toBe('s');
@@ -240,11 +276,12 @@ describe('sessionCache', () => {
 
   it('uses configurable keep ratio when summarizing', async () => {
     const sessionId = 'ratio';
+    const base = Date.now();
     for (let i = 0; i < 4; i++) {
       appendSessionContext(sessionId, {
         role: 'user',
         content: `m${i}`,
-        timestamp: i,
+        timestamp: base + i,
       });
     }
     const summarizer = vi.fn(async () => 'sum');

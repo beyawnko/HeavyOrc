@@ -7,6 +7,7 @@ import {
   SESSION_SUMMARY_KEEP_RATIO,
   SESSION_SUMMARY_DEBOUNCE_MS,
   SESSION_IMPORTS_PER_MINUTE,
+  SESSION_CONTEXT_TTL_MS,
 } from '@/constants';
 import { logMemory } from '@/lib/memoryLogger';
 import { escapeHtml } from '@/lib/utils';
@@ -25,6 +26,19 @@ let ephemeralSessionId: string | null = null;
 let sessionIdPromise: Promise<string> | null = null;
 const lastSummaryTime = new Map<string, number>();
 const importTimestamps: number[] = [];
+
+function pruneSession(sessionId: string): void {
+  const messages = cache.get(sessionId);
+  if (!messages) return;
+  const cutoff = Date.now() - SESSION_CONTEXT_TTL_MS;
+  const filtered = messages.filter(m => m.timestamp >= cutoff);
+  if (filtered.length === 0) {
+    cache.delete(sessionId);
+    lastSummaryTime.delete(sessionId);
+  } else if (filtered.length !== messages.length) {
+    cache.set(sessionId, filtered);
+  }
+}
 
 async function signSessionId(id: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -81,12 +95,12 @@ export async function getSessionId(): Promise<string> {
   sessionIdPromise = (async () => {
     const stored = await readSessionId();
     if (stored) return stored;
-    if (!hasLocalStorage()) {
+    if (!hasLocalStorage() || ephemeralSessionId) {
       if (!ephemeralSessionId) {
         ephemeralSessionId = crypto.randomUUID();
         console.warn('localStorage unavailable; using ephemeral sessionId');
       }
-      return ephemeralSessionId!;
+      return ephemeralSessionId;
     }
     const id = crypto.randomUUID();
     const persisted = await storeSessionId(id);
@@ -95,7 +109,7 @@ export async function getSessionId(): Promise<string> {
         ephemeralSessionId = id;
         console.warn('localStorage unavailable; using ephemeral sessionId');
       }
-      return ephemeralSessionId!;
+      return ephemeralSessionId;
     }
     return id;
   })();
@@ -107,6 +121,7 @@ export async function getSessionId(): Promise<string> {
 }
 
 export function loadSessionContext(sessionId: string): CachedMessage[] {
+  pruneSession(sessionId);
   return cache.get(sessionId)?.slice() ?? [];
 }
 
@@ -129,7 +144,9 @@ export function appendSessionContext(
     messages.shift();
   }
   cache.set(sessionId, messages);
-  logMemory('session.append', { sessionId, size: messages.length });
+  pruneSession(sessionId);
+  const final = cache.get(sessionId) ?? [];
+  logMemory('session.append', { sessionId, size: final.length });
 }
 
 export function __clearSessionCache(): void {
@@ -150,6 +167,7 @@ export async function summarizeSessionIfNeeded(
   const last = lastSummaryTime.get(sessionId) ?? 0;
   if (now - last < SESSION_SUMMARY_DEBOUNCE_MS) return;
   lastSummaryTime.set(sessionId, now);
+  pruneSession(sessionId);
   const messages = cache.get(sessionId);
   if (!messages || messages.length === 0) return;
   const totalChars = messages.reduce((sum, m) => sum + m.content.length, 0);
@@ -187,6 +205,7 @@ export async function summarizeSessionIfNeeded(
 }
 
 export function exportSession(sessionId: string): string {
+  pruneSession(sessionId);
   const messages = cache.get(sessionId) ?? [];
   const serialized = JSON.stringify({ sessionId, messages });
   logMemory('session.export', { sessionId, messages: messages.length });
@@ -230,14 +249,20 @@ export async function importSession(serialized: string): Promise<string | null> 
       }
       return { role: (msg as any).role as 'user' | 'assistant', content, timestamp: (msg as any).timestamp };
     });
+    const cutoff = Date.now() - SESSION_CONTEXT_TTL_MS;
+    const filtered = validated.filter(m => m.timestamp >= cutoff);
     const { sessionId } = parsed;
     if (hasLocalStorage()) {
-      await storeSessionId(sessionId);
+      const persisted = await storeSessionId(sessionId);
+      if (!persisted) {
+        ephemeralSessionId = sessionId;
+        console.warn('localStorage unavailable; using ephemeral sessionId');
+      }
     } else {
       ephemeralSessionId = sessionId;
     }
-    cache.set(sessionId, validated);
-    logMemory('session.import', { sessionId, messages: validated.length });
+    cache.set(sessionId, filtered);
+    logMemory('session.import', { sessionId, messages: filtered.length });
     return sessionId;
   } catch (e) {
     console.warn('Failed to import session', e);
