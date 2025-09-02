@@ -13,6 +13,7 @@ import {
   SESSION_CACHE_MAX_ENTRIES,
   SESSION_ID_STORAGE_KEY,
   SESSION_MESSAGE_MAX_CHARS,
+  SESSION_IMPORTS_PER_MINUTE,
 } from '@/constants';
 
 describe('sessionCache', () => {
@@ -56,6 +57,11 @@ describe('sessionCache', () => {
     expect(id1).toBe(id2);
     expect(warn).toHaveBeenCalledTimes(1);
     warn.mockRestore();
+  });
+
+  it('resolves same sessionId for concurrent calls', async () => {
+    const [id1, id2] = await Promise.all([getSessionId(), getSessionId()]);
+    expect(id1).toBe(id2);
   });
 
   it('persists sessionId to localStorage when available', async () => {
@@ -108,6 +114,17 @@ describe('sessionCache', () => {
     expect(ctx[1].content).toBe('summary');
   });
 
+  it('throttles rapid summarization', async () => {
+    const sessionId = 'throttle';
+    const long = 'z'.repeat(2000);
+    appendSessionContext(sessionId, { role: 'user', content: long, timestamp: 0 });
+    appendSessionContext(sessionId, { role: 'assistant', content: long, timestamp: 1 });
+    const summarizer = vi.fn(async () => 'summary');
+    await summarizeSessionIfNeeded(sessionId, summarizer, 1000);
+    await summarizeSessionIfNeeded(sessionId, summarizer, 1000);
+    expect(summarizer).toHaveBeenCalledOnce();
+  });
+
   it('emits structured log on summarization', async () => {
     const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
     const sessionId = 'log';
@@ -156,6 +173,19 @@ describe('sessionCache', () => {
   it('returns null on malformed import', async () => {
     const res = await importSession('not-json');
     expect(res).toBeNull();
+  });
+
+  it('rate limits session imports', async () => {
+    const serialized = JSON.stringify({
+      sessionId: 'r',
+      messages: [],
+    });
+    const calls = Array.from({ length: SESSION_IMPORTS_PER_MINUTE + 1 }, () =>
+      importSession(serialized),
+    );
+    const results = await Promise.all(calls);
+    const successes = results.filter(r => r !== null);
+    expect(successes.length).toBe(SESSION_IMPORTS_PER_MINUTE);
   });
 
   it('regenerates sessionId if signature mismatch', async () => {

@@ -5,9 +5,12 @@ import {
   SESSION_ID_SECRET,
   SESSION_MESSAGE_MAX_CHARS,
   SESSION_SUMMARY_KEEP_RATIO,
+  SESSION_SUMMARY_DEBOUNCE_MS,
+  SESSION_IMPORTS_PER_MINUTE,
 } from '@/constants';
 import { logMemory } from '@/lib/memoryLogger';
 import { escapeHtml } from '@/lib/utils';
+import { SessionImportError } from '@/lib/errors';
 
 export type CachedMessage = {
   role: 'user' | 'assistant';
@@ -19,6 +22,9 @@ export type Summarizer = (text: string) => Promise<string>;
 
 const cache = new Map<string, CachedMessage[]>();
 let ephemeralSessionId: string | null = null;
+let sessionIdPromise: Promise<string> | null = null;
+const lastSummaryTime = new Map<string, number>();
+const importTimestamps: number[] = [];
 
 async function signSessionId(id: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -71,25 +77,33 @@ function hasLocalStorage(): boolean {
 }
 
 export async function getSessionId(): Promise<string> {
-  const stored = await readSessionId();
-  if (stored) return stored;
-  if (!hasLocalStorage()) {
-    if (!ephemeralSessionId) {
-      ephemeralSessionId = crypto.randomUUID();
-      console.warn('localStorage unavailable; using ephemeral sessionId');
+  if (sessionIdPromise) return sessionIdPromise;
+  sessionIdPromise = (async () => {
+    const stored = await readSessionId();
+    if (stored) return stored;
+    if (!hasLocalStorage()) {
+      if (!ephemeralSessionId) {
+        ephemeralSessionId = crypto.randomUUID();
+        console.warn('localStorage unavailable; using ephemeral sessionId');
+      }
+      return ephemeralSessionId!;
     }
-    return ephemeralSessionId;
-  }
-  const id = crypto.randomUUID();
-  const persisted = await storeSessionId(id);
-  if (!persisted) {
-    if (!ephemeralSessionId) {
-      ephemeralSessionId = id;
-      console.warn('localStorage unavailable; using ephemeral sessionId');
+    const id = crypto.randomUUID();
+    const persisted = await storeSessionId(id);
+    if (!persisted) {
+      if (!ephemeralSessionId) {
+        ephemeralSessionId = id;
+        console.warn('localStorage unavailable; using ephemeral sessionId');
+      }
+      return ephemeralSessionId!;
     }
-    return ephemeralSessionId;
+    return id;
+  })();
+  try {
+    return await sessionIdPromise;
+  } finally {
+    sessionIdPromise = null;
   }
-  return id;
 }
 
 export function loadSessionContext(sessionId: string): CachedMessage[] {
@@ -121,6 +135,9 @@ export function appendSessionContext(
 export function __clearSessionCache(): void {
   cache.clear();
   ephemeralSessionId = null;
+  sessionIdPromise = null;
+  lastSummaryTime.clear();
+  importTimestamps.length = 0;
 }
 
 export async function summarizeSessionIfNeeded(
@@ -129,6 +146,10 @@ export async function summarizeSessionIfNeeded(
   threshold = SESSION_SUMMARY_CHAR_THRESHOLD,
   keepRatio = SESSION_SUMMARY_KEEP_RATIO,
 ): Promise<void> {
+  const now = Date.now();
+  const last = lastSummaryTime.get(sessionId) ?? 0;
+  if (now - last < SESSION_SUMMARY_DEBOUNCE_MS) return;
+  lastSummaryTime.set(sessionId, now);
   const messages = cache.get(sessionId);
   if (!messages || messages.length === 0) return;
   const totalChars = messages.reduce((sum, m) => sum + m.content.length, 0);
@@ -173,24 +194,35 @@ export function exportSession(sessionId: string): string {
 }
 
 export async function importSession(serialized: string): Promise<string | null> {
+  const now = Date.now();
+  while (importTimestamps.length && now - importTimestamps[0] > 60_000) {
+    importTimestamps.shift();
+  }
+  if (importTimestamps.length >= SESSION_IMPORTS_PER_MINUTE) {
+    const err = new SessionImportError('Rate limit exceeded');
+    console.warn('Failed to import session', err);
+    logMemory('session.import.error', { error: err });
+    return null;
+  }
+  importTimestamps.push(now);
   try {
     const parsed = JSON.parse(serialized) as {
       sessionId: string;
       messages: CachedMessage[];
     };
     if (typeof parsed.sessionId !== 'string' || !Array.isArray(parsed.messages)) {
-      throw new Error('Invalid session format');
+      throw new SessionImportError('Invalid session format');
     }
     const validated = parsed.messages.map(msg => {
-      if (typeof msg !== 'object' || !msg) throw new Error('Invalid message');
+      if (typeof msg !== 'object' || !msg) throw new SessionImportError('Invalid message');
       if (!['user', 'assistant'].includes((msg as any).role)) {
-        throw new Error('Invalid message role');
+        throw new SessionImportError('Invalid message role');
       }
       if (typeof (msg as any).content !== 'string') {
-        throw new Error('Invalid message content');
+        throw new SessionImportError('Invalid message content');
       }
       if (typeof (msg as any).timestamp !== 'number' || isNaN((msg as any).timestamp)) {
-        throw new Error('Invalid message timestamp');
+        throw new SessionImportError('Invalid message timestamp');
       }
       let content = escapeHtml((msg as any).content);
       if (content.length > SESSION_MESSAGE_MAX_CHARS) {

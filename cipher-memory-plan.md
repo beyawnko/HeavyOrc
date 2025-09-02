@@ -59,6 +59,7 @@ This document tracks the phased implementation of persistent conversational cont
 - [x] Verify session ID signatures using constant-time comparison.
 - [x] Make session summarization thresholds and ratios configurable.
 - [x] Apply session-scoped rate limiting to Cipher API calls.
+- [x] Debounce session summarization and rate-limit session imports.
 
 ## Phase 6 – Future Enhancements
 - Merge session histories when a user authenticates so long-term memories persist across devices.
@@ -70,3 +71,4 @@ This document tracks the phased implementation of persistent conversational cont
 - [ ] Consolidate session histories on sign-in.
 - [ ] Introduce TTL-based caching for `cipher.search`.
 - [ ] Display memory metrics in a debug view.
+- [ ] Evaluate `SESSION_CACHE_MAX_ENTRIES` under real usage and adjust limits.

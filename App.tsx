@@ -329,11 +329,13 @@ const App: React.FC = () => {
                     content: userPromptRef.current,
                     timestamp: Date.now(),
                 });
-                appendSession({
-                    role: 'assistant',
-                    content: finalAnswerRef.current,
-                    timestamp: Date.now(),
-                });
+                if (finalAnswerRef.current) {
+                    appendSession({
+                        role: 'assistant',
+                        content: finalAnswerRef.current,
+                        timestamp: Date.now(),
+                    });
+                }
                 currentRunDataRef.current = undefined; // Clear after use
             }
         }
