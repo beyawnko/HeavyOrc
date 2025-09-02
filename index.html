@@ -26,7 +26,19 @@
       <script type="module">
         window.__SW_VERSION__ = import.meta.env.VITE_SW_VERSION;
       </script>
-      <script type="module" src="/coi-serviceworker.js"></script>
+      <script type="module">
+        /** @type {URL} */
+        let base = new URL(import.meta.env.BASE_URL, window.location.origin);
+        if (base.origin !== window.location.origin) {
+          base = new URL(base.pathname, window.location.origin);
+        }
+        import(/* @vite-ignore */ new URL('coi-serviceworker.js', base).href).catch(
+          (error) => {
+            console.error('Failed to load service worker:', error);
+            alert('Failed to load the service worker; cross-origin isolation is disabled.');
+          }
+        );
+      </script>
     <style>
       html {
         box-sizing: border-box;
