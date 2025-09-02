@@ -2,7 +2,6 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import JSZip from 'jszip';
 import { motion, Variants } from 'framer-motion';
 import FocusTrap from 'focus-trap-react';
-import { escapeHtml } from '@/lib/utils';
 
 // Types and constants
 import {
@@ -56,7 +55,10 @@ import {
     setGeminiApiKey as storeGeminiApiKey,
     setOpenRouterApiKey as storeOpenRouterApiKey,
 } from '@/services/llmService';
-import { storeRunRecord, fetchRelevantMemories } from '@/services/cipherService';
+import { storeRunRecord } from '@/services/cipherService';
+import { buildContextualPrompt } from '@/lib/contextBuilder';
+import { useSessionContext } from '@/lib/useSessionContext';
+import { getSessionId } from '@/lib/sessionCache';
 
 // Hooks
 import useViewportHeight from '@/lib/useViewportHeight';
@@ -279,6 +281,15 @@ const App: React.FC = () => {
     const isRunCompletedRef = useRef(false);
     const orchestratorAbortRef = useRef<(() => void) | null>(null);
     const currentRunDataRef = useRef<Pick<RunRecord, 'prompt' | 'images' | 'agentConfigs' | 'arbiterModel' | 'openAIArbiterVerbosity' | 'openAIArbiterEffort' | 'geminiArbiterEffort'> | undefined>(undefined);
+    const { sessionId, append: appendSession } = useSessionContext();
+    const sessionIdRef = useRef<string>('');
+    const userPromptRef = useRef<string>('');
+
+    useEffect(() => {
+        if (sessionId) {
+            sessionIdRef.current = sessionId;
+        }
+    }, [sessionId]);
 
 
     useEffect(() => { finalAnswerRef.current = finalAnswer; }, [finalAnswer]);
@@ -307,12 +318,24 @@ const App: React.FC = () => {
                     arbiterSwitchWarning: arbiterSwitchWarningRef.current,
                 };
                 setHistory(prev => [newRun, ...prev]);
-                storeRunRecord(newRun).catch(err =>
+                storeRunRecord(newRun, sessionIdRef.current).catch(err =>
                     setToast({
                         message: `Failed to store run record: ${formatErrorMessage(err)}`,
                         type: 'error',
                     })
                 );
+                appendSession({
+                    role: 'user',
+                    content: userPromptRef.current,
+                    timestamp: Date.now(),
+                });
+                if (finalAnswerRef.current) {
+                    appendSession({
+                        role: 'assistant',
+                        content: finalAnswerRef.current,
+                        timestamp: Date.now(),
+                    });
+                }
                 currentRunDataRef.current = undefined; // Clear after use
             }
         }
@@ -364,12 +387,19 @@ const App: React.FC = () => {
             setSelectedRunId(null);
         }
 
-        let finalPrompt = prompt.trim() || (images.length > 0 ? `Analyze these ${images.length} image(s) and provide a detailed description.` : "");
+        let sessionId = sessionIdRef.current;
+        if (!sessionId) {
+            sessionId = await getSessionId();
+            sessionIdRef.current = sessionId;
+        }
+        const userPrompt =
+            prompt.trim() || (images.length > 0 ? `Analyze these ${images.length} image(s) and provide a detailed description.` : "");
+        userPromptRef.current = userPrompt;
 
-        if (!finalPrompt || isLoading || agentConfigs.length === 0) return;
+        if (!userPrompt || isLoading || agentConfigs.length === 0) return;
 
-        if (finalPrompt && !queryHistory.includes(finalPrompt)) {
-            setQueryHistory(prev => [finalPrompt, ...prev].slice(0, MAX_HISTORY_LENGTH));
+        if (userPrompt && !queryHistory.includes(userPrompt)) {
+            setQueryHistory(prev => [userPrompt, ...prev].slice(0, MAX_HISTORY_LENGTH));
         }
 
         if (openAIAgentCount > 0 && !openAIApiKey) {
@@ -395,10 +425,11 @@ const App: React.FC = () => {
         try {
             setIsLoading(true);
 
-            const memories = await fetchRelevantMemories(finalPrompt);
+            const {
+                prompt: finalPrompt,
+                memories,
+            } = await buildContextualPrompt(userPrompt, sessionId);
             if (memories.length > 0) {
-                const memoryText = memories.map(m => escapeHtml(m.content)).join('\n');
-                finalPrompt = `Context from previous interactions:\n${memoryText}\n\nCurrent request:\n${finalPrompt}`;
                 setToast({ message: `Including ${memories.length} relevant memories from history...`, type: 'success' });
             }
 
@@ -410,7 +441,7 @@ const App: React.FC = () => {
                 arbiterModel,
                 openAIArbiterVerbosity,
                 openAIArbiterEffort,
-                geminiArbiterEffort
+                geminiArbiterEffort,
             };
             const onInitialAgents = (dispatchedExperts: ExpertDispatch[]) => {
                 const initialAgents = dispatchedExperts.map((expert): AgentState => ({
