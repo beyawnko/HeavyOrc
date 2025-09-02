@@ -27,14 +27,30 @@ const SENSITIVE_VALUE_PATTERNS = [
   /session[-_]?id/i,
 ];
 
-const BASE64_VALUE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
-const BASE64_SHORT = /^[A-Za-z0-9+/]{16,}={0,2}$/;
+const BASE64_VALUE = /^(?!.*[^A-Za-z0-9+/=])(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+
+function shannonEntropy(str: string): number {
+  const counts: Record<string, number> = {};
+  for (const ch of str) counts[ch] = (counts[ch] || 0) + 1;
+  const len = str.length;
+  let entropy = 0;
+  for (const c of Object.values(counts)) {
+    const p = c / len;
+    entropy -= p * Math.log2(p);
+  }
+  return entropy;
+}
+
+function isHighEntropyBase64(value: string): boolean {
+  if (value.length < 8 || !BASE64_VALUE.test(value)) return false;
+  if (/^[A-Za-z]+$/.test(value) && !( /[A-Z]/.test(value) && /[a-z]/.test(value))) return false;
+  return shannonEntropy(value) >= 2.5;
+}
 
 function isSensitiveString(value: string): boolean {
   return (
     SENSITIVE_VALUE_PATTERNS.some(p => p.test(value)) ||
-    (value.length >= 20 && BASE64_VALUE.test(value)) ||
-    BASE64_SHORT.test(value)
+    isHighEntropyBase64(value)
   );
 }
 
@@ -75,6 +91,24 @@ function sanitize(data: unknown): unknown {
  * Non-JSON responses are fully redacted.
  */
 export function sanitizeErrorResponse(body: string): string {
+  const MAX_ERROR_SIZE = 32_768; // 32KB limit
+  if (body.length > MAX_ERROR_SIZE) {
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed && typeof parsed === 'object' && parsed !== null) {
+        const sanitized = sanitize(parsed);
+        const rawMsg = (parsed as { message?: unknown }).message;
+        const message =
+          typeof rawMsg === 'string'
+            ? String(sanitize(rawMsg)).slice(0, 1000)
+            : '[REDACTED: Response too large]';
+        return JSON.stringify({ ...(sanitized as Record<string, unknown>), _truncated: true, message });
+      }
+    } catch {
+      return '[REDACTED: Response too large]';
+    }
+    return '[REDACTED: Response too large]';
+  }
   try {
     const parsed = JSON.parse(body);
     if (parsed && typeof parsed === 'object' && parsed !== null) {

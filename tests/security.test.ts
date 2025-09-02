@@ -26,3 +26,49 @@ describe('sanitizeErrorResponse arrays', () => {
     ]);
   });
 });
+
+describe('sanitizeErrorResponse limits', () => {
+  test('redacts high entropy base64 strings', () => {
+    const secret = Buffer.from('secret').toString('base64');
+    const input = JSON.stringify({ data: secret });
+    const output = sanitizeErrorResponse(input);
+    expect(JSON.parse(output)).toEqual({ data: '[REDACTED]' });
+  });
+
+  test('ignores low entropy base64-like strings', () => {
+    const input = JSON.stringify({ data: 'AAAAAAAAAAAAAA==' });
+    const output = sanitizeErrorResponse(input);
+    expect(JSON.parse(output)).toEqual({ data: 'AAAAAAAAAAAAAA==' });
+  });
+
+  test('ignores plain alphanumeric strings', () => {
+    const input = JSON.stringify({ data: 'abcdefgh' });
+    const output = sanitizeErrorResponse(input);
+    expect(JSON.parse(output)).toEqual({ data: 'abcdefgh' });
+  });
+
+  test('caps large responses', () => {
+    const big = 'x'.repeat(40_000);
+    const output = sanitizeErrorResponse(big);
+    expect(output).toBe('[REDACTED: Response too large]');
+  });
+
+  test('truncates oversized JSON gracefully', () => {
+    const bigMessage = 'x'.repeat(40_000);
+    const input = JSON.stringify({ message: bigMessage, token: 'secret' });
+    const output = sanitizeErrorResponse(input);
+    const parsed = JSON.parse(output);
+    expect(parsed._truncated).toBe(true);
+    expect(parsed.message.length).toBe(1000);
+    expect(parsed.token).toBe('[REDACTED]');
+  });
+
+  test('redacts sensitive message in oversized JSON', () => {
+    const bigMessage = 'token123' + 'x'.repeat(40_000);
+    const input = JSON.stringify({ message: bigMessage });
+    const output = sanitizeErrorResponse(input);
+    const parsed = JSON.parse(output);
+    expect(parsed._truncated).toBe(true);
+    expect(parsed.message).toBe('[REDACTED]');
+  });
+});

@@ -130,6 +130,48 @@ describe('cipherService', () => {
     expect(memories).toEqual(MEMORIES_RESPONSE.memories);
   });
 
+  it('caches memories by query', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ memories: [] }), { status: 200 }));
+    global.fetch = fetchMock as any;
+    const { fetchRelevantMemories } = await import('@/services/cipherService');
+    await fetchRelevantMemories('q1');
+    await fetchRelevantMemories('q1');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('avoids double counting cache size on concurrent fetches', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    const resp = new Response(JSON.stringify(MEMORIES_RESPONSE), { status: 200 });
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(
+        () => new Promise(resolve => setTimeout(() => resolve(resp.clone()), 10))
+      );
+    global.fetch = fetchMock as any;
+    const { fetchRelevantMemories } = await import('@/services/cipherService');
+    await Promise.all([fetchRelevantMemories('q2'), fetchRelevantMemories('q2')]);
+    await fetchRelevantMemories('q2');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+
+  it('caches memory responses', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    vi.stubEnv('VITE_ENFORCE_CIPHER_CSP', 'true');
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(MEMORIES_RESPONSE), { status: 200, headers: VALID_CSP_HEADER }));
+    global.fetch = fetchMock as any;
+    const { fetchRelevantMemories } = await import('@/services/cipherService');
+    await fetchRelevantMemories('q');
+    await fetchRelevantMemories('q');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     { name: 'missing', headers: undefined },
     { name: 'invalid', headers: WILDCARD_CSP_HEADER },
@@ -286,6 +328,7 @@ describe('cipherService', () => {
     expect(validateUrl('ftp://example.com')).toBeUndefined();
     expect(validateUrl('http://localhost')).toBe('http://localhost');
     expect(validateUrl('example.com')).toBeUndefined();
+    expect(validateUrl('http://bücher.de')).toBe('http://xn--bcher-kva.de');
   });
 
   it('blocks private URLs in production', async () => {
@@ -307,5 +350,16 @@ describe('cipherService', () => {
     expect(validateUrl('http://[::ffff:192.168.0.1]', false)).toBeUndefined();
     expect(validateUrl('http://[fe80:::1]', false)).toBeUndefined();
     expect(validateUrl('ftp://example.com', false)).toBeUndefined();
+  });
+
+  it('returns empty array when memory response too large', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    const big = { memories: [{ id: '1', content: 'x'.repeat(500000) }] };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(big), { status: 200 }));
+    global.fetch = fetchMock as any;
+    const { fetchRelevantMemories } = await import('@/services/cipherService');
+    const res = await fetchRelevantMemories('q');
+    expect(res).toEqual([]);
   });
 });
