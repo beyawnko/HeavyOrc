@@ -48,7 +48,7 @@ export const fetchWithTimeout = async (
                     throw error;
                 }
                 if (attempt === retries) {
-                    throw new DOMException(`Request timeout after ${timeout}ms`, 'AbortError');
+                    throw new DOMException(`Request timeout after ${timeout}ms`, 'TimeoutError');
                 }
             } else if (attempt === retries) {
                 throw error;
@@ -91,8 +91,8 @@ export const fetchWithRetry = async (
                 throw new Error(`${serviceName} service is temporarily unavailable. Please try again later.`);
             }
         } catch (error) {
-            if ((error as { name?: string }).name === 'AbortError') {
-                throw error; // don't retry aborted requests
+            if ((error as { name?: string }).name === 'AbortError' && init.signal?.aborted) {
+                throw error; // don't retry caller-aborted requests
             }
             if (attempt === retries) {
                 throw error;
