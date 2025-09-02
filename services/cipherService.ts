@@ -30,11 +30,18 @@ let currentCacheSize = 0;
 const expiryHeap = new MinHeap<[string, number]>((a, b) => a[1] - b[1]);
 const inFlightFetches = new Map<string, Promise<MemoryEntry[]>>();
 
+const CIRCUIT_BREAKER_THRESHOLD = Number(
+  import.meta.env.VITE_CIPHER_CIRCUIT_BREAKER_THRESHOLD ?? 5,
+);
+const CIRCUIT_BREAKER_RESET_MS = Number(
+  import.meta.env.VITE_CIPHER_CIRCUIT_BREAKER_RESET_MS ?? 30000,
+);
+
 const circuitBreaker = {
   failures: 0,
   lastFailure: 0,
-  threshold: 5,
-  resetTimeMs: 30000,
+  threshold: CIRCUIT_BREAKER_THRESHOLD,
+  resetTimeMs: CIRCUIT_BREAKER_RESET_MS,
 };
 
 function recordFailure() {
@@ -43,10 +50,6 @@ function recordFailure() {
 }
 
 function isCircuitOpen() {
-  if (Date.now() - circuitBreaker.lastFailure > circuitBreaker.resetTimeMs) {
-    circuitBreaker.failures = 0;
-    return false;
-  }
   return circuitBreaker.failures >= circuitBreaker.threshold;
 }
 
@@ -207,11 +210,24 @@ export const fetchRelevantMemories = async (
     return cached.data;
   }
   if (query.length > MAX_MEMORY_LENGTH) return [];
-
   if (isCircuitOpen()) {
-    console.warn('Circuit breaker open, skipping memory fetch');
-    logMemory('cipher.fetch.circuitOpen', { sessionId, query });
-    return [];
+    const elapsed = Date.now() - circuitBreaker.lastFailure;
+    if (elapsed > circuitBreaker.resetTimeMs) {
+      circuitBreaker.failures = 0;
+    } else {
+      const resetInMs = circuitBreaker.resetTimeMs - elapsed;
+      console.warn('Circuit breaker open, skipping memory fetch', {
+        failures: circuitBreaker.failures,
+        resetInMs,
+      });
+      logMemory('cipher.fetch.circuitOpen', {
+        sessionId,
+        query,
+        failures: circuitBreaker.failures,
+        resetInMs,
+      });
+      return [];
+    }
   }
 
   if (inFlightFetches.has(cacheKey)) {
