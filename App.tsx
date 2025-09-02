@@ -57,6 +57,7 @@ import {
     setOpenRouterApiKey as storeOpenRouterApiKey,
 } from '@/services/llmService';
 import { storeRunRecord, fetchRelevantMemories } from '@/services/cipherService';
+import { getSessionId, loadSessionContext, appendSessionContext } from '@/lib/sessionCache';
 
 // Hooks
 import useViewportHeight from '@/lib/useViewportHeight';
@@ -279,6 +280,8 @@ const App: React.FC = () => {
     const isRunCompletedRef = useRef(false);
     const orchestratorAbortRef = useRef<(() => void) | null>(null);
     const currentRunDataRef = useRef<Pick<RunRecord, 'prompt' | 'images' | 'agentConfigs' | 'arbiterModel' | 'openAIArbiterVerbosity' | 'openAIArbiterEffort' | 'geminiArbiterEffort'> | undefined>(undefined);
+    const sessionIdRef = useRef<string>(getSessionId());
+    const userPromptRef = useRef<string>('');
 
 
     useEffect(() => { finalAnswerRef.current = finalAnswer; }, [finalAnswer]);
@@ -307,12 +310,22 @@ const App: React.FC = () => {
                     arbiterSwitchWarning: arbiterSwitchWarningRef.current,
                 };
                 setHistory(prev => [newRun, ...prev]);
-                storeRunRecord(newRun).catch(err =>
+                storeRunRecord(newRun, sessionIdRef.current).catch(err =>
                     setToast({
                         message: `Failed to store run record: ${formatErrorMessage(err)}`,
                         type: 'error',
                     })
                 );
+                appendSessionContext(sessionIdRef.current, {
+                    role: 'user',
+                    content: userPromptRef.current,
+                    timestamp: Date.now(),
+                });
+                appendSessionContext(sessionIdRef.current, {
+                    role: 'assistant',
+                    content: finalAnswerRef.current,
+                    timestamp: Date.now(),
+                });
                 currentRunDataRef.current = undefined; // Clear after use
             }
         }
@@ -364,12 +377,15 @@ const App: React.FC = () => {
             setSelectedRunId(null);
         }
 
-        let finalPrompt = prompt.trim() || (images.length > 0 ? `Analyze these ${images.length} image(s) and provide a detailed description.` : "");
+        const sessionId = sessionIdRef.current;
+        const userPrompt =
+            prompt.trim() || (images.length > 0 ? `Analyze these ${images.length} image(s) and provide a detailed description.` : "");
+        userPromptRef.current = userPrompt;
 
-        if (!finalPrompt || isLoading || agentConfigs.length === 0) return;
+        if (!userPrompt || isLoading || agentConfigs.length === 0) return;
 
-        if (finalPrompt && !queryHistory.includes(finalPrompt)) {
-            setQueryHistory(prev => [finalPrompt, ...prev].slice(0, MAX_HISTORY_LENGTH));
+        if (userPrompt && !queryHistory.includes(userPrompt)) {
+            setQueryHistory(prev => [userPrompt, ...prev].slice(0, MAX_HISTORY_LENGTH));
         }
 
         if (openAIAgentCount > 0 && !openAIApiKey) {
@@ -395,11 +411,21 @@ const App: React.FC = () => {
         try {
             setIsLoading(true);
 
-            const memories = await fetchRelevantMemories(finalPrompt);
+            let finalPrompt = userPrompt;
+
+            const memories = await fetchRelevantMemories(userPrompt, sessionId);
             if (memories.length > 0) {
                 const memoryText = memories.map(m => escapeHtml(m.content)).join('\n');
-                finalPrompt = `Context from previous interactions:\n${memoryText}\n\nCurrent request:\n${finalPrompt}`;
+                finalPrompt = `Context from previous interactions:\n${memoryText}\n\n${finalPrompt}`;
                 setToast({ message: `Including ${memories.length} relevant memories from history...`, type: 'success' });
+            }
+
+            const sessionContext = loadSessionContext(sessionId);
+            if (sessionContext.length > 0) {
+                const sessionText = sessionContext
+                    .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${escapeHtml(m.content)}`)
+                    .join('\n');
+                finalPrompt = `Recent session context:\n${sessionText}\n\n${finalPrompt}`;
             }
 
             isRunCompletedRef.current = false;
@@ -410,7 +436,7 @@ const App: React.FC = () => {
                 arbiterModel,
                 openAIArbiterVerbosity,
                 openAIArbiterEffort,
-                geminiArbiterEffort
+                geminiArbiterEffort,
             };
             const onInitialAgents = (dispatchedExperts: ExpertDispatch[]) => {
                 const initialAgents = dispatchedExperts.map((expert): AgentState => ({

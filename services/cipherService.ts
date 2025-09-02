@@ -68,7 +68,10 @@ async function consumeToken(): Promise<boolean> {
   return exec();
 }
 
-export const storeRunRecord = async (run: RunRecord): Promise<void> => {
+export const storeRunRecord = async (
+  run: RunRecord,
+  sessionId: string,
+): Promise<void> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return;
   if (!(await consumeToken())) {
     console.warn('Rate limit exceeded for memory storage');
@@ -88,7 +91,7 @@ export const storeRunRecord = async (run: RunRecord): Promise<void> => {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ run }),
+        body: JSON.stringify({ run, sessionId }),
       },
       2,
     );
@@ -112,10 +115,14 @@ export const storeRunRecord = async (run: RunRecord): Promise<void> => {
   }
 };
 
-export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[]> => {
+export const fetchRelevantMemories = async (
+  query: string,
+  sessionId: string,
+): Promise<MemoryEntry[]> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return [];
   pruneCache();
-  const cached = memoryCache.get(query);
+  const cacheKey = `${sessionId}:${query}`;
+  const cached = memoryCache.get(cacheKey);
   if (cached && cached.expiry > Date.now()) {
     return cached.data;
   }
@@ -130,7 +137,7 @@ export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[
     const response = await fetchWithRetry(`${baseUrl}/memories/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query, sessionId }),
     });
 
     if (enforceCsp) validateCsp(response);
@@ -159,13 +166,13 @@ export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[
       ? data.memories.filter(m => m.content.length <= MAX_MEMORY_LENGTH)
       : [];
     const size = memories.reduce((sum, m) => sum + m.content.length, 0);
-    const existing = memoryCache.get(query);
+    const existing = memoryCache.get(cacheKey);
     if (existing) {
       currentCacheSize -= existing.size;
     }
     const expiry = Date.now() + CACHE_TTL_MS;
-    memoryCache.set(query, { data: memories, expiry, size });
-    expiryHeap.push([query, expiry]);
+    memoryCache.set(cacheKey, { data: memories, expiry, size });
+    expiryHeap.push([cacheKey, expiry]);
     currentCacheSize += size;
     pruneCache();
     return memories;

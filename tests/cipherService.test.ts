@@ -44,6 +44,7 @@ const MISSING_STYLE_CSP_HEADER = {
     "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'",
 };
 const MEMORIES_RESPONSE = { memories: [{ id: '1', content: 'note' }] };
+const SESSION_ID = 'session';
 
 afterEach(() => {
   global.fetch = originalFetch;
@@ -58,7 +59,7 @@ describe('cipherService', () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     global.fetch = fetchMock as any;
     const { storeRunRecord } = await import('@/services/cipherService');
-    await storeRunRecord(sampleRun);
+    await storeRunRecord(sampleRun, SESSION_ID);
     expect(fetchMock).toHaveBeenCalledWith('http://cipher/memories', expect.any(Object));
   });
 
@@ -69,7 +70,7 @@ describe('cipherService', () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     global.fetch = fetchMock as any;
     const { storeRunRecord } = await import('@/services/cipherService');
-    await expect(storeRunRecord(sampleRun)).rejects.toThrow('Missing CSP headers');
+    await expect(storeRunRecord(sampleRun, SESSION_ID)).rejects.toThrow('Missing CSP headers');
   });
 
   it.each([
@@ -87,7 +88,7 @@ describe('cipherService', () => {
       .mockResolvedValue(new Response(null, { status: 200, headers }));
     global.fetch = fetchMock as any;
     const { storeRunRecord } = await import('@/services/cipherService');
-    await expect(storeRunRecord(sampleRun)).rejects.toThrow('Invalid CSP headers');
+    await expect(storeRunRecord(sampleRun, SESSION_ID)).rejects.toThrow('Invalid CSP headers');
   });
 
   it('resolves when CSP header valid', async () => {
@@ -99,7 +100,7 @@ describe('cipherService', () => {
       .mockResolvedValue(new Response(null, { status: 200, headers: VALID_CSP_HEADER }));
     global.fetch = fetchMock as any;
     const { storeRunRecord } = await import('@/services/cipherService');
-    await expect(storeRunRecord(sampleRun)).resolves.toBeUndefined();
+    await expect(storeRunRecord(sampleRun, SESSION_ID)).resolves.toBeUndefined();
   });
 
   it('skips storing run record when an agent content exceeds limit', async () => {
@@ -123,7 +124,7 @@ describe('cipherService', () => {
           provider: 'openai',
         },
       ],
-    });
+    }, SESSION_ID);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -138,7 +139,7 @@ describe('cipherService', () => {
       );
     global.fetch = fetchMock as any;
     const { fetchRelevantMemories } = await import('@/services/cipherService');
-    const memories = await fetchRelevantMemories('q');
+    const memories = await fetchRelevantMemories('q', SESSION_ID);
     expect(memories).toEqual(MEMORIES_RESPONSE.memories);
   });
 
@@ -148,8 +149,8 @@ describe('cipherService', () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ memories: [] }), { status: 200 }));
     global.fetch = fetchMock as any;
     const { fetchRelevantMemories } = await import('@/services/cipherService');
-    await fetchRelevantMemories('q1');
-    await fetchRelevantMemories('q1');
+    await fetchRelevantMemories('q1', SESSION_ID);
+    await fetchRelevantMemories('q1', SESSION_ID);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -164,8 +165,8 @@ describe('cipherService', () => {
       );
     global.fetch = fetchMock as any;
     const { fetchRelevantMemories } = await import('@/services/cipherService');
-    await Promise.all([fetchRelevantMemories('q2'), fetchRelevantMemories('q2')]);
-    await fetchRelevantMemories('q2');
+    await Promise.all([fetchRelevantMemories('q2', SESSION_ID), fetchRelevantMemories('q2', SESSION_ID)]);
+    await fetchRelevantMemories('q2', SESSION_ID);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
@@ -179,9 +180,23 @@ describe('cipherService', () => {
       .mockResolvedValue(new Response(JSON.stringify(MEMORIES_RESPONSE), { status: 200, headers: VALID_CSP_HEADER }));
     global.fetch = fetchMock as any;
     const { fetchRelevantMemories } = await import('@/services/cipherService');
-    await fetchRelevantMemories('q');
-    await fetchRelevantMemories('q');
+    await fetchRelevantMemories('q', SESSION_ID);
+    await fetchRelevantMemories('q', SESSION_ID);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('scopes cache per session', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(MEMORIES_RESPONSE), { status: 200 }));
+    global.fetch = fetchMock as any;
+    const { fetchRelevantMemories } = await import('@/services/cipherService');
+    await fetchRelevantMemories('q', 's1');
+    await fetchRelevantMemories('q', 's1');
+    await fetchRelevantMemories('q', 's2');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it.each([
@@ -204,7 +219,7 @@ describe('cipherService', () => {
         );
       global.fetch = fetchMock as any;
       const { fetchRelevantMemories } = await import('@/services/cipherService');
-      const memories = await fetchRelevantMemories('q');
+      const memories = await fetchRelevantMemories('q', SESSION_ID);
       expect(memories).toEqual([]);
     }
   );
@@ -220,7 +235,7 @@ describe('cipherService', () => {
       );
     global.fetch = fetchMock as any;
     const { fetchRelevantMemories } = await import('@/services/cipherService');
-    const memories = await fetchRelevantMemories('q');
+    const memories = await fetchRelevantMemories('q', SESSION_ID);
     expect(memories).toEqual(MEMORIES_RESPONSE.memories);
   });
 
@@ -229,7 +244,7 @@ describe('cipherService', () => {
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
     global.fetch = vi.fn().mockRejectedValue(new Error('network')) as any;
     const { fetchRelevantMemories } = await import('@/services/cipherService');
-    const empty = await fetchRelevantMemories('q');
+    const empty = await fetchRelevantMemories('q', SESSION_ID);
     expect(empty).toEqual([]);
   });
 
@@ -238,8 +253,8 @@ describe('cipherService', () => {
     const fetchMock = vi.fn();
     global.fetch = fetchMock as any;
     const { storeRunRecord, fetchRelevantMemories } = await import('@/services/cipherService');
-    await storeRunRecord(sampleRun);
-    const res = await fetchRelevantMemories('q');
+    await storeRunRecord(sampleRun, SESSION_ID);
+    const res = await fetchRelevantMemories('q', SESSION_ID);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(res).toEqual([]);
   });
@@ -249,7 +264,7 @@ describe('cipherService', () => {
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
     global.fetch = vi.fn().mockRejectedValue(new Error('network')) as any;
     const { storeRunRecord } = await import('@/services/cipherService');
-    await expect(storeRunRecord(sampleRun)).rejects.toThrow('network');
+    await expect(storeRunRecord(sampleRun, SESSION_ID)).rejects.toThrow('network');
   });
 
   it('redacts sensitive info in error responses', async () => {
@@ -278,7 +293,7 @@ describe('cipherService', () => {
     global.fetch = fetchMock as any;
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { storeRunRecord } = await import('@/services/cipherService');
-    await expect(storeRunRecord(sampleRun)).rejects.toThrow('Failed to store run record with status 400');
+    await expect(storeRunRecord(sampleRun, SESSION_ID)).rejects.toThrow('Failed to store run record with status 400');
     const logged = consoleSpy.mock.calls[0][1] as any;
     expect(logged.body).toBe(
       '{"token":"[REDACTED]","Password":"[REDACTED]","certificate":"[REDACTED]","connection-string":"[REDACTED]","private_key":"[REDACTED]","session_id":"[REDACTED]","encoded":"[REDACTED]","shortEncoded":"[REDACTED]"}'
@@ -302,7 +317,7 @@ describe('cipherService', () => {
     global.fetch = fetchMock as any;
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { storeRunRecord } = await import('@/services/cipherService');
-    await expect(storeRunRecord(sampleRun)).rejects.toThrow('Failed to store run record with status 400');
+    await expect(storeRunRecord(sampleRun, SESSION_ID)).rejects.toThrow('Failed to store run record with status 400');
     const logged = consoleSpy.mock.calls[0][1] as any;
     expect(logged.body).toBe('[{"token":"[REDACTED]"},"[REDACTED]"]');
     consoleSpy.mockRestore();
@@ -330,7 +345,7 @@ describe('cipherService', () => {
     global.fetch = fetchMock as any;
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { storeRunRecord } = await import('@/services/cipherService');
-    await expect(storeRunRecord(sampleRun)).rejects.toThrow('Failed to store run record with status 400');
+    await expect(storeRunRecord(sampleRun, SESSION_ID)).rejects.toThrow('Failed to store run record with status 400');
     const logged = consoleSpy.mock.calls[0][1] as any;
     expect(logged.body).toBe('{"details":{"token":"[REDACTED]","items":["[REDACTED]",{"password":"[REDACTED]"}]}}');
     consoleSpy.mockRestore();
@@ -343,7 +358,7 @@ describe('cipherService', () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(big), { status: 200 }));
     global.fetch = fetchMock as any;
     const { fetchRelevantMemories } = await import('@/services/cipherService');
-    const res = await fetchRelevantMemories('q');
+    const res = await fetchRelevantMemories('q', SESSION_ID);
     expect(res).toEqual([]);
   });
 
@@ -355,7 +370,7 @@ describe('cipherService', () => {
     global.fetch = fetchMock as any;
     const { storeRunRecord } = await import('@/services/cipherService');
     for (let i = 0; i < 35; i++) {
-      await storeRunRecord(sampleRun);
+      await storeRunRecord(sampleRun, SESSION_ID);
     }
     expect(fetchMock).toHaveBeenCalledTimes(30);
   });
@@ -372,11 +387,11 @@ describe('cipherService', () => {
       .mockImplementation(() => Promise.resolve(new Response(body, { status: 200, headers })));
     global.fetch = fetchMock as any;
     const { fetchRelevantMemories } = await import('@/services/cipherService');
-    await fetchRelevantMemories('q');
-    await fetchRelevantMemories('q');
+    await fetchRelevantMemories('q', SESSION_ID);
+    await fetchRelevantMemories('q', SESSION_ID);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(5 * 60 * 1000 + 1);
-    await fetchRelevantMemories('q');
+    await fetchRelevantMemories('q', SESSION_ID);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     vi.useRealTimers();
   });
