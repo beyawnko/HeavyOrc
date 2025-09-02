@@ -41,7 +41,8 @@ This document tracks the phased implementation of persistent conversational cont
 ---
 
 ### Next Steps
-- [ ] Implement Phase 1 helpers (`loadSessionContext`, `appendSessionContext`).
-- [ ] Draft unit tests for LRU cache behavior.
-- [ ] Decide on queue size and summarization thresholds.
+- [x] Implement Phase 1 helpers (`loadSessionContext`, `appendSessionContext`).
+- [x] Draft unit tests for LRU cache behavior.
+- [ ] Decide on queue size and summarization thresholds. (`SESSION_CACHE_MAX_ENTRIES` currently 20)
+- [ ] Stub Cipher client with `storeRun` and `search` calls.
 
