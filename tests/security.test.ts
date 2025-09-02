@@ -34,6 +34,12 @@ describe('sanitizeErrorResponse limits', () => {
     expect(JSON.parse(output)).toEqual({ token: '[REDACTED]' });
   });
 
+  test('ignores plain alphanumeric strings', () => {
+    const input = JSON.stringify({ data: 'abcdefgh' });
+    const output = sanitizeErrorResponse(input);
+    expect(JSON.parse(output)).toEqual({ data: 'abcdefgh' });
+  });
+
   test('caps large responses', () => {
     const big = 'x'.repeat(40_000);
     const output = sanitizeErrorResponse(big);

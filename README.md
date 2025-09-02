@@ -62,7 +62,7 @@ Review and update these patterns regularly to catch newly emerging sensitive dat
 
 ## ESM imports integrity
 
-`index.html` pins CDN-hosted ESM bundles with Subresource Integrity (SRI) hashes and provides fallback URLs if the primary source fails verification. When upgrading these dependencies, recompute the SHA-384 hash (for example with `npx srihash <url>`) and update the `integrity` and `fallback` fields in the import map.
+`index.html` pins CDN-hosted ESM bundles with Subresource Integrity (SRI) hashes and provides fallback URLs if the primary source fails verification. When upgrading these dependencies, recompute the SHA-384 hash (for example with `npx srihash <url>`) and update the `integrity`, `fallback`, and `fallbackIntegrity` fields in the import map.
 
 ## Reasoning models and context management
 

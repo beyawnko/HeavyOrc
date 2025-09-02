@@ -18,23 +18,28 @@ const MAX_MEMORY_LENGTH = 4000; // 4KB safety limit per entry
 const MAX_RESPONSE_SIZE = MAX_MEMORY_LENGTH * 100; // 400KB total response cap
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_ENTRIES = 1000;
+const MAX_CACHE_SIZE = MAX_RESPONSE_SIZE; // 400KB overall cache limit
 
 let tokens = MAX_REQUESTS;
 let lastRefill = Date.now();
-const memoryCache = new Map<string, { data: MemoryEntry[]; expiry: number }>();
+const memoryCache = new Map<string, { data: MemoryEntry[]; expiry: number; size: number }>();
+let currentCacheSize = 0;
 
 function pruneCache() {
   const now = Date.now();
   for (const [key, value] of memoryCache) {
     if (value.expiry <= now) {
+      currentCacheSize -= value.size;
       memoryCache.delete(key);
     }
   }
-  if (memoryCache.size > MAX_CACHE_ENTRIES) {
+  if (memoryCache.size > MAX_CACHE_ENTRIES || currentCacheSize > MAX_CACHE_SIZE) {
     const entries = Array.from(memoryCache.entries()).sort((a, b) => a[1].expiry - b[1].expiry);
-    entries
-      .slice(0, entries.length - MAX_CACHE_ENTRIES)
-      .forEach(([key]) => memoryCache.delete(key));
+    while (memoryCache.size > MAX_CACHE_ENTRIES || currentCacheSize > MAX_CACHE_SIZE) {
+      const [key, value] = entries.shift()!;
+      memoryCache.delete(key);
+      currentCacheSize -= value.size;
+    }
   }
 }
 
@@ -243,7 +248,9 @@ export const fetchRelevantMemories = async (query: string): Promise<MemoryEntry[
     const memories = Array.isArray(data.memories)
       ? data.memories.filter(m => m.content.length <= MAX_MEMORY_LENGTH)
       : [];
-    memoryCache.set(query, { data: memories, expiry: Date.now() + CACHE_TTL_MS });
+    const size = memories.reduce((sum, m) => sum + m.content.length, 0);
+    memoryCache.set(query, { data: memories, expiry: Date.now() + CACHE_TTL_MS, size });
+    currentCacheSize += size;
     pruneCache();
     return memories;
   } catch (e) {

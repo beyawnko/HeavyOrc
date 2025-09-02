@@ -9,20 +9,31 @@ export const fetchWithTimeout = async (
     input: RequestInfo,
     init: RequestInit,
     timeoutMs = 5000,
+    retries = 0,
+    baseDelayMs = 500,
 ): Promise<Response> => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        const response = await fetch(input, { ...init, signal: controller.signal });
-        return response;
-    } catch (error) {
-        if ((error as { name?: string }).name === 'AbortError') {
-            throw new Error(`Request timeout after ${timeoutMs}ms`);
-        }
-        throw error;
-    } finally {
-        clearTimeout(timer);
+    if (retries < 0) {
+        throw new Error("retries must be non-negative");
     }
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs * (attempt + 1));
+        try {
+            return await fetch(input, { ...init, signal: controller.signal });
+        } catch (error) {
+            if ((error as { name?: string }).name === 'AbortError') {
+                if (attempt === retries) {
+                    throw new Error(`Request timeout after ${timeoutMs * (attempt + 1)}ms`);
+                }
+            } else if (attempt === retries) {
+                throw error;
+            }
+        } finally {
+            clearTimeout(timer);
+        }
+        await sleep(baseDelayMs * Math.pow(2, attempt));
+    }
+    throw new Error("fetchWithTimeout exhausted all retries without success.");
 };
 
 export const fetchWithRetry = async (

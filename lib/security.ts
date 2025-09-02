@@ -27,9 +27,10 @@ const SENSITIVE_VALUE_PATTERNS = [
   /session[-_]?id/i,
 ];
 
-const BASE64_VALUE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+const BASE64_VALUE = /^(?!.*[^A-Za-z0-9+/=])(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 // Catch shorter base64-encoded secrets (8+ chars) that may still be sensitive
-const BASE64_SHORT = /^[A-Za-z0-9+/]{8,}={0,2}$/;
+// Require at least one non-alphanumeric character to reduce false positives
+const BASE64_SHORT = /^(?![A-Za-z0-9]{8,}$)(?!.*[^A-Za-z0-9+/=])(?:[A-Za-z0-9+/]{4}){2,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 function isSensitiveString(value: string): boolean {
   return (

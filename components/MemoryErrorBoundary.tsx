@@ -1,5 +1,11 @@
 import { Component, ReactNode } from 'react';
 
+const DefaultFallback = () => (
+  <div role="alert" className="p-4 text-sm text-red-600">
+    Something went wrong while loading memories.
+  </div>
+);
+
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
@@ -21,7 +27,7 @@ export default class MemoryErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      return this.props.fallback ?? null;
+      return this.props.fallback ?? <DefaultFallback />;
     }
     return this.props.children;
   }

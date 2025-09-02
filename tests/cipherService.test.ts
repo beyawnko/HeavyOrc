@@ -130,6 +130,18 @@ describe('cipherService', () => {
     expect(memories).toEqual(MEMORIES_RESPONSE.memories);
   });
 
+  it('caches memories by query', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ memories: [] }), { status: 200 }));
+    global.fetch = fetchMock as any;
+    const { fetchRelevantMemories } = await import('@/services/cipherService');
+    await fetchRelevantMemories('q1');
+    await fetchRelevantMemories('q1');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+
   it('caches memory responses', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
