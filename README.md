@@ -60,9 +60,9 @@ If the server is not running, HeavyOrc continues to operate with ephemeral in-me
 Fetched memory snippets are HTML-escaped with [`escape-html`](https://www.npmjs.com/package/escape-html), replacing characters like `&`, `<`, `>`, `"` and `'` before including them in prompts. Error responses are recursively redacted: keys such as `token`, `password`, `secret`, `apiKey` and other credential-like fields—or high-entropy strings that look base64-encoded—are replaced with `[REDACTED]`. Redaction patterns and entropy checks are hardcoded in [`lib/security.ts`](./lib/security.ts) and can be customized there if needed. Responses from the memory server are streamed and capped at 400KB to mitigate denial-of-service attempts.
 Review and update these patterns regularly to catch newly emerging sensitive data types.
 
-## ESM imports integrity
+## ESM imports
 
-`index.html` pins CDN-hosted ESM bundles with Subresource Integrity (SRI) hashes and provides fallback URLs if the primary source fails verification. When upgrading these dependencies, recompute the SHA-384 hash (for example with `npx srihash <url>`) and update the `integrity`, `fallback`, and `fallbackIntegrity` fields in the import map.
+`index.html` uses an import map to pin CDN-hosted ESM bundles to exact versions. When upgrading these dependencies, update the URLs in the map and verify the new files before deployment. For additional hardening, consider hosting vetted copies under `public/vendor` and updating the map to point to those local assets if the CDN becomes unavailable.
 
 ## Reasoning models and context management
 

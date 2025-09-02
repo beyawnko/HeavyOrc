@@ -19,12 +19,30 @@ export const fetchWithTimeout = async (
         const controller = new AbortController();
         const timeout = timeoutMs * (attempt + 1);
         const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+        const { signal } = init;
+        let abortListener: (() => void) | undefined;
+        if (signal) {
+            if (signal.aborted) {
+                controller.abort((signal as any).reason);
+            } else {
+                abortListener = () => controller.abort((signal as any).reason);
+                signal.addEventListener('abort', abortListener, { once: true });
+            }
+        }
+
         try {
             const response = await fetch(input, { ...init, signal: controller.signal });
             clearTimeout(timeoutId);
+            if (abortListener) {
+                signal!.removeEventListener('abort', abortListener);
+            }
             return response;
         } catch (error) {
             clearTimeout(timeoutId);
+            if (abortListener) {
+                signal!.removeEventListener('abort', abortListener);
+            }
             if ((error as { name?: string }).name === 'AbortError') {
                 if (attempt === retries) {
                     throw new Error(`Request timeout after ${timeout}ms`);
