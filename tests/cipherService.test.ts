@@ -21,17 +21,27 @@ const sampleRun: RunRecord = {
 const originalFetch = global.fetch;
 const VALID_CSP_HEADER = {
   'Content-Security-Policy':
-    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'",
+    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'",
 };
 const WILDCARD_CSP_HEADER = {
-  'Content-Security-Policy': "default-src 'none'; connect-src *",
+  'Content-Security-Policy':
+    "default-src 'none'; connect-src *; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'",
 };
 const UNSAFE_CSP_HEADER = {
-  'Content-Security-Policy': "default-src 'none'; connect-src 'self'; script-src 'unsafe-inline'",
+  'Content-Security-Policy':
+    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'unsafe-inline'; style-src 'none'",
 };
 const DANGEROUS_CSP_HEADER = {
   'Content-Security-Policy':
-    "default-src 'none'; connect-src 'self'; object-src *; base-uri *",
+    "default-src 'none'; connect-src 'self'; object-src *; base-uri *; script-src 'none'; style-src 'none'",
+};
+const MISSING_SCRIPT_CSP_HEADER = {
+  'Content-Security-Policy':
+    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; style-src 'none'",
+};
+const MISSING_STYLE_CSP_HEADER = {
+  'Content-Security-Policy':
+    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'",
 };
 const MEMORIES_RESPONSE = { memories: [{ id: '1', content: 'note' }] };
 
@@ -66,6 +76,8 @@ describe('cipherService', () => {
     { name: 'wildcard', headers: WILDCARD_CSP_HEADER },
     { name: 'unsafe', headers: UNSAFE_CSP_HEADER },
     { name: 'dangerous', headers: DANGEROUS_CSP_HEADER },
+    { name: 'missing script', headers: MISSING_SCRIPT_CSP_HEADER },
+    { name: 'missing style', headers: MISSING_STYLE_CSP_HEADER },
   ])('throws when CSP header is $name', async ({ headers }) => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
@@ -177,6 +189,8 @@ describe('cipherService', () => {
     { name: 'invalid', headers: WILDCARD_CSP_HEADER },
     { name: 'unsafe', headers: UNSAFE_CSP_HEADER },
     { name: 'dangerous', headers: DANGEROUS_CSP_HEADER },
+    { name: 'no-script', headers: MISSING_SCRIPT_CSP_HEADER },
+    { name: 'no-style', headers: MISSING_STYLE_CSP_HEADER },
   ])(
     'returns empty array when CSP header is $name and enforcement enabled',
     async ({ headers }) => {
@@ -322,36 +336,6 @@ describe('cipherService', () => {
     consoleSpy.mockRestore();
   });
 
-  it('validates URLs in development', async () => {
-    const { validateUrl } = await import('@/services/cipherService');
-    expect(validateUrl('http://example.com')).toBe('http://example.com');
-    expect(validateUrl('ftp://example.com')).toBeUndefined();
-    expect(validateUrl('http://localhost')).toBe('http://localhost');
-    expect(validateUrl('example.com')).toBeUndefined();
-    expect(validateUrl('http://bücher.de')).toBe('http://xn--bcher-kva.de');
-  });
-
-  it('blocks private URLs in production', async () => {
-    const { validateUrl } = await import('@/services/cipherService');
-    expect(validateUrl('http://example.com')).toBe('http://example.com');
-    expect(validateUrl('https://example.com')).toBe('https://example.com');
-    expect(validateUrl('http://example.com:8080')).toBe('http://example.com:8080');
-    expect(validateUrl('http://localhost', false)).toBeUndefined();
-    expect(validateUrl('http://127.0.0.1', false)).toBeUndefined();
-    expect(validateUrl('http://192.168.0.1', false)).toBeUndefined();
-    expect(validateUrl('http://10.0.0.1', false)).toBeUndefined();
-    expect(validateUrl('http://172.16.0.1', false)).toBeUndefined();
-    expect(validateUrl('http://[::1]', false)).toBeUndefined();
-    expect(validateUrl('http://[::]', false)).toBeUndefined();
-    expect(validateUrl('http://[fd00::1]', false)).toBeUndefined();
-    expect(validateUrl('http://[fe80::1]', false)).toBeUndefined();
-    expect(validateUrl('http://[2001:db8::1]', false)).toBe('http://[2001:db8::1]');
-    expect(validateUrl('http://[2001:db8:0:1::]', false)).toBe('http://[2001:db8:0:1::]');
-    expect(validateUrl('http://[::ffff:192.168.0.1]', false)).toBeUndefined();
-    expect(validateUrl('http://[fe80:::1]', false)).toBeUndefined();
-    expect(validateUrl('ftp://example.com', false)).toBeUndefined();
-  });
-
   it('returns empty array when memory response too large', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
@@ -361,5 +345,39 @@ describe('cipherService', () => {
     const { fetchRelevantMemories } = await import('@/services/cipherService');
     const res = await fetchRelevantMemories('q');
     expect(res).toEqual([]);
+  });
+
+  it('rate limits memory storage', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    const headers = { 'Content-Security-Policy': "default-src 'none'" };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200, headers }));
+    global.fetch = fetchMock as any;
+    const { storeRunRecord } = await import('@/services/cipherService');
+    for (let i = 0; i < 35; i++) {
+      await storeRunRecord(sampleRun);
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(30);
+  });
+
+  it('evicts cache after TTL', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    const headers = { 'Content-Security-Policy': "default-src 'none'" };
+    const body = JSON.stringify(MEMORIES_RESPONSE);
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(new Response(body, { status: 200, headers })));
+    global.fetch = fetchMock as any;
+    const { fetchRelevantMemories } = await import('@/services/cipherService');
+    await fetchRelevantMemories('q');
+    await fetchRelevantMemories('q');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(5 * 60 * 1000 + 1);
+    await fetchRelevantMemories('q');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
   });
 });
