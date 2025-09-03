@@ -4,10 +4,20 @@ import { sanitizeErrorResponse, validateUrl, readLimitedText, validateCsp } from
 import { MinHeap } from '@/lib/minHeap';
 import { logMemory } from '@/lib/memoryLogger';
 
-export interface MemoryEntry {
+/**
+ * Immutable memory record stored in the cache.
+ */
+export type ImmutableMemoryEntry = DeepReadonly<{
   id: string;
   content: string;
-}
+}>;
+
+/**
+ * Recursively marks all properties of a type as readonly.
+ */
+type DeepReadonly<T> = {
+  readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P];
+};
 
 const useCipher = import.meta.env.VITE_USE_CIPHER_MEMORY === 'true';
 const baseUrl = validateUrl(import.meta.env.VITE_CIPHER_SERVER_URL, [], import.meta.env.DEV);
@@ -21,14 +31,21 @@ const MAX_RESPONSE_SIZE = MAX_MEMORY_LENGTH * 100; // 400KB total response cap
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_ENTRIES = 1000;
 const MAX_CACHE_SIZE = MAX_RESPONSE_SIZE; // 400KB overall cache limit
+const MAX_FREEZE_DEPTH = 100;
 
 const sessionBuckets = new Map<string, { tokens: number; lastRefill: number }>();
 const ipBuckets = new Map<string, { tokens: number; lastRefill: number }>();
 let clientIpPromise: Promise<string | null> | null = null;
-const memoryCache = new Map<string, { data: MemoryEntry[]; expiry: number; size: number }>();
+
+type CachedMemoryData = {
+  readonly data: readonly ImmutableMemoryEntry[];
+  readonly expiry: number;
+  readonly size: number;
+};
+const memoryCache = new Map<string, CachedMemoryData>();
 let currentCacheSize = 0;
 const expiryHeap = new MinHeap<[string, number]>((a, b) => a[1] - b[1]);
-const inFlightFetches = new Map<string, Promise<MemoryEntry[]>>();
+const inFlightFetches = new Map<string, Promise<ImmutableMemoryEntry[]>>();
 
 class Mutex {
   private mutex = Promise.resolve();
@@ -61,6 +78,61 @@ function recordFailure() {
 
 function isCircuitOpen() {
   return circuitBreaker.failures >= circuitBreaker.threshold;
+}
+
+class UnsafePropertyError extends Error {
+  constructor(property: string) {
+    super(`Object contains potentially unsafe property: ${property}`);
+    this.name = 'UnsafePropertyError';
+  }
+}
+
+class MaxDepthExceededError extends Error {
+  constructor(maxDepth: number) {
+    super(`Maximum object depth of ${maxDepth} exceeded`);
+    this.name = 'MaxDepthExceededError';
+  }
+}
+
+function deepFreeze<T extends object>(
+  obj: T,
+  visited = new Set<object>(),
+  depth = 0,
+  maxDepth = MAX_FREEZE_DEPTH,
+): Readonly<T> {
+  if (depth > maxDepth) throw new MaxDepthExceededError(maxDepth);
+  if (!obj || Object.isFrozen(obj) || visited.has(obj)) return obj;
+  visited.add(obj);
+  if (Object.hasOwn(obj, '__proto__')) {
+    throw new UnsafePropertyError('__proto__');
+  }
+  if (Object.hasOwn(obj, 'constructor')) {
+    throw new UnsafePropertyError('constructor');
+  }
+  Object.freeze(obj);
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === 'object') {
+      deepFreeze(value, visited, depth + 1, maxDepth);
+    }
+  }
+  return obj;
+}
+
+type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
+
+function freezeCacheEntry<T extends object>(
+  data: T,
+): Result<Readonly<T>> {
+  const clone = structuredClone(data);
+  try {
+    return { ok: true, value: deepFreeze(clone) };
+  } catch (error) {
+    console.warn('Failed to freeze cache entry; it will not be cached:', error);
+    return {
+      ok: false,
+      error: error instanceof Error ? error : new Error(String(error)),
+    };
+  }
 }
 
 function pruneCache() {
@@ -208,7 +280,7 @@ export const storeRunRecord = async (
 export const fetchRelevantMemories = async (
   query: string,
   sessionId: string,
-): Promise<MemoryEntry[]> => {
+): Promise<ImmutableMemoryEntry[]> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return [];
   pruneCache();
   const cacheKey = `${sessionId}:${query}`;
@@ -219,7 +291,8 @@ export const fetchRelevantMemories = async (
       query,
       count: cached.data.length,
     });
-    return cached.data;
+    const clone = structuredClone(cached.data) as ImmutableMemoryEntry[];
+    return deepFreeze(clone) as ImmutableMemoryEntry[];
   }
   if (query.length > MAX_MEMORY_LENGTH) return [];
   if (isCircuitOpen()) {
@@ -283,23 +356,28 @@ export const fetchRelevantMemories = async (
         recordFailure();
         return [];
       }
-      const data = JSON.parse(text) as { memories?: MemoryEntry[] };
+      const data = JSON.parse(text) as { memories?: { id: string; content: string }[] };
       const memories = Array.isArray(data.memories)
         ? data.memories.filter(m => m.content.length <= MAX_MEMORY_LENGTH)
         : [];
-      const size = memories.reduce((sum, m) => sum + m.content.length, 0);
+      // By freezing here, we ensure the function always returns immutable data as per its signature.
+      // If freezing fails, the entry is skipped and an empty array is returned.
+      const freezeResult = freezeCacheEntry(memories);
+      if (!freezeResult.ok) return [];
+      const frozenMemories = freezeResult.value as readonly ImmutableMemoryEntry[];
+      const size = frozenMemories.reduce((sum, m) => sum + m.content.length, 0);
       const existing = memoryCache.get(cacheKey);
+      const expiry = Date.now() + CACHE_TTL_MS;
       if (existing) {
         currentCacheSize -= existing.size;
       }
-      const expiry = Date.now() + CACHE_TTL_MS;
-      memoryCache.set(cacheKey, { data: memories, expiry, size });
+      memoryCache.set(cacheKey, { data: frozenMemories, expiry, size });
       expiryHeap.push([cacheKey, expiry]);
       currentCacheSize += size;
       pruneCache();
-      logMemory('cipher.fetch', { sessionId, query, count: memories.length });
+      logMemory('cipher.fetch', { sessionId, query, count: frozenMemories.length });
       circuitBreaker.failures = 0;
-      return memories;
+      return [...frozenMemories];
     } catch (error) {
       console.error('Failed to fetch relevant memories', {
         url: `${baseUrl}/memories/search`,
