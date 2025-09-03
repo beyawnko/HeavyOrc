@@ -348,4 +348,16 @@ describe('sessionCache', () => {
     await __adjustCacheSize();
     expect(__getMaxEntries()).toBeLessThan(SESSION_CACHE_MAX_ENTRIES);
   });
+
+  it('skips cache shrink when quota is unknown', async () => {
+    const sessionId = 'noquota';
+    appendSessionContext(sessionId, {
+      role: 'user',
+      content: 'm',
+      timestamp: Date.now(),
+    });
+    (globalThis as any).navigator = {};
+    await __adjustCacheSize();
+    expect(__getMaxEntries()).toBe(SESSION_CACHE_MAX_ENTRIES);
+  });
 });
