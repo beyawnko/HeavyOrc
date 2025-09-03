@@ -41,7 +41,7 @@ interface State {
 export default class MemoryErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false, error: null, retries: 0 };
 
-  static getDerivedStateFromError(error: unknown): State {
+  static getDerivedStateFromError(error: unknown): Partial<State> {
     return { hasError: true, error };
   }
 

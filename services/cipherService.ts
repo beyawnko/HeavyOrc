@@ -71,7 +71,12 @@ const CIRCUIT_BREAKER_RESET_MS = Number(
   import.meta.env.VITE_CIPHER_CIRCUIT_BREAKER_RESET_MS ?? 30000,
 );
 
-const MAX_BACKOFF_FACTOR = 16;
+const MAX_BACKOFF_FACTOR = Math.min(
+  Math.max(Number(import.meta.env.VITE_CIPHER_MAX_BACKOFF_FACTOR ?? 16), 1),
+  32,
+);
+
+const INVALID_SESSION_DELAY_MS = 1000;
 
 const circuitBreaker = {
   failures: 0,
@@ -246,7 +251,9 @@ export const storeRunRecords = async (
     if (ip && !consumeFromBucket(invalidSessionBuckets, ip)) {
       console.warn('Rate limit exceeded for invalid session attempts');
       logMemory('cipher.store.invalidSessionRateLimit', { ip });
-      return;
+      const delay = INVALID_SESSION_DELAY_MS * (0.5 + Math.random());
+      await new Promise(res => setTimeout(res, delay));
+      throw new Error('Rate limit exceeded for invalid session attempts');
     }
     console.warn('Invalid sessionId format');
     logMemory('cipher.store.invalidSession', { sessionId });

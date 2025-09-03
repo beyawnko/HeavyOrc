@@ -171,14 +171,15 @@ export function validateUrl(
       }
     }
     const bareHost = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
-    const allowedProtocols = ['http:', 'https:'];
-    const allowedPorts = new Set(['', '80', '443']);
+    const allowedProtocols = Object.freeze(['http:', 'https:'] as const);
+    const allowedPorts = Object.freeze(['', '80', '443'] as const);
+    const allowedPortSet = new Set(allowedPorts);
     const portStr = parsed.port || '';
     if (
       !allowedProtocols.includes(parsed.protocol) ||
       hostname.length > 255 ||
       (!ipaddr.isValid(bareHost) && !/^(?!-)[a-zA-Z0-9-]+(?<!-)(?:\.[a-zA-Z0-9-]+)*$/.test(bareHost)) ||
-      (!dev && (parsed.protocol !== 'https:' || isPrivateOrLocalhost(hostname) || !allowedPorts.has(portStr))) ||
+      (!dev && (parsed.protocol !== 'https:' || isPrivateOrLocalhost(hostname) || !allowedPortSet.has(portStr))) ||
       (allowedHosts.length > 0 && !allowedHosts.includes(hostname))
     ) {
       return undefined;
