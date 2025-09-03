@@ -125,20 +125,34 @@ export function sanitizeErrorResponse(body: string): string {
 
 function isPrivateOrLocalhost(hostname: string): boolean {
   const host = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
-  if (host === 'localhost') return true;
+  if (host === 'localhost' || /^localhost\./i.test(host)) return true;
   if (ipaddr.isValid(host)) {
     let parsed = ipaddr.parse(host);
     if (parsed.kind() === 'ipv6') {
       const ipv6 = parsed as ipaddr.IPv6;
-      if (host.includes('%')) return true;
+      if (host.includes('%')) return true; // Block zone IDs
       if (ipv6.isIPv4MappedAddress()) {
         parsed = ipv6.toIPv4Address();
       }
     }
     const range = parsed.range();
-    return ['loopback', 'linkLocal', 'uniqueLocal', 'private', 'unspecified'].includes(range);
+    return [
+      'loopback',
+      'linkLocal',
+      'uniqueLocal',
+      'private',
+      'unspecified',
+      'broadcast',
+      'multicast',
+    ].includes(range);
   }
-  return false;
+  // Block DNS rebinding or obfuscated IP forms
+  return (
+    /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?\d\d?)$/.test(host) || // Dotted decimal
+    /^0x[0-9a-f]+$/i.test(host) || // Hexadecimal
+    /^[0-7]+$/.test(host) || // Octal
+    /^\d+$/.test(host) // Decimal integer
+  );
 }
 
 export function validateUrl(
@@ -251,6 +265,7 @@ export function validateCsp(response: Response): void {
       s =>
         s === "'unsafe-inline'" ||
         s === "'unsafe-eval'" ||
+        s === "'unsafe-hashes'" ||
         s === '*'
     )
   );

@@ -18,14 +18,20 @@ export function createDefaultSummarizer(maxLength = SUMMARIZER_MAX_CHARS): Summa
   return async (text: string): Promise<string> => {
     if (!text) return '';
     try {
-      const truncated = text.slice(0, maxLength);
-      const match = truncated.match(/.*[.!?]['")\s]*/s);
-      if (match) return match[0].trim();
+      const normalized = text
+        .slice(0, maxLength * 2)
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (normalized.length <= maxLength) return normalized;
+      const truncated = normalized.slice(0, maxLength);
+      const sentenceMatch = truncated.match(/.*[.!?]['")}\]]?(?:\s|$)/s);
+      if (sentenceMatch) return sentenceMatch[0].trim();
       const wordMatch = truncated.match(/.*\b/);
-      return (wordMatch ? wordMatch[0] : truncated).trim() + (text.length > maxLength ? '…' : '');
+      if (wordMatch) return wordMatch[0].trim() + '…';
+      return truncated.trim() + '…';
     } catch (e) {
       console.warn('Error in summarizer:', e);
-      return text.slice(0, maxLength) + '…';
+      return text.slice(0, maxLength).trim() + '…';
     }
   };
 }
