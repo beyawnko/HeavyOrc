@@ -1,6 +1,16 @@
 import { Component, ReactNode } from 'react';
 
-const DefaultFallback = ({ error, onRetry }: { error: unknown; onRetry: () => void }) => (
+const MAX_RETRIES = 3;
+
+const DefaultFallback = ({
+  error,
+  onRetry,
+  canRetry,
+}: {
+  error: unknown;
+  onRetry: () => void;
+  canRetry: boolean;
+}) => (
   <div role="alert" className="p-4 text-sm text-red-600 space-y-2">
     <p>Something went wrong while loading memories.</p>
     {error ? (
@@ -8,9 +18,13 @@ const DefaultFallback = ({ error, onRetry }: { error: unknown; onRetry: () => vo
         {String(error)}
       </pre>
     ) : null}
-    <button onClick={onRetry} className="underline text-blue-600">
-      Retry
-    </button>
+    {canRetry ? (
+      <button onClick={onRetry} className="underline text-blue-600">
+        Retry
+      </button>
+    ) : (
+      <p className="text-xs">Retry limit reached</p>
+    )}
   </div>
 );
 
@@ -21,12 +35,13 @@ interface Props {
 interface State {
   hasError: boolean;
   error: unknown;
+  retries: number;
 }
 
 export default class MemoryErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false, error: null };
+  state: State = { hasError: false, error: null, retries: 0 };
 
-  static getDerivedStateFromError(error: unknown): State {
+  static getDerivedStateFromError(error: unknown): Partial<State> {
     return { hasError: true, error };
   }
 
@@ -35,13 +50,20 @@ export default class MemoryErrorBoundary extends Component<Props, State> {
   }
 
   private handleRetry = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState(prev => ({ hasError: false, error: null, retries: prev.retries + 1 }));
   };
 
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
-      return <DefaultFallback error={this.state.error} onRetry={this.handleRetry} />;
+      const canRetry = this.state.retries < MAX_RETRIES;
+      return (
+        <DefaultFallback
+          error={this.state.error}
+          onRetry={this.handleRetry}
+          canRetry={canRetry}
+        />
+      );
     }
     return this.props.children;
   }
