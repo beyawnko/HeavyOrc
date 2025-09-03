@@ -305,25 +305,19 @@ export const fetchRelevantMemories = async (
         url: `${baseUrl}/memories/search`,
         error,
         errorType: error instanceof Error ? error.name : typeof error,
-        statusCode: error instanceof Response ? error.status : undefined,
       });
       recordFailure();
       logMemory('cipher.fetch.error', {
         sessionId,
-        query,
-        error,
         errorType: error instanceof Error ? error.name : typeof error,
-        recoverable: error instanceof Response && error.status >= 500,
+        recoverable:
+          error instanceof Error && /temporarily unavailable/i.test(error.message),
+        queryLength: query?.length,
       });
-      if (error instanceof Response && error.status >= 500) {
-        return [];
-      } else if (error instanceof TypeError) {
+      if (error instanceof TypeError) {
         console.warn('Network error while fetching memories - check connectivity');
-        return [];
-      } else {
-        console.error('Unexpected error type while fetching memories');
-        return [];
       }
+      return [];
     }
   })();
 

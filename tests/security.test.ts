@@ -53,6 +53,9 @@ describe('validateUrl', () => {
     expect(validateUrl('http://0x7f000001', [], false)).toBeUndefined();
     expect(validateUrl('http://017700000001', [], false)).toBeUndefined();
     expect(validateUrl('http://2130706433', [], false)).toBeUndefined();
+    expect(
+      validateUrl('https://subdomain.1.2.3.4.com', [], false),
+    ).toBe('https://subdomain.1.2.3.4.com');
     expect(validateUrl('https://example.com', ['example.com'], false)).toBe('https://example.com');
     expect(validateUrl('https://evil.com', ['example.com'], false)).toBeUndefined();
     expect(validateUrl('https://example.com:8080', [], false)).toBe('https://example.com:8080');

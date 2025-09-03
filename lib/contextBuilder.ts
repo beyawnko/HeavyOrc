@@ -18,7 +18,10 @@ export function createDefaultSummarizer(maxLength = SUMMARIZER_MAX_CHARS): Summa
   return async (text: string): Promise<string> => {
     if (!text) return '';
     try {
-      const normalized = text.replace(/\s+/g, ' ').trim();
+      const normalized = text
+        .slice(0, maxLength * 2)
+        .replace(/\s+/g, ' ')
+        .trim();
       if (normalized.length <= maxLength) return normalized;
       const truncated = normalized.slice(0, maxLength);
       const sentenceMatch = truncated.match(/.*[.!?]['")}\]]?(?:\s|$)/s);

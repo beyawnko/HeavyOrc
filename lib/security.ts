@@ -148,7 +148,7 @@ function isPrivateOrLocalhost(hostname: string): boolean {
   }
   // Block DNS rebinding or obfuscated IP forms
   return (
-    /\d+\.\d+\.\d+\.\d+/.test(host) || // Dotted decimal
+    /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?\d\d?)$/.test(host) || // Dotted decimal
     /^0x[0-9a-f]+$/i.test(host) || // Hexadecimal
     /^[0-7]+$/.test(host) || // Octal
     /^\d+$/.test(host) // Decimal integer
