@@ -26,12 +26,12 @@ const sessionBuckets = new Map<string, { tokens: number; lastRefill: number }>()
 const ipBuckets = new Map<string, { tokens: number; lastRefill: number }>();
 let clientIpPromise: Promise<string | null> | null = null;
 
-type MemoryCacheEntry = {
+type CachedMemoryData = {
   readonly data: readonly MemoryEntry[];
   readonly expiry: number;
   readonly size: number;
 };
-const memoryCache = new Map<string, MemoryCacheEntry>();
+const memoryCache = new Map<string, CachedMemoryData>();
 let currentCacheSize = 0;
 const expiryHeap = new MinHeap<[string, number]>((a, b) => a[1] - b[1]);
 const inFlightFetches = new Map<string, Promise<MemoryEntry[]>>();
@@ -71,9 +71,17 @@ function isCircuitOpen() {
 
 function deepFreeze<T extends object>(obj: T): Readonly<T> {
   if (obj && !Object.isFrozen(obj)) {
+    if (
+      Object.prototype.hasOwnProperty.call(obj, '__proto__') ||
+      Object.prototype.hasOwnProperty.call(obj, 'constructor')
+    ) {
+      throw new Error('Object contains potentially unsafe properties');
+    }
     Object.freeze(obj);
-    for (const value of Object.values(obj)) {
-      if (value && typeof value === 'object') deepFreeze(value);
+    for (const [, value] of Object.entries(obj)) {
+      if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+        deepFreeze(value as any);
+      }
     }
   }
   return obj;
@@ -311,7 +319,15 @@ export const fetchRelevantMemories = async (
       const expiry = Date.now() + CACHE_TTL_MS;
       memoryCache.set(cacheKey, {
         // Deep freeze entries so cached data can't be mutated
-        data: deepFreeze(memories.map(entry => deepFreeze({ ...entry }))),
+        data: (() => {
+          try {
+            const clone = structuredClone(memories);
+            return deepFreeze(clone);
+          } catch (error) {
+            console.warn('Failed to freeze cache entry:', error);
+            return structuredClone(memories);
+          }
+        })(),
         expiry,
         size,
       });
