@@ -69,19 +69,22 @@ function isCircuitOpen() {
   return circuitBreaker.failures >= circuitBreaker.threshold;
 }
 
-function deepFreeze<T extends object>(obj: T): Readonly<T> {
-  if (obj && !Object.isFrozen(obj)) {
-    if (
-      Object.prototype.hasOwnProperty.call(obj, '__proto__') ||
-      Object.prototype.hasOwnProperty.call(obj, 'constructor')
-    ) {
-      throw new Error('Object contains potentially unsafe properties');
-    }
-    Object.freeze(obj);
-    for (const [, value] of Object.entries(obj)) {
-      if (value && typeof value === 'object' && !Object.isFrozen(value)) {
-        deepFreeze(value as any);
-      }
+function deepFreeze<T extends object>(
+  obj: T,
+  visited = new Set<object>(),
+): Readonly<T> {
+  if (!obj || Object.isFrozen(obj) || visited.has(obj)) return obj;
+  visited.add(obj);
+  if (
+    Object.prototype.hasOwnProperty.call(obj, '__proto__') ||
+    Object.prototype.hasOwnProperty.call(obj, 'constructor')
+  ) {
+    throw new Error('Object contains potentially unsafe properties');
+  }
+  Object.freeze(obj);
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === 'object') {
+      deepFreeze(value as Record<string, unknown>, visited);
     }
   }
   return obj;
@@ -320,12 +323,12 @@ export const fetchRelevantMemories = async (
       memoryCache.set(cacheKey, {
         // Deep freeze entries so cached data can't be mutated
         data: (() => {
+          const clone = structuredClone(memories);
           try {
-            const clone = structuredClone(memories);
             return deepFreeze(clone);
           } catch (error) {
             console.warn('Failed to freeze cache entry:', error);
-            return structuredClone(memories);
+            return clone;
           }
         })(),
         expiry,
