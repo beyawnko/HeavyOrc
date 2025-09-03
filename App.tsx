@@ -281,7 +281,8 @@ const App: React.FC = () => {
     const isRunCompletedRef = useRef(false);
     const orchestratorAbortRef = useRef<(() => void) | null>(null);
     const currentRunDataRef = useRef<Pick<RunRecord, 'prompt' | 'images' | 'agentConfigs' | 'arbiterModel' | 'openAIArbiterVerbosity' | 'openAIArbiterEffort' | 'geminiArbiterEffort'> | undefined>(undefined);
-    const { sessionId, append: appendSession } = useSessionContext();
+    const { sessionId, append } = useSessionContext();
+    const appendSession = useCallback(append, [append]);
     const sessionIdRef = useRef<string>('');
     const userPromptRef = useRef<string>('');
 
