@@ -25,7 +25,11 @@ const MAX_CACHE_SIZE = MAX_RESPONSE_SIZE; // 400KB overall cache limit
 const sessionBuckets = new Map<string, { tokens: number; lastRefill: number }>();
 const ipBuckets = new Map<string, { tokens: number; lastRefill: number }>();
 let clientIpPromise: Promise<string | null> | null = null;
-const memoryCache = new Map<string, { data: MemoryEntry[]; expiry: number; size: number }>();
+const memoryCache = new Map<string, {
+  data: readonly MemoryEntry[];
+  expiry: number;
+  size: number;
+}>();
 let currentCacheSize = 0;
 const expiryHeap = new MinHeap<[string, number]>((a, b) => a[1] - b[1]);
 const inFlightFetches = new Map<string, Promise<MemoryEntry[]>>();
@@ -219,7 +223,7 @@ export const fetchRelevantMemories = async (
       query,
       count: cached.data.length,
     });
-    return cached.data;
+    return [...cached.data];
   }
   if (query.length > MAX_MEMORY_LENGTH) return [];
   if (isCircuitOpen()) {
@@ -293,7 +297,7 @@ export const fetchRelevantMemories = async (
         currentCacheSize -= existing.size;
       }
       const expiry = Date.now() + CACHE_TTL_MS;
-      memoryCache.set(cacheKey, { data: memories, expiry, size });
+      memoryCache.set(cacheKey, { data: Object.freeze([...memories]), expiry, size });
       expiryHeap.push([cacheKey, expiry]);
       currentCacheSize += size;
       pruneCache();
