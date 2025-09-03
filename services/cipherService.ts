@@ -101,15 +101,17 @@ function consumeFromBucket(
 
 async function getClientIp(): Promise<string | null> {
   if (clientIpPromise) return clientIpPromise;
-  if ((globalThis as any).__TEST_IP__) {
-    clientIpPromise = Promise.resolve((globalThis as any).__TEST_IP__);
-    return clientIpPromise;
-  }
-  if (typeof fetch === 'undefined') return null;
-  clientIpPromise = fetch('https://api.ipify.org?format=json')
-    .then(r => r.json())
-    .then(d => d.ip as string)
-    .catch(() => null);
+  clientIpPromise = (async () => {
+    if ((globalThis as any).__TEST_IP__) return (globalThis as any).__TEST_IP__;
+    if (typeof fetch === 'undefined' || !baseUrl) return null;
+    try {
+      const res = await fetch(`${baseUrl}/api/client-info`);
+      const data = await res.json();
+      return data.clientIp as string;
+    } catch {
+      return null;
+    }
+  })();
   const ip = await clientIpPromise;
   clientIpPromise = Promise.resolve(ip);
   return ip;
