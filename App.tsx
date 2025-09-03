@@ -311,12 +311,11 @@ const App: React.FC = () => {
                 const newRun: RunRecord = {
                     id: `${Date.now()}`,
                     timestamp: Date.now(),
-                    ...currentRunDataRef.current,
-                    prompt: userPromptRef.current,
                     finalAnswer: finalAnswerRef.current,
                     agents: agentsRef.current,
                     status: finalStatus,
                     arbiterSwitchWarning: arbiterSwitchWarningRef.current,
+                    ...currentRunDataRef.current,
                 };
                 setHistory(prev => [newRun, ...prev]);
                 storeRunRecord(newRun, sessionIdRef.current).catch(err =>
@@ -435,6 +434,9 @@ const App: React.FC = () => {
             }
 
             isRunCompletedRef.current = false;
+            if (!userPrompt) {
+                throw new Error('user prompt is required');
+            }
             currentRunDataRef.current = {
                 prompt: userPrompt,
                 images,
