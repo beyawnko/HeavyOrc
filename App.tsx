@@ -302,7 +302,7 @@ const App: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        if (!isLoading && isRunCompletedRef.current) {
+        if (!isLoading && isRunCompletedRef.current && sessionIdRef.current) {
             isRunCompletedRef.current = false; // Reset for next run
 
             const finalStatus: RunStatus = errorRef.current ? 'FAILED' : 'COMPLETED';
@@ -339,7 +339,7 @@ const App: React.FC = () => {
                 currentRunDataRef.current = undefined; // Clear after use
             }
         }
-    }, [isLoading]);
+    }, [isLoading, sessionId, appendSession]);
 
 
     useEffect(() => {

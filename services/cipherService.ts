@@ -105,10 +105,10 @@ async function getClientIp(): Promise<string | null> {
     clientIpPromise = Promise.resolve((globalThis as any).__TEST_IP__);
     return clientIpPromise;
   }
-  if (typeof fetch === 'undefined') return null;
-  clientIpPromise = fetch('https://api.ipify.org?format=json')
+  if (typeof fetch === 'undefined' || !baseUrl) return null;
+  clientIpPromise = fetch(`${baseUrl}/api/client-info`)
     .then(r => r.json())
-    .then(d => d.ip as string)
+    .then(d => d.clientIp as string)
     .catch(() => null);
   const ip = await clientIpPromise;
   clientIpPromise = Promise.resolve(ip);
