@@ -172,12 +172,13 @@ export function validateUrl(
     }
     const bareHost = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
     const allowedProtocols = ['http:', 'https:'];
-    const allowedPorts = ['', '80', '443'];
+    const allowedPorts = new Set(['', '80', '443']);
+    const portStr = parsed.port || '';
     if (
       !allowedProtocols.includes(parsed.protocol) ||
       hostname.length > 255 ||
       (!ipaddr.isValid(bareHost) && !/^(?!-)[a-zA-Z0-9-]+(?<!-)(?:\.[a-zA-Z0-9-]+)*$/.test(bareHost)) ||
-      (!dev && (parsed.protocol !== 'https:' || isPrivateOrLocalhost(hostname) || (parsed.port && !allowedPorts.includes(parsed.port)))) ||
+      (!dev && (parsed.protocol !== 'https:' || isPrivateOrLocalhost(hostname) || !allowedPorts.has(portStr))) ||
       (allowedHosts.length > 0 && !allowedHosts.includes(hostname))
     ) {
       return undefined;

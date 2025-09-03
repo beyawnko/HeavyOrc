@@ -41,6 +41,7 @@ const MAX_FREEZE_DEPTH = 100;
 
 const sessionBuckets = new Map<string, { tokens: number; lastRefill: number }>();
 const ipBuckets = new Map<string, { tokens: number; lastRefill: number }>();
+const invalidSessionBuckets = new Map<string, { tokens: number; lastRefill: number }>();
 let clientIpPromise: Promise<string | null> | null = null;
 
 type CachedMemoryData = {
@@ -70,6 +71,8 @@ const CIRCUIT_BREAKER_RESET_MS = Number(
   import.meta.env.VITE_CIPHER_CIRCUIT_BREAKER_RESET_MS ?? 30000,
 );
 
+const MAX_BACKOFF_FACTOR = 16;
+
 const circuitBreaker = {
   failures: 0,
   lastFailure: 0,
@@ -82,7 +85,10 @@ function recordFailure() {
   circuitBreaker.failures += 1;
   circuitBreaker.lastFailure = Date.now();
   if (circuitBreaker.failures >= circuitBreaker.threshold) {
-    circuitBreaker.backoffFactor = Math.min(circuitBreaker.backoffFactor * 2, 16);
+    circuitBreaker.backoffFactor = Math.min(
+      circuitBreaker.backoffFactor * 2,
+      MAX_BACKOFF_FACTOR,
+    );
     circuitBreaker.resetTimeMs = CIRCUIT_BREAKER_RESET_MS * circuitBreaker.backoffFactor;
   }
 }
@@ -236,6 +242,12 @@ export const storeRunRecords = async (
 ): Promise<void> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return;
   if (!SESSION_ID_PATTERN.test(sessionId)) {
+    const ip = await getClientIp();
+    if (ip && !consumeFromBucket(invalidSessionBuckets, ip)) {
+      console.warn('Rate limit exceeded for invalid session attempts');
+      logMemory('cipher.store.invalidSessionRateLimit', { ip });
+      return;
+    }
     console.warn('Invalid sessionId format');
     logMemory('cipher.store.invalidSession', { sessionId });
     throw new Error('Invalid sessionId');
