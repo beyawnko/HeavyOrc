@@ -30,6 +30,16 @@ let currentCacheSize = 0;
 const expiryHeap = new MinHeap<[string, number]>((a, b) => a[1] - b[1]);
 const inFlightFetches = new Map<string, Promise<MemoryEntry[]>>();
 
+class Mutex {
+  private mutex = Promise.resolve();
+  runExclusive<T>(fn: () => Promise<T> | T): Promise<T> {
+    const result = this.mutex.then(() => fn());
+    this.mutex = result.catch(() => {});
+    return result;
+  }
+}
+const rateLimitMutex = new Mutex();
+
 const CIRCUIT_BREAKER_THRESHOLD = Number(
   import.meta.env.VITE_CIPHER_CIRCUIT_BREAKER_THRESHOLD ?? 5,
 );
@@ -128,7 +138,7 @@ async function consumeToken(sessionId: string): Promise<boolean> {
   if (typeof navigator !== 'undefined' && 'locks' in navigator && navigator.locks) {
     return navigator.locks.request(`cipher-rate:${sessionId}`, exec);
   }
-  return exec();
+  return rateLimitMutex.runExclusive(() => Promise.resolve(exec()));
 }
 
 export const storeRunRecords = async (
@@ -290,14 +300,30 @@ export const fetchRelevantMemories = async (
       logMemory('cipher.fetch', { sessionId, query, count: memories.length });
       circuitBreaker.failures = 0;
       return memories;
-    } catch (e) {
+    } catch (error) {
       console.error('Failed to fetch relevant memories', {
         url: `${baseUrl}/memories/search`,
-        error: e,
+        error,
+        errorType: error instanceof Error ? error.name : typeof error,
+        statusCode: error instanceof Response ? error.status : undefined,
       });
       recordFailure();
-      logMemory('cipher.fetch.error', { sessionId, query, error: e });
-      return [];
+      logMemory('cipher.fetch.error', {
+        sessionId,
+        query,
+        error,
+        errorType: error instanceof Error ? error.name : typeof error,
+        recoverable: error instanceof Response && error.status >= 500,
+      });
+      if (error instanceof Response && error.status >= 500) {
+        return [];
+      } else if (error instanceof TypeError) {
+        console.warn('Network error while fetching memories - check connectivity');
+        return [];
+      } else {
+        console.error('Unexpected error type while fetching memories');
+        return [];
+      }
     }
   })();
 
