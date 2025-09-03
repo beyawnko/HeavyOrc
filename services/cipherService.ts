@@ -5,8 +5,8 @@ import { MinHeap } from '@/lib/minHeap';
 import { logMemory } from '@/lib/memoryLogger';
 
 export interface MemoryEntry {
-  id: string;
-  content: string;
+  readonly id: string;
+  readonly content: string;
 }
 
 const useCipher = import.meta.env.VITE_USE_CIPHER_MEMORY === 'true';
@@ -297,7 +297,11 @@ export const fetchRelevantMemories = async (
         currentCacheSize -= existing.size;
       }
       const expiry = Date.now() + CACHE_TTL_MS;
-      memoryCache.set(cacheKey, { data: Object.freeze([...memories]), expiry, size });
+      memoryCache.set(cacheKey, {
+        data: Object.freeze(memories.map(entry => Object.freeze({ ...entry }))),
+        expiry,
+        size,
+      });
       expiryHeap.push([cacheKey, expiry]);
       currentCacheSize += size;
       pruneCache();
