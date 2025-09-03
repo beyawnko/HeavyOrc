@@ -312,6 +312,7 @@ const App: React.FC = () => {
                     id: `${Date.now()}`,
                     timestamp: Date.now(),
                     ...currentRunDataRef.current,
+                    prompt: userPromptRef.current,
                     finalAnswer: finalAnswerRef.current,
                     agents: agentsRef.current,
                     status: finalStatus,
@@ -435,7 +436,7 @@ const App: React.FC = () => {
 
             isRunCompletedRef.current = false;
             currentRunDataRef.current = {
-                prompt: finalPrompt,
+                prompt: userPrompt,
                 images,
                 agentConfigs,
                 arbiterModel,
