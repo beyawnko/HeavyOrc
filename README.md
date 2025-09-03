@@ -64,6 +64,8 @@ Memory requests are rate-limited to 30 per minute, cap each entry at 4KB and lim
 
 The in-browser session cache keeps up to 20 messages per conversation and prunes entries older than the configured TTL. When `navigator.storage.estimate` reports storage usage above 90% of the available quota (`MEMORY_PRESSURE_THRESHOLD`), the cache reduces its maximum size by 25% to relieve pressure. Browsers without this API skip the shrink step to preserve context.
 
+Session identifiers are signed and verified using a constant-time comparison to resist timing attacks.
+
 ## ESM imports
 
 `index.html` uses an import map to pin CDN-hosted ESM bundles to exact versions. When upgrading these dependencies, update the URLs in the map and verify the new files before deployment. For additional hardening, consider hosting vetted copies under `public/vendor` and updating the map to point to those local assets if the CDN becomes unavailable.
