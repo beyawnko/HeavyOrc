@@ -92,9 +92,8 @@ function freezeCacheEntry<T extends object>(data: T): Readonly<T> {
   try {
     return deepFreeze(clone);
   } catch (error) {
-    console.warn('Failed to freeze cache entry:', error);
-    Object.freeze(clone);
-    return clone;
+    console.warn('Failed to freeze cache entry; it will not be cached:', error);
+    throw error;
   }
 }
 
@@ -324,19 +323,24 @@ export const fetchRelevantMemories = async (
         : [];
       const size = memories.reduce((sum, m) => sum + m.content.length, 0);
       const existing = memoryCache.get(cacheKey);
-      if (existing) {
-        currentCacheSize -= existing.size;
-      }
       const expiry = Date.now() + CACHE_TTL_MS;
-      memoryCache.set(cacheKey, {
-        // Deep freeze entries so cached data can't be mutated
-        data: freezeCacheEntry(memories),
-        expiry,
-        size,
-      });
-      expiryHeap.push([cacheKey, expiry]);
-      currentCacheSize += size;
-      pruneCache();
+      try {
+        const frozen = freezeCacheEntry(memories);
+        if (existing) {
+          currentCacheSize -= existing.size;
+        }
+        memoryCache.set(cacheKey, {
+          // Deep freeze entries so cached data can't be mutated
+          data: frozen,
+          expiry,
+          size,
+        });
+        expiryHeap.push([cacheKey, expiry]);
+        currentCacheSize += size;
+        pruneCache();
+      } catch {
+        // Entry wasn't cached because it couldn't be frozen
+      }
       logMemory('cipher.fetch', { sessionId, query, count: memories.length });
       circuitBreaker.failures = 0;
       return memories;
