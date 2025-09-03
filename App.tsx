@@ -435,9 +435,10 @@ const App: React.FC = () => {
 
             isRunCompletedRef.current = false;
             if (!userPrompt) {
-                throw new Error('user prompt is required');
+                throw new Error('A user prompt is required to process this request. Please provide prompt text.');
             }
             currentRunDataRef.current = {
+                // Store original user prompt for better traceability and debugging
                 prompt: userPrompt,
                 images,
                 agentConfigs,
