@@ -317,33 +317,26 @@ export const fetchRelevantMemories = async (
         recordFailure();
         return [];
       }
-      const data = JSON.parse(text) as { memories?: ImmutableMemoryEntry[] };
+      const data = JSON.parse(text) as { memories?: { id: string; content: string }[] };
       const memories = Array.isArray(data.memories)
         ? data.memories.filter(m => m.content.length <= MAX_MEMORY_LENGTH)
         : [];
-      const size = memories.reduce((sum, m) => sum + m.content.length, 0);
+      // By freezing here, we ensure the function always returns immutable data as per its signature.
+      // If freezing fails, the outer catch will handle it and return an empty array.
+      const frozenMemories = freezeCacheEntry(memories) as readonly ImmutableMemoryEntry[];
+      const size = frozenMemories.reduce((sum, m) => sum + m.content.length, 0);
       const existing = memoryCache.get(cacheKey);
       const expiry = Date.now() + CACHE_TTL_MS;
-      try {
-        const frozen = freezeCacheEntry(memories);
-        if (existing) {
-          currentCacheSize -= existing.size;
-        }
-        memoryCache.set(cacheKey, {
-          // Deep freeze entries so cached data can't be mutated
-          data: frozen,
-          expiry,
-          size,
-        });
-        expiryHeap.push([cacheKey, expiry]);
-        currentCacheSize += size;
-        pruneCache();
-      } catch {
-        // Entry wasn't cached because it couldn't be frozen
+      if (existing) {
+        currentCacheSize -= existing.size;
       }
-      logMemory('cipher.fetch', { sessionId, query, count: memories.length });
+      memoryCache.set(cacheKey, { data: frozenMemories, expiry, size });
+      expiryHeap.push([cacheKey, expiry]);
+      currentCacheSize += size;
+      pruneCache();
+      logMemory('cipher.fetch', { sessionId, query, count: frozenMemories.length });
       circuitBreaker.failures = 0;
-      return memories;
+      return [...frozenMemories];
     } catch (error) {
       console.error('Failed to fetch relevant memories', {
         url: `${baseUrl}/memories/search`,

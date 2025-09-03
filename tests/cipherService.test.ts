@@ -526,17 +526,19 @@ describe('cipherService', () => {
       .mockResolvedValue(new Response(body, { status: 200, headers }));
     global.fetch = fetchMock as any;
     const { fetchRelevantMemories } = await import('@/services/cipherService');
-    await fetchRelevantMemories('q', SESSION_ID);
-    const res = await fetchRelevantMemories('q', SESSION_ID);
+    const first = await fetchRelevantMemories('q', SESSION_ID);
+    const second = await fetchRelevantMemories('q', SESSION_ID);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(Object.isFrozen(res[0])).toBe(true);
-    expect(Object.isFrozen((res[0] as any).meta)).toBe(true);
-    expect(Object.isFrozen((res[0] as any).meta.nested)).toBe(true);
-    expect(() => {
-      (res[0] as any).content = 'changed';
-    }).toThrow(TypeError);
-    expect(() => {
-      (res[0] as any).meta.nested.value = 2;
-    }).toThrow(TypeError);
+    for (const res of [first, second]) {
+      expect(Object.isFrozen(res[0])).toBe(true);
+      expect(Object.isFrozen((res[0] as any).meta)).toBe(true);
+      expect(Object.isFrozen((res[0] as any).meta.nested)).toBe(true);
+      expect(() => {
+        (res[0] as any).content = 'changed';
+      }).toThrow(TypeError);
+      expect(() => {
+        (res[0] as any).meta.nested.value = 2;
+      }).toThrow(TypeError);
+    }
   });
 });
