@@ -9,10 +9,13 @@ import {
   SESSION_IMPORTS_PER_MINUTE,
   SESSION_CONTEXT_TTL_MS,
   MEMORY_PRESSURE_THRESHOLD,
+  SESSION_CACHE_MAX_SESSIONS,
+  SESSION_ID_PATTERN,
 } from '@/constants';
 import { logMemory } from '@/lib/memoryLogger';
 import { escapeHtml } from '@/lib/utils';
 import { SessionImportError } from '@/lib/errors';
+import { LRUCache } from '@/lib/lruCache';
 
 export type CachedMessage = {
   role: 'user' | 'assistant';
@@ -23,7 +26,7 @@ export type CachedMessage = {
 
 export type Summarizer = (text: string) => Promise<string>;
 
-const cache = new Map<string, CachedMessage[]>();
+const cache = new LRUCache<string, CachedMessage[]>(SESSION_CACHE_MAX_SESSIONS);
 export const __cache = cache; // for tests
 let dynamicMaxEntries = SESSION_CACHE_MAX_ENTRIES;
 let ephemeralSessionId: string | null = null;
@@ -41,8 +44,8 @@ function integrityHash(input: string): string {
 }
 
 function detectCacheLeak(): void {
-  if (cache.size > dynamicMaxEntries * 10) {
-    console.warn('session cache size unusually large');
+  if (cache.size >= SESSION_CACHE_MAX_SESSIONS) {
+    console.warn('session cache at capacity');
     logMemory('session.cache.leak', { size: cache.size });
   }
 }
@@ -108,7 +111,7 @@ async function signSessionId(id: string): Promise<string> {
 }
 
 function isValidSessionId(id: string): boolean {
-  return /^[0-9a-f-]{36}$/.test(id) && new Set(id).size >= 10;
+  return SESSION_ID_PATTERN.test(id) && new Set(id).size >= 10;
 }
 
 function timingSafeEqual(a: string, b: string): boolean {

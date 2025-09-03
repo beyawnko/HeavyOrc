@@ -48,7 +48,7 @@ const MEMORIES_RESPONSE = {
     { id: '1', content: 'note', meta: { nested: { value: 1 } } } as any,
   ],
 };
-const SESSION_ID = 'session';
+const SESSION_ID = '123e4567-e89b-12d3-a456-426614174000';
 
 afterEach(() => {
   global.fetch = originalFetch;
@@ -67,6 +67,14 @@ describe('cipherService', () => {
     const { storeRunRecord } = await import('@/services/cipherService');
     await storeRunRecord(sampleRun, SESSION_ID);
     expect(fetchMock).toHaveBeenCalledWith('http://cipher/memories/batch', expect.any(Object));
+  });
+
+  it('rejects invalid sessionId', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
+    const { storeRunRecord } = await import('@/services/cipherService');
+    await expect(storeRunRecord(sampleRun, 'invalid')).rejects.toThrow('Invalid sessionId');
   });
 
   it('throws when CSP header missing', async () => {
@@ -154,6 +162,18 @@ describe('cipherService', () => {
     expect(memories).toEqual(MEMORIES_RESPONSE.memories);
   });
 
+  it('returns empty array for invalid sessionId', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ memories: [] }), { status: 200 }));
+    const { fetchRelevantMemories } = await import('@/services/cipherService');
+    const memories = await fetchRelevantMemories('q', 'invalid');
+    expect(memories).toEqual([]);
+  });
+
   it('caches memories by query', async () => {
     vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
@@ -210,9 +230,8 @@ describe('cipherService', () => {
       .mockResolvedValue(new Response(JSON.stringify(MEMORIES_RESPONSE), { status: 200 }));
     global.fetch = fetchMock as any;
     const { fetchRelevantMemories } = await import('@/services/cipherService');
-    await fetchRelevantMemories('q', 's1');
-    await fetchRelevantMemories('q', 's1');
-    await fetchRelevantMemories('q', 's2');
+    await fetchRelevantMemories('q', '00000000-0000-0000-0000-000000000001');
+    await fetchRelevantMemories('q', '00000000-0000-0000-0000-000000000002');
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
@@ -311,7 +330,7 @@ describe('cipherService', () => {
     const before = await fetchRelevantMemories('q', SESSION_ID);
     expect(before).toEqual([]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    vi.advanceTimersByTime(1001);
+    vi.advanceTimersByTime(2001);
     const after = await fetchRelevantMemories('q', SESSION_ID);
     expect(after).toEqual([]);
     expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -467,9 +486,9 @@ describe('cipherService', () => {
     global.fetch = fetchMock as any;
     const { storeRunRecord } = await import('@/services/cipherService');
     for (let i = 0; i < 35; i++) {
-      await storeRunRecord(sampleRun, 's1');
+      await storeRunRecord(sampleRun, '00000000-0000-0000-0000-000000000001');
     }
-    await storeRunRecord(sampleRun, 's2');
+    await storeRunRecord(sampleRun, '00000000-0000-0000-0000-000000000002');
     expect(fetchMock).toHaveBeenCalledTimes(30);
   });
 
