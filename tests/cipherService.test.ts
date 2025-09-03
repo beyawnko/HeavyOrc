@@ -43,7 +43,11 @@ const MISSING_STYLE_CSP_HEADER = {
   'Content-Security-Policy':
     "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'",
 };
-const MEMORIES_RESPONSE = { memories: [{ id: '1', content: 'note' }] };
+const MEMORIES_RESPONSE = {
+  memories: [
+    { id: '1', content: 'note', meta: { nested: { value: 1 } } } as any,
+  ],
+};
 const SESSION_ID = 'session';
 
 afterEach(() => {
@@ -526,5 +530,13 @@ describe('cipherService', () => {
     const res = await fetchRelevantMemories('q', SESSION_ID);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(Object.isFrozen(res[0])).toBe(true);
+    expect(Object.isFrozen((res[0] as any).meta)).toBe(true);
+    expect(Object.isFrozen((res[0] as any).meta.nested)).toBe(true);
+    expect(() => {
+      (res[0] as any).content = 'changed';
+    }).toThrow(TypeError);
+    expect(() => {
+      (res[0] as any).meta.nested.value = 2;
+    }).toThrow(TypeError);
   });
 });

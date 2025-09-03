@@ -4,10 +4,10 @@ import { sanitizeErrorResponse, validateUrl, readLimitedText, validateCsp } from
 import { MinHeap } from '@/lib/minHeap';
 import { logMemory } from '@/lib/memoryLogger';
 
-export interface MemoryEntry {
-  readonly id: string;
-  readonly content: string;
-}
+export type MemoryEntry = Readonly<{
+  id: string;
+  content: string;
+}>;
 
 const useCipher = import.meta.env.VITE_USE_CIPHER_MEMORY === 'true';
 const baseUrl = validateUrl(import.meta.env.VITE_CIPHER_SERVER_URL, [], import.meta.env.DEV);
@@ -69,10 +69,10 @@ function isCircuitOpen() {
   return circuitBreaker.failures >= circuitBreaker.threshold;
 }
 
-function deepFreeze<T>(obj: T): T {
-  if (obj && typeof obj === 'object' && !Object.isFrozen(obj)) {
+function deepFreeze<T extends object>(obj: T): Readonly<T> {
+  if (obj && !Object.isFrozen(obj)) {
     Object.freeze(obj);
-    for (const value of Object.values(obj as any)) {
+    for (const value of Object.values(obj)) {
       if (value && typeof value === 'object') deepFreeze(value);
     }
   }
