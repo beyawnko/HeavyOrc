@@ -4,11 +4,17 @@ import { sanitizeErrorResponse, validateUrl, readLimitedText, validateCsp } from
 import { MinHeap } from '@/lib/minHeap';
 import { logMemory } from '@/lib/memoryLogger';
 
+/**
+ * Immutable memory record stored in the cache.
+ */
 export type ImmutableMemoryEntry = DeepReadonly<{
   id: string;
   content: string;
 }>;
 
+/**
+ * Recursively marks all properties of a type as readonly.
+ */
 type DeepReadonly<T> = {
   readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P];
 };
@@ -25,6 +31,7 @@ const MAX_RESPONSE_SIZE = MAX_MEMORY_LENGTH * 100; // 400KB total response cap
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_ENTRIES = 1000;
 const MAX_CACHE_SIZE = MAX_RESPONSE_SIZE; // 400KB overall cache limit
+const MAX_FREEZE_DEPTH = 100;
 
 const sessionBuckets = new Map<string, { tokens: number; lastRefill: number }>();
 const ipBuckets = new Map<string, { tokens: number; lastRefill: number }>();
@@ -73,21 +80,34 @@ function isCircuitOpen() {
   return circuitBreaker.failures >= circuitBreaker.threshold;
 }
 
+class UnsafePropertyError extends Error {
+  constructor(property: string) {
+    super(`Object contains potentially unsafe property: ${property}`);
+    this.name = 'UnsafePropertyError';
+  }
+}
+
+class MaxDepthExceededError extends Error {
+  constructor(maxDepth: number) {
+    super(`Maximum object depth of ${maxDepth} exceeded`);
+    this.name = 'MaxDepthExceededError';
+  }
+}
+
 function deepFreeze<T extends object>(
   obj: T,
   visited = new Set<object>(),
   depth = 0,
-  maxDepth = 100,
+  maxDepth = MAX_FREEZE_DEPTH,
 ): Readonly<T> {
-  if (depth > maxDepth) throw new Error('Maximum object depth exceeded');
+  if (depth > maxDepth) throw new MaxDepthExceededError(maxDepth);
   if (!obj || Object.isFrozen(obj) || visited.has(obj)) return obj;
   visited.add(obj);
-  if (
-    Object.getOwnPropertyNames(obj).some(
-      prop => prop === '__proto__' || prop === 'constructor',
-    )
-  ) {
-    throw new Error('Object contains potentially unsafe properties');
+  if (Object.hasOwn(obj, '__proto__')) {
+    throw new UnsafePropertyError('__proto__');
+  }
+  if (Object.hasOwn(obj, 'constructor')) {
+    throw new UnsafePropertyError('constructor');
   }
   Object.freeze(obj);
   for (const value of Object.values(obj)) {
@@ -271,7 +291,8 @@ export const fetchRelevantMemories = async (
       query,
       count: cached.data.length,
     });
-    return [...cached.data];
+    const clone = structuredClone(cached.data) as ImmutableMemoryEntry[];
+    return deepFreeze(clone) as ImmutableMemoryEntry[];
   }
   if (query.length > MAX_MEMORY_LENGTH) return [];
   if (isCircuitOpen()) {
