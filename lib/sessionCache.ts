@@ -47,14 +47,16 @@ function detectCacheLeak(): void {
   }
 }
 
+type StorageEstimateResult = { usage?: number; quota?: number };
+
 function checkStorageQuota(): Promise<number> {
   if (typeof navigator === 'undefined' || !(navigator as any).storage?.estimate) {
-    return Promise.resolve(1);
+    return Promise.resolve(0);
   }
   return (navigator as any).storage
     .estimate()
-    .then(({ usage, quota }: any) => (usage && quota ? usage / quota : 1))
-    .catch(() => 1);
+    .then(({ usage, quota }: StorageEstimateResult) => (usage && quota ? usage / quota : 0))
+    .catch(() => 0);
 }
 
 async function adjustCacheSize(): Promise<void> {

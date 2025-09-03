@@ -62,6 +62,8 @@ Review and update these patterns regularly to catch newly emerging sensitive dat
 
 Memory requests are rate-limited to 30 per minute, cap each entry at 4KB and limit total response size to 400KB. Successful responses are cached for five minutes (up to 1000 entries) using a min-heap for eviction. All fetches use the shared retry helpers and honor standard timeouts. A circuit breaker skips memory fetches after five consecutive failures and resets after 30 seconds. Tune these thresholds via `VITE_CIPHER_CIRCUIT_BREAKER_THRESHOLD` and `VITE_CIPHER_CIRCUIT_BREAKER_RESET_MS`.
 
+The in-browser session cache keeps up to 20 messages per conversation and prunes entries older than the configured TTL. When `navigator.storage.estimate` reports storage usage above 90% of the available quota (`MEMORY_PRESSURE_THRESHOLD`), the cache reduces its maximum size by 25% to relieve pressure. Browsers without this API skip the shrink step to preserve context.
+
 ## ESM imports
 
 `index.html` uses an import map to pin CDN-hosted ESM bundles to exact versions. When upgrading these dependencies, update the URLs in the map and verify the new files before deployment. For additional hardening, consider hosting vetted copies under `public/vendor` and updating the map to point to those local assets if the CDN becomes unavailable.
