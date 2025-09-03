@@ -3,8 +3,8 @@ export class LRUCache<K, V> {
   private cache = new Map<K, V>();
 
   constructor(max: number) {
-    if (max <= 0) {
-      throw new Error('LRUCache max size must be a positive number.');
+    if (!Number.isInteger(max) || max <= 0) {
+      throw new Error('LRUCache max size must be a positive integer.');
     }
     this.max = max;
   }

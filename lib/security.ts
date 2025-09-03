@@ -172,7 +172,7 @@ export function validateUrl(
     }
     const bareHost = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
     const allowedProtocols = ['http:', 'https:'];
-    const allowedPorts = new Set(['', '80', '443']);
+    const allowedPorts = Object.freeze(new Set(['', '80', '443']));
     const portStr = parsed.port || '';
     if (
       !allowedProtocols.includes(parsed.protocol) ||
