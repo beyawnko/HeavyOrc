@@ -5,9 +5,8 @@ const SENSITIVE_KEY_PATTERNS = [
   /token/i,
   /password/i,
   /secret/i,
-  /key/i,
+  /\b(?:api[-_]?)?key\b/i,
   /credential/i,
-  /api[-_]?key/i,
   /cert(ificate)?/i,
   /connection[-_]?string/i,
   /private[-_]?key/i,
@@ -172,11 +171,15 @@ export function validateUrl(
       }
     }
     const bareHost = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
+    const allowedProtocols = Object.freeze(['http:', 'https:'] as const);
+    const allowedPorts = Object.freeze(['', '80', '443'] as const);
+    const allowedPortSet = new Set(allowedPorts);
+    const portStr = parsed.port || '';
     if (
-      parsed.protocol !== 'http:' && parsed.protocol !== 'https:' ||
+      !allowedProtocols.includes(parsed.protocol) ||
       hostname.length > 255 ||
       (!ipaddr.isValid(bareHost) && !/^(?!-)[a-zA-Z0-9-]+(?<!-)(?:\.[a-zA-Z0-9-]+)*$/.test(bareHost)) ||
-      (!dev && (parsed.protocol !== 'https:' || isPrivateOrLocalhost(hostname))) ||
+      (!dev && (parsed.protocol !== 'https:' || isPrivateOrLocalhost(hostname) || !allowedPortSet.has(portStr))) ||
       (allowedHosts.length > 0 && !allowedHosts.includes(hostname))
     ) {
       return undefined;

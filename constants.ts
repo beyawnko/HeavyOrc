@@ -15,6 +15,7 @@ Instructions:
 
 export const SESSION_ID_STORAGE_KEY = 'cipher:sessionId';
 export const SESSION_CACHE_MAX_ENTRIES = 20;
+export const SESSION_CACHE_MAX_SESSIONS = 100;
 export const SESSION_SUMMARY_CHAR_THRESHOLD = 4000;
 export const SESSION_MESSAGE_MAX_CHARS = 4000;
 export const SESSION_SUMMARY_KEEP_RATIO = 0.5;
@@ -26,6 +27,9 @@ export const SESSION_ID_SECRET =
   (typeof process !== 'undefined' && process.env.SESSION_ID_SECRET) ||
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SESSION_ID_SECRET) ||
   'dev-session-secret';
+
+export const SESSION_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 if (SESSION_ID_SECRET === 'dev-session-secret') {
   console.warn(

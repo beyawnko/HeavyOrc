@@ -40,6 +40,7 @@ describe('validateUrl', () => {
     expect(validateUrl('http://example.com', [], false)).toBeUndefined();
     expect(validateUrl('https://example.com', [], false)).toBe('https://example.com');
     expect(validateUrl('http://example.com:8080', [], false)).toBeUndefined();
+    expect(validateUrl('https://example.com:8080', [], false)).toBeUndefined();
     expect(validateUrl('http://localhost', [], false)).toBeUndefined();
     expect(validateUrl('http://127.0.0.1', [], false)).toBeUndefined();
     expect(validateUrl('http://192.168.0.1', [], false)).toBeUndefined();
@@ -58,7 +59,7 @@ describe('validateUrl', () => {
     ).toBe('https://subdomain.1.2.3.4.com');
     expect(validateUrl('https://example.com', ['example.com'], false)).toBe('https://example.com');
     expect(validateUrl('https://evil.com', ['example.com'], false)).toBeUndefined();
-    expect(validateUrl('https://example.com:8080', [], false)).toBe('https://example.com:8080');
+    expect(validateUrl('https://example.com:8080', [], false)).toBeUndefined();
     expect(validateUrl('ftp://example.com', [], false)).toBeUndefined();
   });
 });
@@ -120,6 +121,12 @@ describe('sanitizeErrorResponse limits', () => {
     const input = JSON.stringify({ data: secret });
     const output = sanitizeErrorResponse(input);
     expect(JSON.parse(output)).toEqual({ data: '[REDACTED]' });
+  });
+
+  test('does not over-redact unrelated keys', () => {
+    const input = JSON.stringify({ monkey: 'banana' });
+    const output = sanitizeErrorResponse(input);
+    expect(JSON.parse(output)).toEqual({ monkey: 'banana' });
   });
 
   test('ignores low entropy base64-like strings', () => {

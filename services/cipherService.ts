@@ -1,8 +1,14 @@
 import { RunRecord } from '@/types';
 import { fetchWithRetry } from '@/services/llmService';
-import { sanitizeErrorResponse, validateUrl, readLimitedText, validateCsp } from '@/lib/security';
+import {
+  sanitizeErrorResponse,
+  validateUrl,
+  readLimitedText,
+  validateCsp,
+} from '@/lib/security';
 import { MinHeap } from '@/lib/minHeap';
 import { logMemory } from '@/lib/memoryLogger';
+import { SESSION_ID_PATTERN } from '@/constants';
 
 /**
  * Immutable memory record stored in the cache.
@@ -35,6 +41,7 @@ const MAX_FREEZE_DEPTH = 100;
 
 const sessionBuckets = new Map<string, { tokens: number; lastRefill: number }>();
 const ipBuckets = new Map<string, { tokens: number; lastRefill: number }>();
+const invalidSessionBuckets = new Map<string, { tokens: number; lastRefill: number }>();
 let clientIpPromise: Promise<string | null> | null = null;
 
 type CachedMemoryData = {
@@ -64,16 +71,37 @@ const CIRCUIT_BREAKER_RESET_MS = Number(
   import.meta.env.VITE_CIPHER_CIRCUIT_BREAKER_RESET_MS ?? 30000,
 );
 
+const MAX_BACKOFF_FACTOR = Math.min(
+  Math.max(Number(import.meta.env.VITE_CIPHER_MAX_BACKOFF_FACTOR ?? 16), 1),
+  32,
+);
+
+const INVALID_SESSION_DELAY_MS = 1000;
+
 const circuitBreaker = {
   failures: 0,
   lastFailure: 0,
   threshold: CIRCUIT_BREAKER_THRESHOLD,
   resetTimeMs: CIRCUIT_BREAKER_RESET_MS,
+  backoffFactor: 1,
 };
 
 function recordFailure() {
   circuitBreaker.failures += 1;
   circuitBreaker.lastFailure = Date.now();
+  if (circuitBreaker.failures >= circuitBreaker.threshold) {
+    circuitBreaker.backoffFactor = Math.min(
+      circuitBreaker.backoffFactor * 2,
+      MAX_BACKOFF_FACTOR,
+    );
+    circuitBreaker.resetTimeMs = CIRCUIT_BREAKER_RESET_MS * circuitBreaker.backoffFactor;
+  }
+}
+
+function resetCircuit() {
+  circuitBreaker.failures = 0;
+  circuitBreaker.backoffFactor = 1;
+  circuitBreaker.resetTimeMs = CIRCUIT_BREAKER_RESET_MS;
 }
 
 function isCircuitOpen() {
@@ -218,6 +246,19 @@ export const storeRunRecords = async (
   sessionId: string,
 ): Promise<void> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return;
+  if (!SESSION_ID_PATTERN.test(sessionId)) {
+    const ip = await getClientIp();
+    if (ip && !consumeFromBucket(invalidSessionBuckets, ip)) {
+      console.warn('Rate limit exceeded for invalid session attempts');
+      logMemory('cipher.store.invalidSessionRateLimit', { ip });
+      const delay = INVALID_SESSION_DELAY_MS * (0.5 + Math.random());
+      await new Promise(res => setTimeout(res, delay));
+      throw new Error('Rate limit exceeded for invalid session attempts');
+    }
+    console.warn('Invalid sessionId format');
+    logMemory('cipher.store.invalidSession', { sessionId });
+    throw new Error('Invalid sessionId');
+  }
   if (!(await consumeToken(sessionId))) {
     console.warn('Rate limit exceeded for memory storage');
     logMemory('cipher.store.rateLimit', { sessionId });
@@ -262,6 +303,7 @@ export const storeRunRecords = async (
       agentCount: runs.reduce((s, r) => s + r.agents.length, 0),
       batch: runs.length,
     });
+    resetCircuit();
   } catch (e) {
     console.error('Failed to store run records', {
       url: `${baseUrl}/memories/batch`,
@@ -282,6 +324,11 @@ export const fetchRelevantMemories = async (
   sessionId: string,
 ): Promise<ImmutableMemoryEntry[]> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return [];
+  if (!SESSION_ID_PATTERN.test(sessionId)) {
+    console.warn('Invalid sessionId format');
+    logMemory('cipher.fetch.invalidSession', { sessionId });
+    return [];
+  }
   pruneCache();
   const cacheKey = `${sessionId}:${query}`;
   const cached = memoryCache.get(cacheKey);
@@ -298,7 +345,7 @@ export const fetchRelevantMemories = async (
   if (isCircuitOpen()) {
     const elapsed = Date.now() - circuitBreaker.lastFailure;
     if (elapsed > circuitBreaker.resetTimeMs) {
-      circuitBreaker.failures = 0;
+      resetCircuit();
     } else {
       const resetInMs = circuitBreaker.resetTimeMs - elapsed;
       console.warn('Circuit breaker open, skipping memory fetch', {
@@ -376,7 +423,7 @@ export const fetchRelevantMemories = async (
       currentCacheSize += size;
       pruneCache();
       logMemory('cipher.fetch', { sessionId, query, count: frozenMemories.length });
-      circuitBreaker.failures = 0;
+      resetCircuit();
       return [...frozenMemories];
     } catch (error) {
       console.error('Failed to fetch relevant memories', {
