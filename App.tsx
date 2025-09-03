@@ -311,11 +311,11 @@ const App: React.FC = () => {
                 const newRun: RunRecord = {
                     id: `${Date.now()}`,
                     timestamp: Date.now(),
-                    ...currentRunDataRef.current,
                     finalAnswer: finalAnswerRef.current,
                     agents: agentsRef.current,
                     status: finalStatus,
                     arbiterSwitchWarning: arbiterSwitchWarningRef.current,
+                    ...currentRunDataRef.current,
                 };
                 setHistory(prev => [newRun, ...prev]);
                 storeRunRecord(newRun, sessionIdRef.current).catch(err =>
@@ -434,8 +434,12 @@ const App: React.FC = () => {
             }
 
             isRunCompletedRef.current = false;
+            if (!userPrompt) {
+                throw new Error('A user prompt is required to process this request. Please provide prompt text.');
+            }
             currentRunDataRef.current = {
-                prompt: finalPrompt,
+                // Store original user prompt for better traceability and debugging
+                prompt: userPrompt,
                 images,
                 agentConfigs,
                 arbiterModel,
