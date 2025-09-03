@@ -20,11 +20,16 @@ import {
   SESSION_CONTEXT_TTL_MS,
 } from '@/constants';
 
+function setNavigator(value: any): void {
+  Object.defineProperty(globalThis, 'navigator', { value, configurable: true });
+}
+
 describe('sessionCache', () => {
   beforeEach(() => {
     __clearSessionCache();
     // reset environment
     delete (globalThis as any).window;
+    delete (globalThis as any).navigator;
   });
 
   it('appends messages and enforces LRU size', () => {
@@ -291,9 +296,9 @@ describe('sessionCache', () => {
       sessionId: '123e4567-e89b-12d3-a456-426614174444',
       messages,
     });
-    (globalThis as any).navigator = {
+    setNavigator({
       storage: { estimate: () => Promise.resolve({ usage: 0, quota: 100 }) },
-    };
+    });
     await importSession(serialized);
     const ctx = loadSessionContext('123e4567-e89b-12d3-a456-426614174444');
     expect(ctx).toHaveLength(SESSION_CACHE_MAX_ENTRIES);
@@ -340,11 +345,11 @@ describe('sessionCache', () => {
         timestamp: Date.now() + i,
       });
     }
-    (globalThis as any).navigator = {
+    setNavigator({
       storage: {
         estimate: () => Promise.resolve({ usage: 100, quota: 100 }),
       },
-    };
+    });
     await __adjustCacheSize();
     expect(__getMaxEntries()).toBeLessThan(SESSION_CACHE_MAX_ENTRIES);
   });
@@ -356,7 +361,36 @@ describe('sessionCache', () => {
       content: 'm',
       timestamp: Date.now(),
     });
-    (globalThis as any).navigator = {};
+    setNavigator({});
+    await __adjustCacheSize();
+    expect(__getMaxEntries()).toBe(SESSION_CACHE_MAX_ENTRIES);
+  });
+
+  it('handles storage estimate errors gracefully', async () => {
+    setNavigator({
+      storage: {
+        estimate: () => Promise.reject(new Error('Storage API error')),
+      },
+    });
+    await __adjustCacheSize();
+    expect(__getMaxEntries()).toBe(SESSION_CACHE_MAX_ENTRIES);
+  });
+
+  it('handles zero or undefined quota values', async () => {
+    setNavigator({
+      storage: {
+        estimate: () => Promise.resolve({ usage: 100, quota: 0 }),
+      },
+    });
+    await __adjustCacheSize();
+    expect(__getMaxEntries()).toBe(SESSION_CACHE_MAX_ENTRIES);
+
+    __clearSessionCache();
+    setNavigator({
+      storage: {
+        estimate: () => Promise.resolve({ usage: 100 }),
+      },
+    });
     await __adjustCacheSize();
     expect(__getMaxEntries()).toBe(SESSION_CACHE_MAX_ENTRIES);
   });
