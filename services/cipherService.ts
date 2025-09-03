@@ -25,11 +25,13 @@ const MAX_CACHE_SIZE = MAX_RESPONSE_SIZE; // 400KB overall cache limit
 const sessionBuckets = new Map<string, { tokens: number; lastRefill: number }>();
 const ipBuckets = new Map<string, { tokens: number; lastRefill: number }>();
 let clientIpPromise: Promise<string | null> | null = null;
-const memoryCache = new Map<string, {
-  data: readonly MemoryEntry[];
-  expiry: number;
-  size: number;
-}>();
+
+type MemoryCacheEntry = {
+  readonly data: readonly MemoryEntry[];
+  readonly expiry: number;
+  readonly size: number;
+};
+const memoryCache = new Map<string, MemoryCacheEntry>();
 let currentCacheSize = 0;
 const expiryHeap = new MinHeap<[string, number]>((a, b) => a[1] - b[1]);
 const inFlightFetches = new Map<string, Promise<MemoryEntry[]>>();
@@ -65,6 +67,16 @@ function recordFailure() {
 
 function isCircuitOpen() {
   return circuitBreaker.failures >= circuitBreaker.threshold;
+}
+
+function deepFreeze<T>(obj: T): T {
+  if (obj && typeof obj === 'object' && !Object.isFrozen(obj)) {
+    Object.freeze(obj);
+    for (const value of Object.values(obj as any)) {
+      if (value && typeof value === 'object') deepFreeze(value);
+    }
+  }
+  return obj;
 }
 
 function pruneCache() {
@@ -298,7 +310,8 @@ export const fetchRelevantMemories = async (
       }
       const expiry = Date.now() + CACHE_TTL_MS;
       memoryCache.set(cacheKey, {
-        data: Object.freeze(memories.map(entry => Object.freeze({ ...entry }))),
+        // Deep freeze entries so cached data can't be mutated
+        data: deepFreeze(memories.map(entry => deepFreeze({ ...entry }))),
         expiry,
         size,
       });

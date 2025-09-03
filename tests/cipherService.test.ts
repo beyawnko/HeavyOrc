@@ -435,6 +435,7 @@ describe('cipherService', () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(big), { status: 200 }));
     global.fetch = fetchMock as any;
     const { fetchRelevantMemories } = await import('@/services/cipherService');
+    await fetchRelevantMemories('q', SESSION_ID);
     const res = await fetchRelevantMemories('q', SESSION_ID);
     expect(res).toEqual([]);
   });
@@ -508,5 +509,22 @@ describe('cipherService', () => {
     );
     expect(hasEvent).toBe(true);
     debug.mockRestore();
+  });
+
+  it('freezes cached memory entries', async () => {
+    vi.stubEnv('VITE_USE_CIPHER_MEMORY', 'true');
+    vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
+    (globalThis as any).__TEST_IP__ = '1.1.1.1';
+    const headers = { 'Content-Security-Policy': "default-src 'none'" };
+    const body = JSON.stringify(MEMORIES_RESPONSE);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(body, { status: 200, headers }));
+    global.fetch = fetchMock as any;
+    const { fetchRelevantMemories } = await import('@/services/cipherService');
+    await fetchRelevantMemories('q', SESSION_ID);
+    const res = await fetchRelevantMemories('q', SESSION_ID);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(Object.isFrozen(res[0])).toBe(true);
   });
 });
