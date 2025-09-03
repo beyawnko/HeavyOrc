@@ -1,10 +1,14 @@
+const MAX_CACHE_SIZE = 1_000_000;
+
 export class LRUCache<K, V> {
   private max: number;
   private cache = new Map<K, V>();
 
   constructor(max: number) {
-    if (!Number.isInteger(max) || max <= 0) {
-      throw new Error('LRUCache max size must be a positive integer.');
+    if (!Number.isInteger(max) || max <= 0 || max > MAX_CACHE_SIZE) {
+      throw new Error(
+        `LRUCache max size must be a positive integer not exceeding ${MAX_CACHE_SIZE}.`,
+      );
     }
     this.max = max;
   }
