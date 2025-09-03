@@ -4,10 +4,14 @@ import { sanitizeErrorResponse, validateUrl, readLimitedText, validateCsp } from
 import { MinHeap } from '@/lib/minHeap';
 import { logMemory } from '@/lib/memoryLogger';
 
-export type ImmutableMemoryEntry = Readonly<{
+export type ImmutableMemoryEntry = DeepReadonly<{
   id: string;
   content: string;
 }>;
+
+type DeepReadonly<T> = {
+  readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P];
+};
 
 const useCipher = import.meta.env.VITE_USE_CIPHER_MEMORY === 'true';
 const baseUrl = validateUrl(import.meta.env.VITE_CIPHER_SERVER_URL, [], import.meta.env.DEV);
@@ -72,28 +76,42 @@ function isCircuitOpen() {
 function deepFreeze<T extends object>(
   obj: T,
   visited = new Set<object>(),
+  depth = 0,
+  maxDepth = 100,
 ): Readonly<T> {
+  if (depth > maxDepth) throw new Error('Maximum object depth exceeded');
   if (!obj || Object.isFrozen(obj) || visited.has(obj)) return obj;
   visited.add(obj);
-  if (Object.hasOwn(obj, '__proto__') || Object.hasOwn(obj, 'constructor')) {
+  if (
+    Object.getOwnPropertyNames(obj).some(
+      prop => prop === '__proto__' || prop === 'constructor',
+    )
+  ) {
     throw new Error('Object contains potentially unsafe properties');
   }
   Object.freeze(obj);
   for (const value of Object.values(obj)) {
     if (value && typeof value === 'object') {
-      deepFreeze(value, visited);
+      deepFreeze(value, visited, depth + 1, maxDepth);
     }
   }
   return obj;
 }
 
-function freezeCacheEntry<T extends object>(data: T): Readonly<T> {
+type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
+
+function freezeCacheEntry<T extends object>(
+  data: T,
+): Result<Readonly<T>> {
   const clone = structuredClone(data);
   try {
-    return deepFreeze(clone);
+    return { ok: true, value: deepFreeze(clone) };
   } catch (error) {
     console.warn('Failed to freeze cache entry; it will not be cached:', error);
-    throw error;
+    return {
+      ok: false,
+      error: error instanceof Error ? error : new Error(String(error)),
+    };
   }
 }
 
@@ -322,8 +340,10 @@ export const fetchRelevantMemories = async (
         ? data.memories.filter(m => m.content.length <= MAX_MEMORY_LENGTH)
         : [];
       // By freezing here, we ensure the function always returns immutable data as per its signature.
-      // If freezing fails, the outer catch will handle it and return an empty array.
-      const frozenMemories = freezeCacheEntry(memories) as readonly ImmutableMemoryEntry[];
+      // If freezing fails, the entry is skipped and an empty array is returned.
+      const freezeResult = freezeCacheEntry(memories);
+      if (!freezeResult.ok) return [];
+      const frozenMemories = freezeResult.value as readonly ImmutableMemoryEntry[];
       const size = frozenMemories.reduce((sum, m) => sum + m.content.length, 0);
       const existing = memoryCache.get(cacheKey);
       const expiry = Date.now() + CACHE_TTL_MS;
