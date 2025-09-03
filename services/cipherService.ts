@@ -4,7 +4,7 @@ import { sanitizeErrorResponse, validateUrl, readLimitedText, validateCsp } from
 import { MinHeap } from '@/lib/minHeap';
 import { logMemory } from '@/lib/memoryLogger';
 
-export type MemoryEntry = Readonly<{
+export type ImmutableMemoryEntry = Readonly<{
   id: string;
   content: string;
 }>;
@@ -27,14 +27,14 @@ const ipBuckets = new Map<string, { tokens: number; lastRefill: number }>();
 let clientIpPromise: Promise<string | null> | null = null;
 
 type CachedMemoryData = {
-  readonly data: readonly MemoryEntry[];
+  readonly data: readonly ImmutableMemoryEntry[];
   readonly expiry: number;
   readonly size: number;
 };
 const memoryCache = new Map<string, CachedMemoryData>();
 let currentCacheSize = 0;
 const expiryHeap = new MinHeap<[string, number]>((a, b) => a[1] - b[1]);
-const inFlightFetches = new Map<string, Promise<MemoryEntry[]>>();
+const inFlightFetches = new Map<string, Promise<ImmutableMemoryEntry[]>>();
 
 class Mutex {
   private mutex = Promise.resolve();
@@ -75,19 +75,27 @@ function deepFreeze<T extends object>(
 ): Readonly<T> {
   if (!obj || Object.isFrozen(obj) || visited.has(obj)) return obj;
   visited.add(obj);
-  if (
-    Object.prototype.hasOwnProperty.call(obj, '__proto__') ||
-    Object.prototype.hasOwnProperty.call(obj, 'constructor')
-  ) {
+  if (Object.hasOwn(obj, '__proto__') || Object.hasOwn(obj, 'constructor')) {
     throw new Error('Object contains potentially unsafe properties');
   }
   Object.freeze(obj);
   for (const value of Object.values(obj)) {
     if (value && typeof value === 'object') {
-      deepFreeze(value as Record<string, unknown>, visited);
+      deepFreeze(value, visited);
     }
   }
   return obj;
+}
+
+function freezeCacheEntry<T extends object>(data: T): Readonly<T> {
+  const clone = structuredClone(data);
+  try {
+    return deepFreeze(clone);
+  } catch (error) {
+    console.warn('Failed to freeze cache entry:', error);
+    Object.freeze(clone);
+    return clone;
+  }
 }
 
 function pruneCache() {
@@ -235,7 +243,7 @@ export const storeRunRecord = async (
 export const fetchRelevantMemories = async (
   query: string,
   sessionId: string,
-): Promise<MemoryEntry[]> => {
+): Promise<ImmutableMemoryEntry[]> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return [];
   pruneCache();
   const cacheKey = `${sessionId}:${query}`;
@@ -310,7 +318,7 @@ export const fetchRelevantMemories = async (
         recordFailure();
         return [];
       }
-      const data = JSON.parse(text) as { memories?: MemoryEntry[] };
+      const data = JSON.parse(text) as { memories?: ImmutableMemoryEntry[] };
       const memories = Array.isArray(data.memories)
         ? data.memories.filter(m => m.content.length <= MAX_MEMORY_LENGTH)
         : [];
@@ -322,15 +330,7 @@ export const fetchRelevantMemories = async (
       const expiry = Date.now() + CACHE_TTL_MS;
       memoryCache.set(cacheKey, {
         // Deep freeze entries so cached data can't be mutated
-        data: (() => {
-          const clone = structuredClone(memories);
-          try {
-            return deepFreeze(clone);
-          } catch (error) {
-            console.warn('Failed to freeze cache entry:', error);
-            return clone;
-          }
-        })(),
+        data: freezeCacheEntry(memories),
         expiry,
         size,
       });

@@ -1,4 +1,7 @@
-import { fetchRelevantMemories, MemoryEntry } from '@/services/cipherService';
+import {
+  fetchRelevantMemories,
+  ImmutableMemoryEntry,
+} from '@/services/cipherService';
 import {
   loadSessionContext,
   CachedMessage,
@@ -10,7 +13,7 @@ import { SUMMARIZER_MAX_CHARS } from '@/constants';
 
 export interface ContextualPrompt {
   prompt: string;
-  memories: MemoryEntry[];
+  memories: ImmutableMemoryEntry[];
   sessionContext: CachedMessage[];
 }
 
