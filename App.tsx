@@ -30,6 +30,7 @@ import {
     OPENAI_AGENT_MODEL,
     OPENROUTER_GPT_4O,
     OPENROUTER_CLAUDE_3_HAIKU,
+    ERRORS,
 } from '@/constants';
 
 // MoE utilities
@@ -421,9 +422,7 @@ const App: React.FC = () => {
 
         try {
             if (!userPrompt.trim()) {
-                throw new Error(
-                    'A user prompt is required to process this request. Please provide non-empty prompt text.',
-                );
+                throw new Error(ERRORS.EMPTY_PROMPT);
             }
 
             if (!queryHistory.includes(userPrompt)) {

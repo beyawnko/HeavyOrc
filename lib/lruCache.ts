@@ -28,10 +28,8 @@ export class LRUCache<K, V> {
         memoryInfo.jsHeapSizeLimit * MEMORY_PRESSURE_THRESHOLD
     ) {
       const toRemove = Math.ceil(this.cache.size / 2);
-      for (let i = 0; i < toRemove; i++) {
-        const oldestKey = this.cache.keys().next().value;
-        if (oldestKey !== undefined) this.cache.delete(oldestKey);
-      }
+      const keys = Array.from(this.cache.keys()).slice(0, toRemove);
+      keys.forEach(key => this.cache.delete(key));
       console.warn(
         `LRU cache evicted ${toRemove} entries due to memory pressure`,
       );

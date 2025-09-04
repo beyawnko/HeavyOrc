@@ -241,8 +241,9 @@ export const storeRunRecords = async (
 ): Promise<void> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return;
   if (!SESSION_ID_PATTERN.test(sessionId)) {
+    const sanitizedId = sessionId.replace(/[^\w-]/g, '_');
     console.warn('Invalid sessionId format');
-    logMemory('cipher.store.invalidSession', { sessionId });
+    logMemory('cipher.store.invalidSession', { sessionId: sanitizedId });
     throw new Error(
       'Invalid sessionId format - expected UUID v4 like 123e4567-e89b-12d3-a456-426614174000',
     );
@@ -313,8 +314,9 @@ export const fetchRelevantMemories = async (
 ): Promise<ImmutableMemoryEntry[]> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return [];
   if (!SESSION_ID_PATTERN.test(sessionId)) {
+    const sanitizedId = sessionId.replace(/[^\w-]/g, '_');
     console.warn('Invalid sessionId format');
-    logMemory('cipher.fetch.invalidSession', { sessionId });
+    logMemory('cipher.fetch.invalidSession', { sessionId: sanitizedId });
     return [];
   }
   pruneCache();

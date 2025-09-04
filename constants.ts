@@ -13,6 +13,11 @@ Instructions:
 7.  Ensure your final answer directly and thoroughly addresses the original user's question.
 8.  Do not include headings like "Final Answer" or "Synthesized Response". Begin the response directly.`;
 
+export const ERRORS = {
+  EMPTY_PROMPT:
+    'A user prompt is required to process this request. Please provide non-empty prompt text.',
+} as const;
+
 export const SESSION_ID_STORAGE_KEY = 'cipher:sessionId';
 export const SESSION_CACHE_MAX_ENTRIES = 20;
 export const SESSION_CACHE_MAX_SESSIONS = 100;
