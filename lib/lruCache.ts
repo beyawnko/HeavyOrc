@@ -58,18 +58,31 @@ export class LRUCache<K, V> {
     if (this.isCheckingMemory) return;
     this.isCheckingMemory = true;
     try {
-      const memoryInfo = performance?.memory;
-      if (!memoryInfo) return;
-      if (
-        memoryInfo.usedJSHeapSize >
-        memoryInfo.jsHeapSizeLimit * this.memoryPressureThreshold
-      ) {
-        const toRemove = Math.ceil(this.cache.size * this.evictionRatio);
-        let removed = 0;
-        for (const key of this.cache.keys()) {
-          this.cache.delete(key);
-          if (++removed >= toRemove) break;
+      const perf = performance as Performance & { memory?: PerformanceMemory };
+      const memoryInfo = perf.memory;
+      let pressure = false;
+      if (memoryInfo) {
+        pressure =
+          memoryInfo.usedJSHeapSize >
+          memoryInfo.jsHeapSizeLimit * this.memoryPressureThreshold;
+      } else if (typeof navigator !== 'undefined') {
+        const nav = navigator as Navigator & { deviceMemory?: number };
+        if (
+          typeof nav.deviceMemory === 'number' &&
+          nav.deviceMemory <= 4 &&
+          this.cache.size > this.max * this.memoryPressureThreshold
+        ) {
+          pressure = true;
         }
+      }
+      if (pressure) {
+        const minEntries = Math.max(Math.floor(this.cache.size * 0.1), 1);
+        const toRemove = Math.min(
+          Math.ceil(this.cache.size * this.evictionRatio),
+          this.cache.size - minEntries,
+        );
+        const keys = Array.from(this.cache.keys()).slice(0, toRemove);
+        keys.forEach(key => this.cache.delete(key));
         console.warn(
           `LRU cache evicted ${toRemove} entries due to memory pressure`,
         );

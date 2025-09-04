@@ -16,6 +16,11 @@ Instructions:
 export const ERRORS = {
   EMPTY_PROMPT:
     'A user prompt is required to process this request. Please provide non-empty prompt text.',
+  OPENAI_API_KEY_MISSING:
+    'Please set your OpenAI API key in the settings to use OpenAI models.',
+  OPENROUTER_API_KEY_MISSING:
+    'Please set your OpenRouter API key in the settings to use OpenRouter models.',
+  INVALID_SESSION_ID: 'Invalid session identifier format',
 } as const;
 
 export const SESSION_ID_STORAGE_KEY = 'cipher:sessionId';

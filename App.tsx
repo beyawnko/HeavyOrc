@@ -401,13 +401,13 @@ const App: React.FC = () => {
         if (isLoading || agentConfigs.length === 0) return;
 
         if (openAIAgentCount > 0 && !openAIApiKey) {
-            setError("Please set your OpenAI API key in the settings to use OpenAI models.");
+            setError(ERRORS.OPENAI_API_KEY_MISSING);
             setIsSettingsViewOpen(true);
             return;
         }
 
         if (openRouterAgentCount > 0 && !openRouterApiKey) {
-            setError("Please set your OpenRouter API key in the settings to use OpenRouter models.");
+            setError(ERRORS.OPENROUTER_API_KEY_MISSING);
             setIsSettingsViewOpen(true);
             return;
         }

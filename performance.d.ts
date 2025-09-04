@@ -19,3 +19,8 @@ interface Performance {
   memory?: PerformanceMemory;
 }
 
+interface Navigator {
+  /** Approximate device memory in gigabytes. Non-standard. */
+  deviceMemory?: number;
+}
+

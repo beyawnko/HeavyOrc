@@ -8,7 +8,7 @@ import {
 } from '@/lib/security';
 import { MinHeap } from '@/lib/minHeap';
 import { logMemory } from '@/lib/memoryLogger';
-import { SESSION_ID_PATTERN } from '@/constants';
+import { SESSION_ID_PATTERN, ERRORS } from '@/constants';
 
 /**
  * Immutable memory record stored in the cache.
@@ -86,6 +86,15 @@ async function hashSessionId(id: string): Promise<string> {
     .map(b => b.toString(16).padStart(2, '0'))
     .join('')
     .slice(0, 32);
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
 }
 
 function recordFailure() {
@@ -249,11 +258,12 @@ export const storeRunRecords = async (
   sessionId: string,
 ): Promise<void> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return;
-  if (!SESSION_ID_PATTERN.test(sessionId)) {
+  const match = SESSION_ID_PATTERN.exec(sessionId);
+  if (!match || !constantTimeEqual(match[0], sessionId)) {
     const sanitizedId = await hashSessionId(sessionId);
     console.warn('Invalid sessionId format');
     logMemory('cipher.store.invalidSession', { sessionId: sanitizedId });
-    throw new Error('Invalid session identifier format');
+    throw new Error(ERRORS.INVALID_SESSION_ID);
   }
   if (!(await consumeToken(sessionId))) {
     console.warn('Rate limit exceeded for memory storage');
@@ -320,7 +330,8 @@ export const fetchRelevantMemories = async (
   sessionId: string,
 ): Promise<ImmutableMemoryEntry[]> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return [];
-  if (!SESSION_ID_PATTERN.test(sessionId)) {
+  const match = SESSION_ID_PATTERN.exec(sessionId);
+  if (!match || !constantTimeEqual(match[0], sessionId)) {
     const sanitizedId = await hashSessionId(sessionId);
     console.warn('Invalid sessionId format');
     logMemory('cipher.fetch.invalidSession', { sessionId: sanitizedId });
