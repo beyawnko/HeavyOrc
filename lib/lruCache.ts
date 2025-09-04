@@ -58,9 +58,9 @@ export class LRUCache<K, V> {
     const cb = () => void this.checkMemoryPressure();
     const ric = (globalThis as any).requestIdleCallback;
     if (typeof ric === 'function') {
-      ric(cb);
+      ric(cb, { timeout: 1000 });
     } else {
-      setTimeout(cb, 0);
+      setTimeout(cb, 100);
     }
   }
 

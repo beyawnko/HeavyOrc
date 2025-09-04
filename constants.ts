@@ -69,6 +69,16 @@ export const ERROR_CODES: Record<string, ErrorCodeMetaData> = {
     severity: ErrorSeverity.ERROR,
     category: ErrorCategory.SYSTEM,
   },
+  UNAUTHORIZED: {
+    code: 'ERR_UNAUTHORIZED',
+    severity: ErrorSeverity.ERROR,
+    category: ErrorCategory.SECURITY,
+  },
+  FORBIDDEN: {
+    code: 'ERR_FORBIDDEN',
+    severity: ErrorSeverity.ERROR,
+    category: ErrorCategory.SECURITY,
+  },
 } as const;
 
 export const ERRORS = {
@@ -78,13 +88,18 @@ export const ERRORS = {
     'Please set your OpenAI API key in the settings to use OpenAI models.',
   [ERROR_CODES.OPENROUTER_API_KEY_MISSING.code]:
     'Please set your OpenRouter API key in the settings to use OpenRouter models.',
-  [ERROR_CODES.INVALID_SESSION_ID.code]: 'Invalid session identifier format',
+  [ERROR_CODES.INVALID_SESSION_ID.code]:
+    'Invalid session identifier format - expected UUID v4 like 123e4567-e89b-12d3-a456-426614174000',
   [ERROR_CODES.RATE_LIMIT_EXCEEDED.code]:
     'Rate limit exceeded. Please try again later.',
   [ERROR_CODES.NETWORK_ERROR.code]:
     'Network error occurred. Please check your connection.',
   [ERROR_CODES.SERVER_ERROR.code]:
     'Server error occurred. Please try again later.',
+  [ERROR_CODES.UNAUTHORIZED.code]:
+    'Authentication required to perform this action.',
+  [ERROR_CODES.FORBIDDEN.code]:
+    'You do not have permission to perform this action.',
 } as const;
 
 export const SESSION_ID_STORAGE_KEY = 'cipher:sessionId';

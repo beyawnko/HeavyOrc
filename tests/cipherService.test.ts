@@ -77,7 +77,7 @@ describe('cipherService', () => {
     const log = vi.spyOn(mem, 'logMemory').mockImplementation(() => {});
     const { storeRunRecord } = await import('@/services/cipherService');
     await expect(storeRunRecord(sampleRun, 'invalid<script>')).rejects.toThrow(
-      'Invalid session identifier format',
+      'Invalid session identifier format - expected UUID v4 like 123e4567-e89b-12d3-a456-426614174000',
     );
     expect(log).toHaveBeenCalledWith('cipher.store.invalidSession', {
       sessionId: '1710d3a6e83be9a7bedaac4926807bcd1fe75cd9668c9249bf9822e0819518de',

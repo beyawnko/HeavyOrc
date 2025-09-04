@@ -17,6 +17,7 @@ import { escapeHtml } from '@/lib/utils';
 import { SessionImportError } from '@/lib/errors';
 import { LRUCache } from '@/lib/lruCache';
 import { encoder, timingSafeEqual } from '@/lib/securityUtils';
+import { RateLimiter } from '@/lib/rateLimiter';
 
 export type CachedMessage = {
   role: 'user' | 'assistant';
@@ -35,32 +36,7 @@ let sessionIdPromise: Promise<string> | null = null;
 const lastSummaryTime = new Map<string, number>();
 const importTimestamps: number[] = [];
 
-interface ClearRateLimiter {
-  lastClearTime: number;
-  clearCount: number;
-  maxClearsPerInterval: number;
-  intervalMs: number;
-  canClear(): boolean;
-  recordClear(): void;
-}
-
-const clearRateLimiter: ClearRateLimiter = {
-  lastClearTime: 0,
-  clearCount: 0,
-  maxClearsPerInterval: 1,
-  intervalMs: 1000,
-  canClear() {
-    const now = Date.now();
-    if (now - this.lastClearTime > this.intervalMs) {
-      this.lastClearTime = now;
-      this.clearCount = 0;
-    }
-    return this.clearCount < this.maxClearsPerInterval;
-  },
-  recordClear() {
-    this.clearCount++;
-  },
-};
+const clearRateLimiter = new RateLimiter(1, 1000);
 
 function integrityHash(input: string): string {
   let hash = 0;
@@ -238,7 +214,7 @@ export function appendSessionContext(
 }
 
 export function __clearSessionCache(force = false): void {
-  if (!force && !clearRateLimiter.canClear()) return;
+  if (!force && !clearRateLimiter.canProceed()) return;
   const perf = performance as Performance & { memory?: PerformanceMemory };
   const memoryInfo = perf.memory;
   if (
@@ -251,7 +227,7 @@ export function __clearSessionCache(force = false): void {
   }
   cache.clear();
   if (!force) {
-    clearRateLimiter.recordClear();
+    clearRateLimiter.recordAction();
   }
   if (memoryInfo) {
     logMemory('session.cache.clear', {
