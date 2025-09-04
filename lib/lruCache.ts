@@ -1,6 +1,7 @@
 import {
   MEMORY_PRESSURE_THRESHOLD,
   MEMORY_PRESSURE_EVICT_RATIO,
+  MEMORY_PRESSURE_CHECK_INTERVAL,
 } from '@/constants';
 
 export class LRUCache<K, V> {
@@ -40,7 +41,8 @@ export class LRUCache<K, V> {
     this.memoryPressureThreshold =
       opts.memoryPressureThreshold ?? MEMORY_PRESSURE_THRESHOLD;
     this.evictionRatio = opts.evictionRatio ?? MEMORY_PRESSURE_EVICT_RATIO;
-    this.checkInterval = opts.checkInterval ?? 50;
+    this.checkInterval =
+      opts.checkInterval ?? MEMORY_PRESSURE_CHECK_INTERVAL;
   }
 
   get(key: K): V | undefined {
@@ -56,15 +58,18 @@ export class LRUCache<K, V> {
     if (this.isCheckingMemory) return;
     this.isCheckingMemory = true;
     try {
-      const memoryInfo = performance.memory;
+      const memoryInfo = performance?.memory;
+      if (!memoryInfo) return;
       if (
-        memoryInfo &&
         memoryInfo.usedJSHeapSize >
-          memoryInfo.jsHeapSizeLimit * this.memoryPressureThreshold
+        memoryInfo.jsHeapSizeLimit * this.memoryPressureThreshold
       ) {
         const toRemove = Math.ceil(this.cache.size * this.evictionRatio);
-        const keys = Array.from(this.cache.keys()).slice(0, toRemove);
-        keys.forEach(key => this.cache.delete(key));
+        let removed = 0;
+        for (const key of this.cache.keys()) {
+          this.cache.delete(key);
+          if (++removed >= toRemove) break;
+        }
         console.warn(
           `LRU cache evicted ${toRemove} entries due to memory pressure`,
         );

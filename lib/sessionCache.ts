@@ -9,7 +9,6 @@ import {
   SESSION_IMPORTS_PER_MINUTE,
   SESSION_CONTEXT_TTL_MS,
   MEMORY_PRESSURE_THRESHOLD,
-  MEMORY_PRESSURE_EVICT_RATIO,
   SESSION_CACHE_MAX_SESSIONS,
   SESSION_ID_PATTERN,
 } from '@/constants';
@@ -50,23 +49,6 @@ function detectCacheLeak(): void {
     logMemory('session.cache.leak', { size: cache.size });
   }
 
-  // Monitor browser memory pressure
-  const memoryInfo = (performance as any).memory;
-  if (
-    memoryInfo &&
-    memoryInfo.usedJSHeapSize >
-      memoryInfo.jsHeapSizeLimit * MEMORY_PRESSURE_THRESHOLD
-  ) {
-    const toRemove = Math.ceil(cache.size * MEMORY_PRESSURE_EVICT_RATIO);
-    const keys = Array.from(cache.keys()).slice(0, toRemove);
-    keys.forEach(k => cache.delete(k));
-    console.warn(`session cache evicted ${toRemove} entries due to memory pressure`);
-    logMemory('session.cache.memory_pressure', {
-      used: memoryInfo.usedJSHeapSize,
-      limit: memoryInfo.jsHeapSizeLimit,
-      entriesRemoved: toRemove,
-    });
-  }
 }
 
 type StorageEstimateResult = { usage?: number; quota?: number };

@@ -45,6 +45,7 @@ if (SESSION_ID_SECRET === 'dev-session-secret') {
 // Cache tuning
 export const MEMORY_PRESSURE_THRESHOLD = 0.9; // 90% of available storage
 export const MEMORY_PRESSURE_EVICT_RATIO = 0.5; // evict 50% of entries
+export const MEMORY_PRESSURE_CHECK_INTERVAL = 50; // check heap every 50 ops
 
 export const GEMINI_FLASH_MODEL = "gemini-2.5-flash";
 export const GEMINI_PRO_MODEL = "gemini-2.5-pro";
