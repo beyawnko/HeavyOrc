@@ -74,7 +74,9 @@ describe('cipherService', () => {
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
     (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const { storeRunRecord } = await import('@/services/cipherService');
-    await expect(storeRunRecord(sampleRun, 'invalid')).rejects.toThrow('Invalid sessionId');
+    await expect(storeRunRecord(sampleRun, 'invalid')).rejects.toThrow(
+      'Invalid sessionId format - expected UUID v4 format',
+    );
   });
 
   it('throws when CSP header missing', async () => {
@@ -313,6 +315,7 @@ describe('cipherService', () => {
     vi.stubEnv('VITE_CIPHER_SERVER_URL', 'http://cipher');
     vi.stubEnv('VITE_CIPHER_CIRCUIT_BREAKER_THRESHOLD', '2');
     vi.stubEnv('VITE_CIPHER_CIRCUIT_BREAKER_RESET_MS', '1000');
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
     (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const fetchMock = vi
       .fn()
@@ -335,6 +338,7 @@ describe('cipherService', () => {
     expect(after).toEqual([]);
     expect(fetchMock).toHaveBeenCalledTimes(3);
     vi.useRealTimers();
+    rand.mockRestore();
   });
 
   it('no-ops when disabled', async () => {

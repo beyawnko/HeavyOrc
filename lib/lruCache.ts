@@ -1,8 +1,13 @@
+import { MEMORY_PRESSURE_THRESHOLD } from '@/constants';
+
 export class LRUCache<K, V> {
   private max: number;
   private cache = new Map<K, V>();
 
   constructor(max: number) {
+    if (max <= 0) {
+      throw new Error('LRUCache max size must be a positive number.');
+    }
     this.max = max;
   }
 
@@ -16,6 +21,15 @@ export class LRUCache<K, V> {
   }
 
   set(key: K, value: V): void {
+    const memoryInfo = (performance as any).memory;
+    if (
+      memoryInfo &&
+      memoryInfo.usedJSHeapSize >
+        memoryInfo.jsHeapSizeLimit * MEMORY_PRESSURE_THRESHOLD
+    ) {
+      this.clear();
+      console.warn('LRU cache cleared due to memory pressure');
+    }
     if (this.cache.has(key)) {
       this.cache.delete(key);
     } else if (this.cache.size >= this.max) {

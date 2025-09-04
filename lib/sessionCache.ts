@@ -51,7 +51,11 @@ function detectCacheLeak(): void {
 
   // Monitor browser memory pressure
   const memoryInfo = (performance as any).memory;
-  if (memoryInfo && memoryInfo.usedJSHeapSize > memoryInfo.jsHeapSizeLimit * 0.9) {
+  if (
+    memoryInfo &&
+    memoryInfo.usedJSHeapSize >
+      memoryInfo.jsHeapSizeLimit * MEMORY_PRESSURE_THRESHOLD
+  ) {
     console.warn('High memory pressure detected');
     logMemory('session.cache.memory_pressure', {
       used: memoryInfo.usedJSHeapSize,
