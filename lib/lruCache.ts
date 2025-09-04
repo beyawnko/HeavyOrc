@@ -54,7 +54,7 @@ export class LRUCache<K, V> {
     return value;
   }
 
-  private checkMemoryPressure(): void {
+  private async checkMemoryPressure(): Promise<void> {
     if (this.isCheckingMemory) return;
     this.isCheckingMemory = true;
     try {
@@ -95,7 +95,7 @@ export class LRUCache<K, V> {
   set(key: K, value: V): void {
     if (++this.opsSinceCheck >= this.checkInterval) {
       this.opsSinceCheck = 0;
-      this.checkMemoryPressure();
+      void this.checkMemoryPressure();
     }
     if (this.cache.has(key)) {
       this.cache.delete(key);

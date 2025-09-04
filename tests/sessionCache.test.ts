@@ -27,7 +27,7 @@ function setNavigator(value: any): void {
 
 describe('sessionCache', () => {
   beforeEach(() => {
-    __clearSessionCache();
+    __clearSessionCache(true);
     // reset environment
     delete (globalThis as any).window;
     delete (globalThis as any).navigator;
@@ -187,7 +187,7 @@ describe('sessionCache', () => {
       timestamp: Date.now(),
     });
     const serialized = exportSession(sessionId);
-    __clearSessionCache();
+    __clearSessionCache(true);
     const store: Record<string, string> = {};
     (globalThis as any).window = {
       localStorage: {
@@ -398,7 +398,7 @@ describe('sessionCache', () => {
     await __adjustCacheSize();
     expect(__getMaxEntries()).toBe(SESSION_CACHE_MAX_ENTRIES);
 
-    __clearSessionCache();
+    __clearSessionCache(true);
     setNavigator({
       storage: {
         estimate: () => Promise.resolve({ usage: 100 }),

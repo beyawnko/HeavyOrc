@@ -13,14 +13,21 @@ Instructions:
 7.  Ensure your final answer directly and thoroughly addresses the original user's question.
 8.  Do not include headings like "Final Answer" or "Synthesized Response". Begin the response directly.`;
 
+export const ERROR_CODES = {
+  EMPTY_PROMPT: 'ERR_EMPTY_PROMPT',
+  OPENAI_API_KEY_MISSING: 'ERR_OPENAI_KEY_MISSING',
+  OPENROUTER_API_KEY_MISSING: 'ERR_OPENROUTER_KEY_MISSING',
+  INVALID_SESSION_ID: 'ERR_INVALID_SESSION',
+} as const;
+
 export const ERRORS = {
-  EMPTY_PROMPT:
+  [ERROR_CODES.EMPTY_PROMPT]:
     'A user prompt is required to process this request. Please provide non-empty prompt text.',
-  OPENAI_API_KEY_MISSING:
+  [ERROR_CODES.OPENAI_API_KEY_MISSING]:
     'Please set your OpenAI API key in the settings to use OpenAI models.',
-  OPENROUTER_API_KEY_MISSING:
+  [ERROR_CODES.OPENROUTER_API_KEY_MISSING]:
     'Please set your OpenRouter API key in the settings to use OpenRouter models.',
-  INVALID_SESSION_ID: 'Invalid session identifier format',
+  [ERROR_CODES.INVALID_SESSION_ID]: 'Invalid session identifier format',
 } as const;
 
 export const SESSION_ID_STORAGE_KEY = 'cipher:sessionId';

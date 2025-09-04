@@ -16,7 +16,7 @@ import { logMemory } from '@/lib/memoryLogger';
 import { escapeHtml } from '@/lib/utils';
 import { SessionImportError } from '@/lib/errors';
 import { LRUCache } from '@/lib/lruCache';
-import { equal } from '@stablelib/constant-time';
+import { encoder, timingSafeEqual } from '@/lib/securityUtils';
 
 export type CachedMessage = {
   role: 'user' | 'assistant';
@@ -34,7 +34,6 @@ let ephemeralSessionId: string | null = null;
 let sessionIdPromise: Promise<string> | null = null;
 const lastSummaryTime = new Map<string, number>();
 const importTimestamps: number[] = [];
-const encoder = new TextEncoder();
 
 function integrityHash(input: string): string {
   let hash = 0;
@@ -114,13 +113,6 @@ async function signSessionId(id: string): Promise<string> {
 
 function isValidSessionId(id: string): boolean {
   return SESSION_ID_PATTERN.test(id) && new Set(id).size >= 10;
-}
-
-function timingSafeEqual(a: string, b: string): boolean {
-  const aBytes = encoder.encode(a);
-  const bBytes = encoder.encode(b);
-  if (aBytes.length !== bBytes.length) return false;
-  return equal(aBytes, bBytes);
 }
 
 async function storeSessionId(id: string): Promise<boolean> {
@@ -218,9 +210,18 @@ export function appendSessionContext(
   detectCacheLeak();
 }
 
-export function __clearSessionCache(): void {
+export function __clearSessionCache(force = false): void {
+  const perf = performance as Performance & { memory?: PerformanceMemory };
+  const memoryInfo = perf.memory;
+  if (
+    !force &&
+    memoryInfo &&
+    memoryInfo.usedJSHeapSize <=
+      memoryInfo.jsHeapSizeLimit * MEMORY_PRESSURE_THRESHOLD
+  ) {
+    return;
+  }
   cache.clear();
-  const memoryInfo = performance.memory;
   if (memoryInfo) {
     logMemory('session.cache.clear', {
       used: memoryInfo.usedJSHeapSize,

@@ -8,8 +8,8 @@ import {
 } from '@/lib/security';
 import { MinHeap } from '@/lib/minHeap';
 import { logMemory } from '@/lib/memoryLogger';
-import { SESSION_ID_PATTERN, ERRORS } from '@/constants';
-import { equal } from '@stablelib/constant-time';
+import { SESSION_ID_PATTERN, ERRORS, ERROR_CODES } from '@/constants';
+import { hashSessionId } from '@/lib/securityUtils';
 
 /**
  * Immutable memory record stored in the cache.
@@ -79,24 +79,6 @@ const circuitBreaker = {
   resetTimeMs: CIRCUIT_BREAKER_RESET_MS,
   backoffFactor: 1,
 };
-
-const encoder = new TextEncoder();
-
-async function hashSessionId(id: string): Promise<string> {
-  const data = encoder.encode(id);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(digest))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
-    .slice(0, 32);
-}
-
-function timingSafeEqual(a: string, b: string): boolean {
-  const aBytes = encoder.encode(a);
-  const bBytes = encoder.encode(b);
-  if (aBytes.length !== bBytes.length) return false;
-  return equal(aBytes, bBytes);
-}
 
 function recordFailure() {
   circuitBreaker.failures += 1;
@@ -259,12 +241,11 @@ export const storeRunRecords = async (
   sessionId: string,
 ): Promise<void> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return;
-  const match = SESSION_ID_PATTERN.exec(sessionId);
-  if (!match || !timingSafeEqual(match[0], sessionId)) {
+  if (!SESSION_ID_PATTERN.test(sessionId)) {
     const sanitizedId = await hashSessionId(sessionId);
     console.warn('Invalid sessionId format');
     logMemory('cipher.store.invalidSession', { sessionId: sanitizedId });
-    throw new Error(ERRORS.INVALID_SESSION_ID);
+    throw new Error(ERRORS[ERROR_CODES.INVALID_SESSION_ID]);
   }
   if (!(await consumeToken(sessionId))) {
     console.warn('Rate limit exceeded for memory storage');
@@ -331,8 +312,7 @@ export const fetchRelevantMemories = async (
   sessionId: string,
 ): Promise<ImmutableMemoryEntry[]> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return [];
-  const match = SESSION_ID_PATTERN.exec(sessionId);
-  if (!match || !timingSafeEqual(match[0], sessionId)) {
+  if (!SESSION_ID_PATTERN.test(sessionId)) {
     const sanitizedId = await hashSessionId(sessionId);
     console.warn('Invalid sessionId format');
     logMemory('cipher.fetch.invalidSession', { sessionId: sanitizedId });

@@ -31,6 +31,7 @@ import {
     OPENROUTER_GPT_4O,
     OPENROUTER_CLAUDE_3_HAIKU,
     ERRORS,
+    ERROR_CODES,
 } from '@/constants';
 
 // MoE utilities
@@ -401,19 +402,19 @@ const App: React.FC = () => {
         if (isLoading || agentConfigs.length === 0) return;
 
         if (openAIAgentCount > 0 && !openAIApiKey) {
-            setError(ERRORS.OPENAI_API_KEY_MISSING);
+            setError(ERRORS[ERROR_CODES.OPENAI_API_KEY_MISSING]);
             setIsSettingsViewOpen(true);
             return;
         }
 
         if (openRouterAgentCount > 0 && !openRouterApiKey) {
-            setError(ERRORS.OPENROUTER_API_KEY_MISSING);
+            setError(ERRORS[ERROR_CODES.OPENROUTER_API_KEY_MISSING]);
             setIsSettingsViewOpen(true);
             return;
         }
 
         if (!userPrompt.trim()) {
-            setError(ERRORS.EMPTY_PROMPT);
+            setError(ERRORS[ERROR_CODES.EMPTY_PROMPT]);
             return;
         }
 
@@ -425,12 +426,11 @@ const App: React.FC = () => {
         setAgents([]);
         setArbiterSwitchWarning(null);
 
+        if (!queryHistory.includes(userPrompt)) {
+            setQueryHistory(prev => [userPrompt, ...prev].slice(0, MAX_HISTORY_LENGTH));
+        }
+
         try {
-
-            if (!queryHistory.includes(userPrompt)) {
-                setQueryHistory(prev => [userPrompt, ...prev].slice(0, MAX_HISTORY_LENGTH));
-            }
-
             setIsLoading(true);
 
             const {
