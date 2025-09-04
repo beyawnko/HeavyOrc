@@ -15,8 +15,9 @@ Instructions:
 
 export enum ErrorSeverity {
   CRITICAL = 'CRITICAL',
-  ERROR = 'ERROR',
-  WARNING = 'WARNING',
+  HIGH = 'HIGH',
+  MEDIUM = 'MEDIUM',
+  LOW = 'LOW',
   INFO = 'INFO',
 }
 
@@ -33,50 +34,50 @@ export interface ErrorCodeMetaData {
   category: ErrorCategory;
 }
 
-export const ERROR_CODES: Record<string, ErrorCodeMetaData> = {
+export const ERROR_CODES = {
   EMPTY_PROMPT: {
     code: 'ERR_EMPTY_PROMPT',
-    severity: ErrorSeverity.WARNING,
+    severity: ErrorSeverity.LOW,
     category: ErrorCategory.VALIDATION,
   },
   OPENAI_API_KEY_MISSING: {
     code: 'ERR_OPENAI_KEY_MISSING',
-    severity: ErrorSeverity.ERROR,
+    severity: ErrorSeverity.HIGH,
     category: ErrorCategory.VALIDATION,
   },
   OPENROUTER_API_KEY_MISSING: {
     code: 'ERR_OPENROUTER_KEY_MISSING',
-    severity: ErrorSeverity.ERROR,
+    severity: ErrorSeverity.HIGH,
     category: ErrorCategory.VALIDATION,
   },
   INVALID_SESSION_ID: {
     code: 'ERR_INVALID_SESSION',
-    severity: ErrorSeverity.ERROR,
+    severity: ErrorSeverity.HIGH,
     category: ErrorCategory.SECURITY,
   },
   RATE_LIMIT_EXCEEDED: {
     code: 'ERR_RATE_LIMIT',
-    severity: ErrorSeverity.WARNING,
+    severity: ErrorSeverity.MEDIUM,
     category: ErrorCategory.RATE_LIMIT,
   },
   NETWORK_ERROR: {
     code: 'ERR_NETWORK',
-    severity: ErrorSeverity.ERROR,
+    severity: ErrorSeverity.HIGH,
     category: ErrorCategory.SYSTEM,
   },
   SERVER_ERROR: {
     code: 'ERR_SERVER',
-    severity: ErrorSeverity.ERROR,
+    severity: ErrorSeverity.HIGH,
     category: ErrorCategory.SYSTEM,
   },
   UNAUTHORIZED: {
     code: 'ERR_UNAUTHORIZED',
-    severity: ErrorSeverity.ERROR,
+    severity: ErrorSeverity.HIGH,
     category: ErrorCategory.SECURITY,
   },
   FORBIDDEN: {
     code: 'ERR_FORBIDDEN',
-    severity: ErrorSeverity.ERROR,
+    severity: ErrorSeverity.HIGH,
     category: ErrorCategory.SECURITY,
   },
 } as const;

@@ -220,8 +220,18 @@ export function __clearSessionCache(force = false): void {
   if (
     !force &&
     memoryInfo &&
-    memoryInfo.usedJSHeapSize <=
-      memoryInfo.jsHeapSizeLimit * MEMORY_PRESSURE_THRESHOLD
+    (() => {
+      const threshold = Math.floor(
+        memoryInfo.jsHeapSizeLimit * MEMORY_PRESSURE_THRESHOLD,
+      );
+      return (
+        memoryInfo.usedJSHeapSize <= threshold ||
+        timingSafeEqual(
+          memoryInfo.usedJSHeapSize.toString(),
+          threshold.toString(),
+        )
+      );
+    })()
   ) {
     return;
   }

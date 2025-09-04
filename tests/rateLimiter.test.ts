@@ -14,4 +14,13 @@ describe('RateLimiter', () => {
     vi.advanceTimersByTime(1000);
     expect(rl.canProceed()).toBe(true);
   });
+
+  it('validates constructor inputs', () => {
+    expect(() => new RateLimiter(0, 1000)).toThrow(
+      'RateLimiter maxPerInterval must be positive, got: 0',
+    );
+    expect(() => new RateLimiter(1, 0)).toThrow(
+      'RateLimiter intervalMs must be positive, got: 0',
+    );
+  });
 });

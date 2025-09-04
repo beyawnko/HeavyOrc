@@ -270,6 +270,17 @@ const App: React.FC = () => {
     }, []);
     useKeydown('Escape', closeMobileHistory, isMobileHistoryOpen);
 
+    const updateQueryHistory = useCallback(
+        (query: string, succeeded: boolean) => {
+            if (succeeded && !queryHistory.includes(query)) {
+                setQueryHistory(prev =>
+                    [query, ...prev].slice(0, MAX_HISTORY_LENGTH),
+                );
+            }
+        },
+        [queryHistory],
+    );
+
     const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
     const agentEnsembleRef = useRef<AgentEnsembleHandles>(null);
     const [collapsedMap, setCollapsedMap] = useState<Record<string, boolean>>({});
@@ -546,10 +557,8 @@ const App: React.FC = () => {
             setIsArbiterRunning(false);
             isRunCompletedRef.current = true;
         }
-        if (runSucceeded && !queryHistory.includes(userPrompt)) {
-            setQueryHistory(prev => [userPrompt, ...prev].slice(0, MAX_HISTORY_LENGTH));
-        }
-    }, [prompt, images, isLoading, agentConfigs, arbiterModel, openAIArbiterVerbosity, openAIArbiterEffort, geminiArbiterEffort, openAIAgentCount, openAIApiKey, openRouterAgentCount, openRouterApiKey, queryHistory, selectedRunId]);
+        updateQueryHistory(userPrompt, runSucceeded);
+    }, [prompt, images, isLoading, agentConfigs, arbiterModel, openAIArbiterVerbosity, openAIArbiterEffort, geminiArbiterEffort, openAIAgentCount, openAIApiKey, openRouterAgentCount, openRouterApiKey, selectedRunId, updateQueryHistory]);
     
     const handleReset = useCallback(() => {
         orchestratorAbortRef.current?.();

@@ -12,6 +12,7 @@ export class LRUCache<K, V> {
   private checkInterval: number;
   private opsSinceCheck = 0;
   private isCheckingMemory = false;
+  private lastCheckTime = 0;
 
   constructor(
     max: number,
@@ -29,7 +30,7 @@ export class LRUCache<K, V> {
       (opts.evictionRatio <= 0 || opts.evictionRatio > 1)
     ) {
       throw new Error(
-        `LRUCache evictionRatio must be between 0 and 1, got: ${opts.evictionRatio}`,
+        `LRUCache evictionRatio must be greater than 0 and at most 1, got: ${opts.evictionRatio}`,
       );
     }
     if (opts.checkInterval !== undefined && opts.checkInterval <= 0) {
@@ -56,7 +57,7 @@ export class LRUCache<K, V> {
 
   private scheduleMemoryCheck(): void {
     const cb = () => void this.checkMemoryPressure();
-    const ric = (globalThis as any).requestIdleCallback;
+    const ric = globalThis.requestIdleCallback;
     if (typeof ric === 'function') {
       ric(cb, { timeout: 1000 });
     } else {
@@ -65,11 +66,25 @@ export class LRUCache<K, V> {
   }
 
   private async checkMemoryPressure(): Promise<void> {
-    if (this.isCheckingMemory || typeof performance === 'undefined') return;
+    const now = Date.now();
+    if (
+      this.isCheckingMemory ||
+      typeof performance === 'undefined' ||
+      now - this.lastCheckTime < this.checkInterval
+    ) {
+      return;
+    }
     this.isCheckingMemory = true;
+    this.lastCheckTime = now;
     try {
       const perf = performance as Performance & { memory?: PerformanceMemory };
-      const memoryInfo = perf.memory;
+      let memoryInfo: PerformanceMemory | undefined;
+      try {
+        memoryInfo = perf.memory;
+      } catch (e) {
+        console.warn('Error accessing performance.memory', e);
+        return;
+      }
       let pressure = false;
       if (memoryInfo) {
         pressure =

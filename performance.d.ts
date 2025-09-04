@@ -24,3 +24,22 @@ interface Navigator {
   deviceMemory?: number;
 }
 
+/** Callback deadline info for requestIdleCallback. */
+interface IdleDeadline {
+  readonly didTimeout: boolean;
+  timeRemaining(): DOMHighResTimeStamp;
+}
+
+/** Options for requestIdleCallback. */
+interface IdleRequestOptions {
+  timeout?: number;
+}
+
+interface Window {
+  requestIdleCallback(
+    callback: (deadline: IdleDeadline) => void,
+    opts?: IdleRequestOptions,
+  ): number;
+  cancelIdleCallback(handle: number): void;
+}
+

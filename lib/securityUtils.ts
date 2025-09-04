@@ -3,7 +3,13 @@ import { equal } from '@stablelib/constant-time';
 export const encoder = new TextEncoder();
 
 export function timingSafeEqual(a: string, b: string): boolean {
-  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (
+    typeof a !== 'string' ||
+    typeof b !== 'string' ||
+    a.length !== b.length
+  ) {
+    return false;
+  }
   return equal(encoder.encode(a), encoder.encode(b));
 }
 
