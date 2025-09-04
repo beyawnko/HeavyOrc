@@ -18,6 +18,7 @@ import {
   SESSION_MESSAGE_MAX_CHARS,
   SESSION_IMPORTS_PER_MINUTE,
   SESSION_CONTEXT_TTL_MS,
+  SESSION_CACHE_MAX_SESSIONS,
 } from '@/constants';
 
 function setNavigator(value: any): void {
@@ -57,6 +58,18 @@ describe('sessionCache', () => {
     });
     const ctx = loadSessionContext(sessionId);
     expect(ctx).toHaveLength(0);
+  });
+
+  it('evicts oldest sessions when exceeding max sessions', () => {
+    for (let i = 0; i < SESSION_CACHE_MAX_SESSIONS + 5; i++) {
+      appendSessionContext(`s${i}`, {
+        role: 'user',
+        content: 'x',
+        timestamp: Date.now(),
+      });
+    }
+    expect(__cache.size).toBe(SESSION_CACHE_MAX_SESSIONS);
+    expect(__cache.has('s0')).toBe(false);
   });
 
   it('enforces per-message size limit', () => {

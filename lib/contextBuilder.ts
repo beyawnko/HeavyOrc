@@ -19,19 +19,25 @@ export interface ContextualPrompt {
 
 export function createDefaultSummarizer(maxLength = SUMMARIZER_MAX_CHARS): Summarizer {
   return async (text: string): Promise<string> => {
-    if (!text) return '';
+    if (!text?.trim()) return '';
     try {
       const normalized = text
         .slice(0, maxLength * 2)
         .replace(/\s+/g, ' ')
         .trim();
       if (normalized.length <= maxLength) return normalized;
-      const truncated = normalized.slice(0, maxLength);
-      const sentenceMatch = truncated.match(/.*[.!?]['")}\]]?(?:\s|$)/s);
+
+      // Try to find a complete sentence
+      const sentenceMatch = normalized
+        .slice(0, maxLength)
+        .match(/.*?[.!?](?:[\s\]\)\}'"]*|$)(?=[^[\]\(\)\{\}'"]*$)/s);
       if (sentenceMatch) return sentenceMatch[0].trim();
-      const wordMatch = truncated.match(/.*\b/);
+
+      // Fall back to word boundary
+      const wordMatch = normalized.slice(0, maxLength).match(/.*\b/);
       if (wordMatch) return wordMatch[0].trim() + '…';
-      return truncated.trim() + '…';
+
+      return normalized.slice(0, maxLength).trim() + '…';
     } catch (e) {
       console.warn('Error in summarizer:', e);
       return text.slice(0, maxLength).trim() + '…';
