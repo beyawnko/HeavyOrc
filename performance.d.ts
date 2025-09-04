@@ -7,6 +7,8 @@ interface PerformanceMemory {
   usedJSHeapSize: number;
   /** Maximum size of the JS heap in bytes */
   jsHeapSizeLimit: number;
+  /** Total allocated heap size in bytes */
+  totalJSHeapSize: number;
 }
 
 /**

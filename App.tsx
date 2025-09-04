@@ -412,6 +412,11 @@ const App: React.FC = () => {
             return;
         }
 
+        if (!userPrompt.trim()) {
+            setError(ERRORS.EMPTY_PROMPT);
+            return;
+        }
+
         orchestratorAbortRef.current?.();
         orchestratorAbortRef.current = null;
         setError(null);
@@ -419,11 +424,6 @@ const App: React.FC = () => {
         setIsArbiterRunning(false);
         setAgents([]);
         setArbiterSwitchWarning(null);
-
-        if (!userPrompt.trim()) {
-            setError(ERRORS.EMPTY_PROMPT);
-            return;
-        }
 
         try {
 

@@ -85,7 +85,7 @@ async function hashSessionId(id: string): Promise<string> {
   return Array.from(new Uint8Array(digest))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('')
-    .slice(0, 8);
+    .slice(0, 32);
 }
 
 function recordFailure() {

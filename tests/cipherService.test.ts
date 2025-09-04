@@ -80,7 +80,7 @@ describe('cipherService', () => {
       'Invalid sessionId format - expected UUID v4 like 123e4567-e89b-12d3-a456-426614174000',
     );
     expect(log).toHaveBeenCalledWith('cipher.store.invalidSession', {
-      sessionId: '1710d3a6',
+      sessionId: '1710d3a6e83be9a7bedaac4926807bcd',
     });
     log.mockRestore();
   });
@@ -95,7 +95,7 @@ describe('cipherService', () => {
     const res = await fetchRelevantMemories('q', 'invalid<script>');
     expect(res).toEqual([]);
     expect(log).toHaveBeenCalledWith('cipher.fetch.invalidSession', {
-      sessionId: '1710d3a6',
+      sessionId: '1710d3a6e83be9a7bedaac4926807bcd',
     });
     log.mockRestore();
   });

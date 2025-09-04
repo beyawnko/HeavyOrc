@@ -10,6 +10,7 @@ export class LRUCache<K, V> {
   private evictionRatio: number;
   private checkInterval: number;
   private opsSinceCheck = 0;
+  private isCheckingMemory = false;
 
   constructor(
     max: number,
@@ -52,18 +53,24 @@ export class LRUCache<K, V> {
   }
 
   private checkMemoryPressure(): void {
-    const memoryInfo = performance.memory;
-    if (
-      memoryInfo &&
-      memoryInfo.usedJSHeapSize >
-        memoryInfo.jsHeapSizeLimit * this.memoryPressureThreshold
-    ) {
-      const toRemove = Math.ceil(this.cache.size * this.evictionRatio);
-      const keys = Array.from(this.cache.keys()).slice(0, toRemove);
-      keys.forEach(key => this.cache.delete(key));
-      console.warn(
-        `LRU cache evicted ${toRemove} entries due to memory pressure`,
-      );
+    if (this.isCheckingMemory) return;
+    this.isCheckingMemory = true;
+    try {
+      const memoryInfo = performance.memory;
+      if (
+        memoryInfo &&
+        memoryInfo.usedJSHeapSize >
+          memoryInfo.jsHeapSizeLimit * this.memoryPressureThreshold
+      ) {
+        const toRemove = Math.ceil(this.cache.size * this.evictionRatio);
+        const keys = Array.from(this.cache.keys()).slice(0, toRemove);
+        keys.forEach(key => this.cache.delete(key));
+        console.warn(
+          `LRU cache evicted ${toRemove} entries due to memory pressure`,
+        );
+      }
+    } finally {
+      this.isCheckingMemory = false;
     }
   }
 
