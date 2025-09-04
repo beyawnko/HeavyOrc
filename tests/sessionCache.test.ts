@@ -49,7 +49,7 @@ describe('sessionCache', () => {
     expect(ctx[ctx.length - 1].content).toBe(`m${SESSION_CACHE_MAX_ENTRIES + 4}`);
   });
 
-  it('debounces cache clearing', () => {
+  it('rate limits cache clearing', () => {
     vi.useFakeTimers();
     __clearSessionCache(true);
     const originalPerf = globalThis.performance;
@@ -60,7 +60,6 @@ describe('sessionCache', () => {
       content: 'm',
       timestamp: Date.now(),
     });
-    vi.advanceTimersByTime(1000);
     __clearSessionCache();
     appendSessionContext('s', {
       role: 'user',

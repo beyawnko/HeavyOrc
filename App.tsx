@@ -402,19 +402,19 @@ const App: React.FC = () => {
         if (isLoading || agentConfigs.length === 0) return;
 
         if (openAIAgentCount > 0 && !openAIApiKey) {
-            setError(ERRORS[ERROR_CODES.OPENAI_API_KEY_MISSING]);
+            setError(ERRORS[ERROR_CODES.OPENAI_API_KEY_MISSING.code]);
             setIsSettingsViewOpen(true);
             return;
         }
 
         if (openRouterAgentCount > 0 && !openRouterApiKey) {
-            setError(ERRORS[ERROR_CODES.OPENROUTER_API_KEY_MISSING]);
+            setError(ERRORS[ERROR_CODES.OPENROUTER_API_KEY_MISSING.code]);
             setIsSettingsViewOpen(true);
             return;
         }
 
         if (!userPrompt.trim()) {
-            setError(ERRORS[ERROR_CODES.EMPTY_PROMPT]);
+            setError(ERRORS[ERROR_CODES.EMPTY_PROMPT.code]);
             return;
         }
 

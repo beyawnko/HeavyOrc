@@ -54,6 +54,16 @@ export class LRUCache<K, V> {
     return value;
   }
 
+  private scheduleMemoryCheck(): void {
+    const cb = () => void this.checkMemoryPressure();
+    const ric = (globalThis as any).requestIdleCallback;
+    if (typeof ric === 'function') {
+      ric(cb);
+    } else {
+      setTimeout(cb, 0);
+    }
+  }
+
   private async checkMemoryPressure(): Promise<void> {
     if (this.isCheckingMemory || typeof performance === 'undefined') return;
     this.isCheckingMemory = true;
@@ -95,7 +105,7 @@ export class LRUCache<K, V> {
   set(key: K, value: V): void {
     if (++this.opsSinceCheck >= this.checkInterval) {
       this.opsSinceCheck = 0;
-      void this.checkMemoryPressure();
+      this.scheduleMemoryCheck();
     }
     if (this.cache.has(key)) {
       this.cache.delete(key);

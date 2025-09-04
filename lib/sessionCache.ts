@@ -34,8 +34,33 @@ let ephemeralSessionId: string | null = null;
 let sessionIdPromise: Promise<string> | null = null;
 const lastSummaryTime = new Map<string, number>();
 const importTimestamps: number[] = [];
-let lastClearTime = 0;
-const MIN_CLEAR_INTERVAL = 1000;
+
+interface ClearRateLimiter {
+  lastClearTime: number;
+  clearCount: number;
+  maxClearsPerInterval: number;
+  intervalMs: number;
+  canClear(): boolean;
+  recordClear(): void;
+}
+
+const clearRateLimiter: ClearRateLimiter = {
+  lastClearTime: 0,
+  clearCount: 0,
+  maxClearsPerInterval: 1,
+  intervalMs: 1000,
+  canClear() {
+    const now = Date.now();
+    if (now - this.lastClearTime > this.intervalMs) {
+      this.lastClearTime = now;
+      this.clearCount = 0;
+    }
+    return this.clearCount < this.maxClearsPerInterval;
+  },
+  recordClear() {
+    this.clearCount++;
+  },
+};
 
 function integrityHash(input: string): string {
   let hash = 0;
@@ -213,8 +238,7 @@ export function appendSessionContext(
 }
 
 export function __clearSessionCache(force = false): void {
-  const now = Date.now();
-  if (!force && now - lastClearTime < MIN_CLEAR_INTERVAL) return;
+  if (!force && !clearRateLimiter.canClear()) return;
   const perf = performance as Performance & { memory?: PerformanceMemory };
   const memoryInfo = perf.memory;
   if (
@@ -226,6 +250,9 @@ export function __clearSessionCache(force = false): void {
     return;
   }
   cache.clear();
+  if (!force) {
+    clearRateLimiter.recordClear();
+  }
   if (memoryInfo) {
     logMemory('session.cache.clear', {
       used: memoryInfo.usedJSHeapSize,
@@ -237,7 +264,6 @@ export function __clearSessionCache(force = false): void {
   lastSummaryTime.clear();
   importTimestamps.length = 0;
   dynamicMaxEntries = SESSION_CACHE_MAX_ENTRIES;
-  lastClearTime = now;
 }
 
 export async function summarizeSessionIfNeeded(

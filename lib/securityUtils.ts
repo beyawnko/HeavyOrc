@@ -3,7 +3,10 @@ import { equal } from '@stablelib/constant-time';
 export const encoder = new TextEncoder();
 
 export function timingSafeEqual(a: string, b: string): boolean {
-  return equal(encoder.encode(a), encoder.encode(b));
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const aBytes = encoder.encode(a);
+  const bBytes = encoder.encode(b);
+  return aBytes.length === bBytes.length && equal(aBytes, bBytes);
 }
 
 export async function hashSessionId(id: string): Promise<string> {

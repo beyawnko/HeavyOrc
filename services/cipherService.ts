@@ -245,7 +245,7 @@ export const storeRunRecords = async (
     const sanitizedId = await hashSessionId(sessionId);
     console.warn('Invalid sessionId format');
     logMemory('cipher.store.invalidSession', { sessionId: sanitizedId });
-    throw new Error(ERRORS[ERROR_CODES.INVALID_SESSION_ID]);
+    throw new Error(ERRORS[ERROR_CODES.INVALID_SESSION_ID.code]);
   }
   if (!(await consumeToken(sessionId))) {
     console.warn('Rate limit exceeded for memory storage');

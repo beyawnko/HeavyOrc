@@ -13,29 +13,77 @@ Instructions:
 7.  Ensure your final answer directly and thoroughly addresses the original user's question.
 8.  Do not include headings like "Final Answer" or "Synthesized Response". Begin the response directly.`;
 
-export const ERROR_CODES = {
-  EMPTY_PROMPT: 'ERR_EMPTY_PROMPT',
-  OPENAI_API_KEY_MISSING: 'ERR_OPENAI_KEY_MISSING',
-  OPENROUTER_API_KEY_MISSING: 'ERR_OPENROUTER_KEY_MISSING',
-  INVALID_SESSION_ID: 'ERR_INVALID_SESSION',
-  RATE_LIMIT_EXCEEDED: 'ERR_RATE_LIMIT',
-  NETWORK_ERROR: 'ERR_NETWORK',
-  SERVER_ERROR: 'ERR_SERVER',
+export enum ErrorSeverity {
+  CRITICAL = 'CRITICAL',
+  ERROR = 'ERROR',
+  WARNING = 'WARNING',
+  INFO = 'INFO',
+}
+
+export enum ErrorCategory {
+  SECURITY = 'SECURITY',
+  VALIDATION = 'VALIDATION',
+  RATE_LIMIT = 'RATE_LIMIT',
+  SYSTEM = 'SYSTEM',
+}
+
+export interface ErrorCodeMetaData {
+  code: string;
+  severity: ErrorSeverity;
+  category: ErrorCategory;
+}
+
+export const ERROR_CODES: Record<string, ErrorCodeMetaData> = {
+  EMPTY_PROMPT: {
+    code: 'ERR_EMPTY_PROMPT',
+    severity: ErrorSeverity.WARNING,
+    category: ErrorCategory.VALIDATION,
+  },
+  OPENAI_API_KEY_MISSING: {
+    code: 'ERR_OPENAI_KEY_MISSING',
+    severity: ErrorSeverity.ERROR,
+    category: ErrorCategory.VALIDATION,
+  },
+  OPENROUTER_API_KEY_MISSING: {
+    code: 'ERR_OPENROUTER_KEY_MISSING',
+    severity: ErrorSeverity.ERROR,
+    category: ErrorCategory.VALIDATION,
+  },
+  INVALID_SESSION_ID: {
+    code: 'ERR_INVALID_SESSION',
+    severity: ErrorSeverity.ERROR,
+    category: ErrorCategory.SECURITY,
+  },
+  RATE_LIMIT_EXCEEDED: {
+    code: 'ERR_RATE_LIMIT',
+    severity: ErrorSeverity.WARNING,
+    category: ErrorCategory.RATE_LIMIT,
+  },
+  NETWORK_ERROR: {
+    code: 'ERR_NETWORK',
+    severity: ErrorSeverity.ERROR,
+    category: ErrorCategory.SYSTEM,
+  },
+  SERVER_ERROR: {
+    code: 'ERR_SERVER',
+    severity: ErrorSeverity.ERROR,
+    category: ErrorCategory.SYSTEM,
+  },
 } as const;
 
 export const ERRORS = {
-  [ERROR_CODES.EMPTY_PROMPT]:
+  [ERROR_CODES.EMPTY_PROMPT.code]:
     'A user prompt is required to process this request. Please provide non-empty prompt text.',
-  [ERROR_CODES.OPENAI_API_KEY_MISSING]:
+  [ERROR_CODES.OPENAI_API_KEY_MISSING.code]:
     'Please set your OpenAI API key in the settings to use OpenAI models.',
-  [ERROR_CODES.OPENROUTER_API_KEY_MISSING]:
+  [ERROR_CODES.OPENROUTER_API_KEY_MISSING.code]:
     'Please set your OpenRouter API key in the settings to use OpenRouter models.',
-  [ERROR_CODES.INVALID_SESSION_ID]: 'Invalid session identifier format',
-  [ERROR_CODES.RATE_LIMIT_EXCEEDED]:
+  [ERROR_CODES.INVALID_SESSION_ID.code]: 'Invalid session identifier format',
+  [ERROR_CODES.RATE_LIMIT_EXCEEDED.code]:
     'Rate limit exceeded. Please try again later.',
-  [ERROR_CODES.NETWORK_ERROR]:
+  [ERROR_CODES.NETWORK_ERROR.code]:
     'Network error occurred. Please check your connection.',
-  [ERROR_CODES.SERVER_ERROR]:
+  [ERROR_CODES.SERVER_ERROR.code]:
     'Server error occurred. Please try again later.',
 } as const;
 
