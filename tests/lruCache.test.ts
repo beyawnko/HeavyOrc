@@ -46,4 +46,26 @@ describe('LRUCache', () => {
     expect(cache.has('c')).toBe(true);
     warn.mockRestore();
   });
+
+  it('supports configurable thresholds and eviction ratios', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const cache = new LRUCache<string, number>(4, {
+      memoryPressureThreshold: 0.5,
+      evictionRatio: 0.25,
+    });
+    cache.set('a', 1);
+    cache.set('b', 2);
+    cache.set('c', 3);
+    cache.set('d', 4);
+    const mem = (globalThis.performance as any).memory;
+    mem.usedJSHeapSize = mem.jsHeapSizeLimit * 0.6;
+    cache.set('e', 5);
+    expect(warn).toHaveBeenCalledWith(
+      'LRU cache evicted 1 entries due to memory pressure',
+    );
+    expect(cache.size).toBe(4);
+    expect(cache.has('a')).toBe(false);
+    expect(cache.has('e')).toBe(true);
+    warn.mockRestore();
+  });
 });

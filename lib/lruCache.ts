@@ -1,14 +1,31 @@
-import { MEMORY_PRESSURE_THRESHOLD } from '@/constants';
+import {
+  MEMORY_PRESSURE_THRESHOLD,
+  MEMORY_PRESSURE_EVICT_RATIO,
+} from '@/constants';
 
 export class LRUCache<K, V> {
   private max: number;
   private cache = new Map<K, V>();
+  private memoryPressureThreshold: number;
+  private evictionRatio: number;
 
-  constructor(max: number) {
+  constructor(
+    max: number,
+    opts: { memoryPressureThreshold?: number; evictionRatio?: number } = {},
+  ) {
     if (max <= 0) {
       throw new Error('LRUCache max size must be a positive number.');
     }
+    if (
+      opts.evictionRatio !== undefined &&
+      (opts.evictionRatio <= 0 || opts.evictionRatio > 1)
+    ) {
+      throw new Error('LRUCache evictionRatio must be between 0 and 1.');
+    }
     this.max = max;
+    this.memoryPressureThreshold =
+      opts.memoryPressureThreshold ?? MEMORY_PRESSURE_THRESHOLD;
+    this.evictionRatio = opts.evictionRatio ?? MEMORY_PRESSURE_EVICT_RATIO;
   }
 
   get(key: K): V | undefined {
@@ -25,9 +42,9 @@ export class LRUCache<K, V> {
     if (
       memoryInfo &&
       memoryInfo.usedJSHeapSize >
-        memoryInfo.jsHeapSizeLimit * MEMORY_PRESSURE_THRESHOLD
+        memoryInfo.jsHeapSizeLimit * this.memoryPressureThreshold
     ) {
-      const toRemove = Math.ceil(this.cache.size / 2);
+      const toRemove = Math.ceil(this.cache.size * this.evictionRatio);
       const keys = Array.from(this.cache.keys()).slice(0, toRemove);
       keys.forEach(key => this.cache.delete(key));
       console.warn(

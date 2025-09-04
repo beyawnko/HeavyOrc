@@ -235,6 +235,13 @@ export function appendSessionContext(
 
 export function __clearSessionCache(): void {
   cache.clear();
+  const memoryInfo = performance.memory;
+  if (memoryInfo) {
+    logMemory('session.cache.clear', {
+      used: memoryInfo.usedJSHeapSize,
+      limit: memoryInfo.jsHeapSizeLimit,
+    });
+  }
   ephemeralSessionId = null;
   sessionIdPromise = null;
   lastSummaryTime.clear();
