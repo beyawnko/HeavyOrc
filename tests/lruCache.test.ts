@@ -21,16 +21,16 @@ describe('LRUCache', () => {
 
   it('throws for non-positive max size', () => {
     expect(() => new LRUCache<string, number>(0)).toThrow(
-      'LRUCache max size must be a positive number.',
+      'LRUCache max size must be positive, got: 0',
     );
     expect(() => new LRUCache<string, number>(-1)).toThrow(
-      'LRUCache max size must be a positive number.',
+      'LRUCache max size must be positive, got: -1',
     );
   });
 
   it('evicts entries under memory pressure', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const cache = new LRUCache<string, number>(2);
+    const cache = new LRUCache<string, number>(2, { checkInterval: 1 });
     cache.set('a', 1);
     cache.set('b', 2);
     expect(cache.size).toBe(2);
@@ -52,6 +52,7 @@ describe('LRUCache', () => {
     const cache = new LRUCache<string, number>(4, {
       memoryPressureThreshold: 0.5,
       evictionRatio: 0.25,
+      checkInterval: 1,
     });
     cache.set('a', 1);
     cache.set('b', 2);

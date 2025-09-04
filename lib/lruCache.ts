@@ -8,24 +8,38 @@ export class LRUCache<K, V> {
   private cache = new Map<K, V>();
   private memoryPressureThreshold: number;
   private evictionRatio: number;
+  private checkInterval: number;
+  private opsSinceCheck = 0;
 
   constructor(
     max: number,
-    opts: { memoryPressureThreshold?: number; evictionRatio?: number } = {},
+    opts: {
+      memoryPressureThreshold?: number;
+      evictionRatio?: number;
+      checkInterval?: number;
+    } = {},
   ) {
     if (max <= 0) {
-      throw new Error('LRUCache max size must be a positive number.');
+      throw new Error(`LRUCache max size must be positive, got: ${max}`);
     }
     if (
       opts.evictionRatio !== undefined &&
       (opts.evictionRatio <= 0 || opts.evictionRatio > 1)
     ) {
-      throw new Error('LRUCache evictionRatio must be between 0 and 1.');
+      throw new Error(
+        `LRUCache evictionRatio must be between 0 and 1, got: ${opts.evictionRatio}`,
+      );
+    }
+    if (opts.checkInterval !== undefined && opts.checkInterval <= 0) {
+      throw new Error(
+        `LRUCache checkInterval must be positive, got: ${opts.checkInterval}`,
+      );
     }
     this.max = max;
     this.memoryPressureThreshold =
       opts.memoryPressureThreshold ?? MEMORY_PRESSURE_THRESHOLD;
     this.evictionRatio = opts.evictionRatio ?? MEMORY_PRESSURE_EVICT_RATIO;
+    this.checkInterval = opts.checkInterval ?? 50;
   }
 
   get(key: K): V | undefined {
@@ -37,7 +51,7 @@ export class LRUCache<K, V> {
     return value;
   }
 
-  set(key: K, value: V): void {
+  private checkMemoryPressure(): void {
     const memoryInfo = performance.memory;
     if (
       memoryInfo &&
@@ -50,6 +64,13 @@ export class LRUCache<K, V> {
       console.warn(
         `LRU cache evicted ${toRemove} entries due to memory pressure`,
       );
+    }
+  }
+
+  set(key: K, value: V): void {
+    if (++this.opsSinceCheck >= this.checkInterval) {
+      this.opsSinceCheck = 0;
+      this.checkMemoryPressure();
     }
     if (this.cache.has(key)) {
       this.cache.delete(key);

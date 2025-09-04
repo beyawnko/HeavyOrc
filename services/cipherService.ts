@@ -79,6 +79,15 @@ const circuitBreaker = {
   backoffFactor: 1,
 };
 
+async function hashSessionId(id: string): Promise<string> {
+  const data = new TextEncoder().encode(id);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 8);
+}
+
 function recordFailure() {
   circuitBreaker.failures += 1;
   circuitBreaker.lastFailure = Date.now();
@@ -241,7 +250,7 @@ export const storeRunRecords = async (
 ): Promise<void> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return;
   if (!SESSION_ID_PATTERN.test(sessionId)) {
-    const sanitizedId = sessionId.replace(/[^\w-]/g, '_');
+    const sanitizedId = await hashSessionId(sessionId);
     console.warn('Invalid sessionId format');
     logMemory('cipher.store.invalidSession', { sessionId: sanitizedId });
     throw new Error(
@@ -314,7 +323,7 @@ export const fetchRelevantMemories = async (
 ): Promise<ImmutableMemoryEntry[]> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return [];
   if (!SESSION_ID_PATTERN.test(sessionId)) {
-    const sanitizedId = sessionId.replace(/[^\w-]/g, '_');
+    const sanitizedId = await hashSessionId(sessionId);
     console.warn('Invalid sessionId format');
     logMemory('cipher.fetch.invalidSession', { sessionId: sanitizedId });
     return [];

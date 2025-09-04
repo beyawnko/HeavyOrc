@@ -420,10 +420,12 @@ const App: React.FC = () => {
         setAgents([]);
         setArbiterSwitchWarning(null);
 
+        if (!userPrompt.trim()) {
+            setError(ERRORS.EMPTY_PROMPT);
+            return;
+        }
+
         try {
-            if (!userPrompt.trim()) {
-                throw new Error(ERRORS.EMPTY_PROMPT);
-            }
 
             if (!queryHistory.includes(userPrompt)) {
                 setQueryHistory(prev => [userPrompt, ...prev].slice(0, MAX_HISTORY_LENGTH));
