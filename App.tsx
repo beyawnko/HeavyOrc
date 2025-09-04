@@ -397,11 +397,7 @@ const App: React.FC = () => {
             prompt.trim() || (images.length > 0 ? `Analyze these ${images.length} image(s) and provide a detailed description.` : "");
         userPromptRef.current = userPrompt;
 
-        if (!userPrompt || isLoading || agentConfigs.length === 0) return;
-
-        if (userPrompt && !queryHistory.includes(userPrompt)) {
-            setQueryHistory(prev => [userPrompt, ...prev].slice(0, MAX_HISTORY_LENGTH));
-        }
+        if (isLoading || agentConfigs.length === 0) return;
 
         if (openAIAgentCount > 0 && !openAIApiKey) {
             setError("Please set your OpenAI API key in the settings to use OpenAI models.");
@@ -424,6 +420,16 @@ const App: React.FC = () => {
         setArbiterSwitchWarning(null);
 
         try {
+            if (!userPrompt.trim()) {
+                throw new Error(
+                    'A user prompt is required to process this request. Please provide non-empty prompt text.',
+                );
+            }
+
+            if (!queryHistory.includes(userPrompt)) {
+                setQueryHistory(prev => [userPrompt, ...prev].slice(0, MAX_HISTORY_LENGTH));
+            }
+
             setIsLoading(true);
 
             const {
@@ -435,11 +441,6 @@ const App: React.FC = () => {
             }
 
             isRunCompletedRef.current = false;
-            if (!userPrompt?.trim()) {
-                throw new Error(
-                    'A user prompt is required to process this request. Please provide non-empty prompt text.',
-                );
-            }
             currentRunDataRef.current = {
                 // Store original user prompt for better traceability and debugging
                 prompt: userPrompt,

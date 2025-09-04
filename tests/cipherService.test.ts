@@ -75,7 +75,7 @@ describe('cipherService', () => {
     (globalThis as any).__TEST_IP__ = '1.1.1.1';
     const { storeRunRecord } = await import('@/services/cipherService');
     await expect(storeRunRecord(sampleRun, 'invalid')).rejects.toThrow(
-      'Invalid sessionId format - expected UUID v4 format',
+      'Invalid sessionId format - expected UUID v4 like 123e4567-e89b-12d3-a456-426614174000',
     );
   });
 

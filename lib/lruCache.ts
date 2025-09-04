@@ -21,14 +21,20 @@ export class LRUCache<K, V> {
   }
 
   set(key: K, value: V): void {
-    const memoryInfo = (performance as any).memory;
+    const memoryInfo = performance.memory;
     if (
       memoryInfo &&
       memoryInfo.usedJSHeapSize >
         memoryInfo.jsHeapSizeLimit * MEMORY_PRESSURE_THRESHOLD
     ) {
-      this.clear();
-      console.warn('LRU cache cleared due to memory pressure');
+      const toRemove = Math.ceil(this.cache.size / 2);
+      for (let i = 0; i < toRemove; i++) {
+        const oldestKey = this.cache.keys().next().value;
+        if (oldestKey !== undefined) this.cache.delete(oldestKey);
+      }
+      console.warn(
+        `LRU cache evicted ${toRemove} entries due to memory pressure`,
+      );
     }
     if (this.cache.has(key)) {
       this.cache.delete(key);

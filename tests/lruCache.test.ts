@@ -28,7 +28,7 @@ describe('LRUCache', () => {
     );
   });
 
-  it('clears cache under memory pressure', () => {
+  it('evicts entries under memory pressure', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const cache = new LRUCache<string, number>(2);
     cache.set('a', 1);
@@ -37,7 +37,12 @@ describe('LRUCache', () => {
     const mem = (globalThis.performance as any).memory;
     mem.usedJSHeapSize = mem.jsHeapSizeLimit * MEMORY_PRESSURE_THRESHOLD + 1;
     cache.set('c', 3);
-    expect(cache.size).toBe(1);
+    expect(warn).toHaveBeenCalledWith(
+      'LRU cache evicted 1 entries due to memory pressure',
+    );
+    expect(cache.size).toBe(2);
+    expect(cache.has('a')).toBe(false);
+    expect(cache.has('b')).toBe(true);
     expect(cache.has('c')).toBe(true);
     warn.mockRestore();
   });

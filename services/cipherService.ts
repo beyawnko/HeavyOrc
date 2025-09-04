@@ -243,7 +243,9 @@ export const storeRunRecords = async (
   if (!SESSION_ID_PATTERN.test(sessionId)) {
     console.warn('Invalid sessionId format');
     logMemory('cipher.store.invalidSession', { sessionId });
-    throw new Error('Invalid sessionId format - expected UUID v4 format');
+    throw new Error(
+      'Invalid sessionId format - expected UUID v4 like 123e4567-e89b-12d3-a456-426614174000',
+    );
   }
   if (!(await consumeToken(sessionId))) {
     console.warn('Rate limit exceeded for memory storage');
