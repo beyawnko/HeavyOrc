@@ -18,6 +18,9 @@ export const ERROR_CODES = {
   OPENAI_API_KEY_MISSING: 'ERR_OPENAI_KEY_MISSING',
   OPENROUTER_API_KEY_MISSING: 'ERR_OPENROUTER_KEY_MISSING',
   INVALID_SESSION_ID: 'ERR_INVALID_SESSION',
+  RATE_LIMIT_EXCEEDED: 'ERR_RATE_LIMIT',
+  NETWORK_ERROR: 'ERR_NETWORK',
+  SERVER_ERROR: 'ERR_SERVER',
 } as const;
 
 export const ERRORS = {
@@ -28,6 +31,12 @@ export const ERRORS = {
   [ERROR_CODES.OPENROUTER_API_KEY_MISSING]:
     'Please set your OpenRouter API key in the settings to use OpenRouter models.',
   [ERROR_CODES.INVALID_SESSION_ID]: 'Invalid session identifier format',
+  [ERROR_CODES.RATE_LIMIT_EXCEEDED]:
+    'Rate limit exceeded. Please try again later.',
+  [ERROR_CODES.NETWORK_ERROR]:
+    'Network error occurred. Please check your connection.',
+  [ERROR_CODES.SERVER_ERROR]:
+    'Server error occurred. Please try again later.',
 } as const;
 
 export const SESSION_ID_STORAGE_KEY = 'cipher:sessionId';

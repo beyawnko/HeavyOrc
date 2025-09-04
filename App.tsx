@@ -426,10 +426,7 @@ const App: React.FC = () => {
         setAgents([]);
         setArbiterSwitchWarning(null);
 
-        if (!queryHistory.includes(userPrompt)) {
-            setQueryHistory(prev => [userPrompt, ...prev].slice(0, MAX_HISTORY_LENGTH));
-        }
-
+        let runSucceeded = false;
         try {
             setIsLoading(true);
 
@@ -529,6 +526,7 @@ const App: React.FC = () => {
                 setFinalAnswer(fullText);
             }
 
+            runSucceeded = true;
         } catch (e) {
             if ((e as Error)?.name === 'AbortError') {
                 currentRunDataRef.current = undefined;
@@ -547,6 +545,9 @@ const App: React.FC = () => {
             setIsLoading(false);
             setIsArbiterRunning(false);
             isRunCompletedRef.current = true;
+        }
+        if (runSucceeded && !queryHistory.includes(userPrompt)) {
+            setQueryHistory(prev => [userPrompt, ...prev].slice(0, MAX_HISTORY_LENGTH));
         }
     }, [prompt, images, isLoading, agentConfigs, arbiterModel, openAIArbiterVerbosity, openAIArbiterEffort, geminiArbiterEffort, openAIAgentCount, openAIApiKey, openRouterAgentCount, openRouterApiKey, queryHistory, selectedRunId]);
     

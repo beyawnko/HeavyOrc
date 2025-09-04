@@ -80,7 +80,7 @@ describe('cipherService', () => {
       'Invalid session identifier format',
     );
     expect(log).toHaveBeenCalledWith('cipher.store.invalidSession', {
-      sessionId: '1710d3a6e83be9a7bedaac4926807bcd',
+      sessionId: '1710d3a6e83be9a7bedaac4926807bcd1fe75cd9668c9249bf9822e0819518de',
     });
     log.mockRestore();
   });
@@ -95,7 +95,7 @@ describe('cipherService', () => {
     const res = await fetchRelevantMemories('q', 'invalid<script>');
     expect(res).toEqual([]);
     expect(log).toHaveBeenCalledWith('cipher.fetch.invalidSession', {
-      sessionId: '1710d3a6e83be9a7bedaac4926807bcd',
+      sessionId: '1710d3a6e83be9a7bedaac4926807bcd1fe75cd9668c9249bf9822e0819518de',
     });
     log.mockRestore();
   });

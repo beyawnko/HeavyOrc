@@ -49,6 +49,34 @@ describe('sessionCache', () => {
     expect(ctx[ctx.length - 1].content).toBe(`m${SESSION_CACHE_MAX_ENTRIES + 4}`);
   });
 
+  it('debounces cache clearing', () => {
+    vi.useFakeTimers();
+    __clearSessionCache(true);
+    const originalPerf = globalThis.performance;
+    const perf = { memory: { usedJSHeapSize: 91, jsHeapSizeLimit: 100 } } as any;
+    Object.defineProperty(globalThis, 'performance', { value: perf, configurable: true });
+    appendSessionContext('s', {
+      role: 'user',
+      content: 'm',
+      timestamp: Date.now(),
+    });
+    vi.advanceTimersByTime(1000);
+    __clearSessionCache();
+    appendSessionContext('s', {
+      role: 'user',
+      content: 'm2',
+      timestamp: Date.now(),
+    });
+    __clearSessionCache();
+    const ctx = loadSessionContext('s');
+    expect(ctx).toHaveLength(1);
+    vi.useRealTimers();
+    Object.defineProperty(globalThis, 'performance', {
+      value: originalPerf,
+      configurable: true,
+    });
+  });
+
   it('evicts messages past TTL', () => {
     const sessionId = 'ttl';
     appendSessionContext(sessionId, {

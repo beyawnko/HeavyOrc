@@ -55,7 +55,7 @@ export class LRUCache<K, V> {
   }
 
   private async checkMemoryPressure(): Promise<void> {
-    if (this.isCheckingMemory) return;
+    if (this.isCheckingMemory || typeof performance === 'undefined') return;
     this.isCheckingMemory = true;
     try {
       const perf = performance as Performance & { memory?: PerformanceMemory };
