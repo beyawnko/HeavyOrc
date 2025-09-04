@@ -16,6 +16,7 @@ import { logMemory } from '@/lib/memoryLogger';
 import { escapeHtml } from '@/lib/utils';
 import { SessionImportError } from '@/lib/errors';
 import { LRUCache } from '@/lib/lruCache';
+import { equal } from '@stablelib/constant-time';
 
 export type CachedMessage = {
   role: 'user' | 'assistant';
@@ -33,6 +34,7 @@ let ephemeralSessionId: string | null = null;
 let sessionIdPromise: Promise<string> | null = null;
 const lastSummaryTime = new Map<string, number>();
 const importTimestamps: number[] = [];
+const encoder = new TextEncoder();
 
 function integrityHash(input: string): string {
   let hash = 0;
@@ -96,7 +98,6 @@ function pruneSession(sessionId: string): void {
 }
 
 async function signSessionId(id: string): Promise<string> {
-  const encoder = new TextEncoder();
   const keyData = encoder.encode(SESSION_ID_SECRET);
   const key = await crypto.subtle.importKey(
     'raw',
@@ -116,12 +117,10 @@ function isValidSessionId(id: string): boolean {
 }
 
 function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return result === 0;
+  const aBytes = encoder.encode(a);
+  const bBytes = encoder.encode(b);
+  if (aBytes.length !== bBytes.length) return false;
+  return equal(aBytes, bBytes);
 }
 
 async function storeSessionId(id: string): Promise<boolean> {

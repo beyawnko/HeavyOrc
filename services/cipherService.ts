@@ -9,6 +9,7 @@ import {
 import { MinHeap } from '@/lib/minHeap';
 import { logMemory } from '@/lib/memoryLogger';
 import { SESSION_ID_PATTERN, ERRORS } from '@/constants';
+import { equal } from '@stablelib/constant-time';
 
 /**
  * Immutable memory record stored in the cache.
@@ -79,8 +80,10 @@ const circuitBreaker = {
   backoffFactor: 1,
 };
 
+const encoder = new TextEncoder();
+
 async function hashSessionId(id: string): Promise<string> {
-  const data = new TextEncoder().encode(id);
+  const data = encoder.encode(id);
   const digest = await crypto.subtle.digest('SHA-256', data);
   return Array.from(new Uint8Array(digest))
     .map(b => b.toString(16).padStart(2, '0'))
@@ -88,13 +91,11 @@ async function hashSessionId(id: string): Promise<string> {
     .slice(0, 32);
 }
 
-function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return result === 0;
+function timingSafeEqual(a: string, b: string): boolean {
+  const aBytes = encoder.encode(a);
+  const bBytes = encoder.encode(b);
+  if (aBytes.length !== bBytes.length) return false;
+  return equal(aBytes, bBytes);
 }
 
 function recordFailure() {
@@ -259,7 +260,7 @@ export const storeRunRecords = async (
 ): Promise<void> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return;
   const match = SESSION_ID_PATTERN.exec(sessionId);
-  if (!match || !constantTimeEqual(match[0], sessionId)) {
+  if (!match || !timingSafeEqual(match[0], sessionId)) {
     const sanitizedId = await hashSessionId(sessionId);
     console.warn('Invalid sessionId format');
     logMemory('cipher.store.invalidSession', { sessionId: sanitizedId });
@@ -331,7 +332,7 @@ export const fetchRelevantMemories = async (
 ): Promise<ImmutableMemoryEntry[]> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return [];
   const match = SESSION_ID_PATTERN.exec(sessionId);
-  if (!match || !constantTimeEqual(match[0], sessionId)) {
+  if (!match || !timingSafeEqual(match[0], sessionId)) {
     const sanitizedId = await hashSessionId(sessionId);
     console.warn('Invalid sessionId format');
     logMemory('cipher.fetch.invalidSession', { sessionId: sanitizedId });
