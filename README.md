@@ -122,7 +122,7 @@ When using function calling with a reasoning model, pass back the reasoning item
 
 ## Prerequisites
 
-- Node.js 18 or later
+- Node.js 20 or later
 - npm for dependency management
 
 ## Development
