@@ -5,21 +5,21 @@
 HeavyOrc is a web application that demonstrates a Mixture-of-Experts orchestration pattern for large language models. It dispatches prompts to multiple "expert" agents across different providers and synthesizes their drafts into a final answer in real time.
 
 For a detailed, AI-oriented overview of the architecture and tooling, see the [SPECS.md](./SPECS.md) technical specification.
-
 ## Table of Contents
 
 - [Documentation](#documentation)
 - [Features](#features)
-- [Providers & API keys](#providers--api-keys)
-- [Persistent memory (Cipher)](#persistent-memory-cipher)
-- [ESM imports](#esm-imports)
-- [Reasoning models and context management](#reasoning-models-and-context-management)
+- [Providers & API Keys](#providers--api-keys)
+- [Persistent Memory (Cipher)](#persistent-memory-cipher)
+- [ESM Imports](#esm-imports)
+- [Reasoning Models and Context Management](#reasoning-models-and-context-management)
 - [Prerequisites](#prerequisites)
 - [Development](#development)
 - [Testing](#testing)
-- [GitHub Pages deployment](#github-pages-deployment)
-- [DeepConf overview](#deepconf-overview)
+- [GitHub Pages Deployment](#github-pages-deployment)
+- [DeepConf Overview](#deepconf-overview)
 - [Contributing](#contributing)
+- [License](#license)
 - [License](#license)
 
 ## Documentation
