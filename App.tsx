@@ -30,6 +30,8 @@ import {
     OPENAI_AGENT_MODEL,
     OPENROUTER_GPT_4O,
     OPENROUTER_CLAUDE_3_HAIKU,
+    ERRORS,
+    ERROR_CODES,
 } from '@/constants';
 
 // MoE utilities
@@ -268,6 +270,17 @@ const App: React.FC = () => {
     }, []);
     useKeydown('Escape', closeMobileHistory, isMobileHistoryOpen);
 
+    const updateQueryHistory = useCallback(
+        (query: string, succeeded: boolean) => {
+            if (succeeded && !queryHistory.includes(query)) {
+                setQueryHistory(prev =>
+                    [query, ...prev].slice(0, MAX_HISTORY_LENGTH),
+                );
+            }
+        },
+        [queryHistory],
+    );
+
     const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
     const agentEnsembleRef = useRef<AgentEnsembleHandles>(null);
     const [collapsedMap, setCollapsedMap] = useState<Record<string, boolean>>({});
@@ -397,21 +410,22 @@ const App: React.FC = () => {
             prompt.trim() || (images.length > 0 ? `Analyze these ${images.length} image(s) and provide a detailed description.` : "");
         userPromptRef.current = userPrompt;
 
-        if (!userPrompt || isLoading || agentConfigs.length === 0) return;
-
-        if (userPrompt && !queryHistory.includes(userPrompt)) {
-            setQueryHistory(prev => [userPrompt, ...prev].slice(0, MAX_HISTORY_LENGTH));
-        }
+        if (isLoading || agentConfigs.length === 0) return;
 
         if (openAIAgentCount > 0 && !openAIApiKey) {
-            setError("Please set your OpenAI API key in the settings to use OpenAI models.");
+            setError(ERRORS[ERROR_CODES.OPENAI_API_KEY_MISSING.code]);
             setIsSettingsViewOpen(true);
             return;
         }
 
         if (openRouterAgentCount > 0 && !openRouterApiKey) {
-            setError("Please set your OpenRouter API key in the settings to use OpenRouter models.");
+            setError(ERRORS[ERROR_CODES.OPENROUTER_API_KEY_MISSING.code]);
             setIsSettingsViewOpen(true);
+            return;
+        }
+
+        if (!userPrompt.trim()) {
+            setError(ERRORS[ERROR_CODES.EMPTY_PROMPT.code]);
             return;
         }
 
@@ -423,6 +437,7 @@ const App: React.FC = () => {
         setAgents([]);
         setArbiterSwitchWarning(null);
 
+        let runSucceeded = false;
         try {
             setIsLoading(true);
 
@@ -522,6 +537,7 @@ const App: React.FC = () => {
                 setFinalAnswer(fullText);
             }
 
+            runSucceeded = true;
         } catch (e) {
             if ((e as Error)?.name === 'AbortError') {
                 currentRunDataRef.current = undefined;
@@ -541,7 +557,8 @@ const App: React.FC = () => {
             setIsArbiterRunning(false);
             isRunCompletedRef.current = true;
         }
-    }, [prompt, images, isLoading, agentConfigs, arbiterModel, openAIArbiterVerbosity, openAIArbiterEffort, geminiArbiterEffort, openAIAgentCount, openAIApiKey, openRouterAgentCount, openRouterApiKey, queryHistory, selectedRunId]);
+        updateQueryHistory(userPrompt, runSucceeded);
+    }, [prompt, images, isLoading, agentConfigs, arbiterModel, openAIArbiterVerbosity, openAIArbiterEffort, geminiArbiterEffort, openAIAgentCount, openAIApiKey, openRouterAgentCount, openRouterApiKey, selectedRunId, updateQueryHistory]);
     
     const handleReset = useCallback(() => {
         orchestratorAbortRef.current?.();

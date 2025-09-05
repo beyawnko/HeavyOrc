@@ -5,7 +5,7 @@ import { appendSessionContext, __clearSessionCache } from '@/lib/sessionCache';
 
 describe('buildContextualPrompt', () => {
   beforeEach(() => {
-    __clearSessionCache();
+    __clearSessionCache(true);
   });
   afterEach(() => {
     vi.restoreAllMocks();
