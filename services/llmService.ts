@@ -5,18 +5,73 @@ import OpenAI from "openai";
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-export const fetchWithRetry = async (
+export const fetchWithTimeout = async (
     input: RequestInfo,
     init: RequestInit,
-    retries = 3,
+    timeoutMs = 5000,
+    retries = 0,
     baseDelayMs = 500,
 ): Promise<Response> => {
     if (retries < 0) {
         throw new Error("retries must be non-negative");
     }
     for (let attempt = 0; attempt <= retries; attempt++) {
+        const controller = new AbortController();
+        const timeout = timeoutMs * (attempt + 1);
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+        const { signal } = init;
+        let abortListener: (() => void) | undefined;
+        if (signal) {
+            if (signal.aborted) {
+                controller.abort((signal as any).reason);
+            } else {
+                abortListener = () => controller.abort((signal as any).reason);
+                signal.addEventListener('abort', abortListener, { once: true });
+            }
+        }
+
         try {
-            const response = await fetch(input, init);
+            const response = await fetch(input, { ...init, signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (abortListener) {
+                signal!.removeEventListener('abort', abortListener);
+            }
+            return response;
+        } catch (error) {
+            clearTimeout(timeoutId);
+            if (abortListener) {
+                signal!.removeEventListener('abort', abortListener);
+            }
+            if ((error as { name?: string }).name === 'AbortError') {
+                if (signal?.aborted) {
+                    throw error;
+                }
+                if (attempt === retries) {
+                    throw new DOMException(`Request timeout after ${timeout}ms`, 'TimeoutError');
+                }
+            } else if (attempt === retries) {
+                throw error;
+            }
+        }
+        await sleep(baseDelayMs * Math.pow(2, attempt));
+    }
+    throw new Error("fetchWithTimeout exhausted all retries without success.");
+};
+
+export const fetchWithRetry = async (
+    input: RequestInfo,
+    init: RequestInit,
+    retries = 3,
+    baseDelayMs = 500,
+    timeoutMs = 5000,
+): Promise<Response> => {
+    if (retries < 0) {
+        throw new Error("retries must be non-negative");
+    }
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const response = await fetchWithTimeout(input, init, timeoutMs * (attempt + 1));
             const isServerError = response.status >= 500 && response.status < 600;
             if (!isServerError) {
                 return response;
@@ -36,8 +91,8 @@ export const fetchWithRetry = async (
                 throw new Error(`${serviceName} service is temporarily unavailable. Please try again later.`);
             }
         } catch (error) {
-            if ((error as { name?: string }).name === 'AbortError') {
-                throw error; // don't retry aborted requests
+            if ((error as { name?: string }).name === 'AbortError' && init.signal?.aborted) {
+                throw error; // don't retry caller-aborted requests
             }
             if (attempt === retries) {
                 throw error;

@@ -9,24 +9,30 @@
     "prebuild": "node scripts/install-missing-deps.mjs && node scripts/sync-doc-assets.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "cipher": "cipher --mode api"
   },
   "dependencies": {
+    "@byterover/cipher": "^0.3.0",
     "@dqbd/tiktoken": "^1.0.22",
     "@google/genai": "^1.15.0",
+    "escape-html": "^1.0.3",
     "focus-trap-react": "^11.0.4",
     "framer-motion": "^11.3.12",
+    "ipaddr.js": "^1.9.1",
     "jszip": "^3.10.1",
     "openai": "^4.52.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-virtuoso": "^4.14.0",
     "wasm-feature-detect": "^1.8.0",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "@stablelib/constant-time": "^2.0.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "@types/escape-html": "^1.0.2",
     "@vitejs/plugin-react": "^4.2.0",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.38",

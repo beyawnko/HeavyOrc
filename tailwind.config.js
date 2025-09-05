@@ -2,8 +2,9 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
-    "./index.html",
-    "./**/*.{js,ts,jsx,tsx}",
+    './index.html',
+    './*.{ts,tsx}',
+    './{components,services,lib,moe}/**/*.{js,ts,jsx,tsx}',
   ],
   safelist: [
     // Layout & Display
@@ -26,10 +27,10 @@ export default {
 
     // Backgrounds
     { pattern: /bg-(white|gray-50|gray-100|neutral-50)/ },
-    { pattern: /hover:bg-(gray|neutral)-100/ },
+    { pattern: /bg-(gray|neutral)-100/, variants: ['hover'] },
 
     // Dark mode
-    { pattern: /dark:(bg-neutral-900|text-neutral-100)/ },
+    { pattern: /(bg-neutral-900|text-neutral-100)/, variants: ['dark'] },
   ],
   theme: {
     extend: {

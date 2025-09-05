@@ -30,6 +30,8 @@ import {
     OPENAI_AGENT_MODEL,
     OPENROUTER_GPT_4O,
     OPENROUTER_CLAUDE_3_HAIKU,
+    ERRORS,
+    ERROR_CODES,
 } from '@/constants';
 
 // MoE utilities
@@ -55,10 +57,15 @@ import {
     setGeminiApiKey as storeGeminiApiKey,
     setOpenRouterApiKey as storeOpenRouterApiKey,
 } from '@/services/llmService';
+import { storeRunRecord } from '@/services/cipherService';
+import { buildContextualPrompt } from '@/lib/contextBuilder';
+import { useSessionContext } from '@/lib/useSessionContext';
+import { getSessionId } from '@/lib/sessionCache';
 
 // Hooks
 import useViewportHeight from '@/lib/useViewportHeight';
 import useKeydown from '@/lib/useKeydown';
+import { formatErrorMessage } from '@/lib/errors';
 
 // Session migration
 import { migrateAgentConfig } from '@/lib/sessionMigration';
@@ -263,6 +270,17 @@ const App: React.FC = () => {
     }, []);
     useKeydown('Escape', closeMobileHistory, isMobileHistoryOpen);
 
+    const updateQueryHistory = useCallback(
+        (query: string, succeeded: boolean) => {
+            if (succeeded && !queryHistory.includes(query)) {
+                setQueryHistory(prev =>
+                    [query, ...prev].slice(0, MAX_HISTORY_LENGTH),
+                );
+            }
+        },
+        [queryHistory],
+    );
+
     const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
     const agentEnsembleRef = useRef<AgentEnsembleHandles>(null);
     const [collapsedMap, setCollapsedMap] = useState<Record<string, boolean>>({});
@@ -276,6 +294,16 @@ const App: React.FC = () => {
     const isRunCompletedRef = useRef(false);
     const orchestratorAbortRef = useRef<(() => void) | null>(null);
     const currentRunDataRef = useRef<Pick<RunRecord, 'prompt' | 'images' | 'agentConfigs' | 'arbiterModel' | 'openAIArbiterVerbosity' | 'openAIArbiterEffort' | 'geminiArbiterEffort'> | undefined>(undefined);
+    const { sessionId, append } = useSessionContext();
+    const appendSession = useCallback(append, [append]);
+    const sessionIdRef = useRef<string>('');
+    const userPromptRef = useRef<string>('');
+
+    useEffect(() => {
+        if (sessionId) {
+            sessionIdRef.current = sessionId;
+        }
+    }, [sessionId]);
 
 
     useEffect(() => { finalAnswerRef.current = finalAnswer; }, [finalAnswer]);
@@ -288,7 +316,7 @@ const App: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        if (!isLoading && isRunCompletedRef.current) {
+        if (!isLoading && isRunCompletedRef.current && sessionIdRef.current) {
             isRunCompletedRef.current = false; // Reset for next run
 
             const finalStatus: RunStatus = errorRef.current ? 'FAILED' : 'COMPLETED';
@@ -297,17 +325,35 @@ const App: React.FC = () => {
                 const newRun: RunRecord = {
                     id: `${Date.now()}`,
                     timestamp: Date.now(),
-                    ...currentRunDataRef.current,
                     finalAnswer: finalAnswerRef.current,
                     agents: agentsRef.current,
                     status: finalStatus,
                     arbiterSwitchWarning: arbiterSwitchWarningRef.current,
+                    ...currentRunDataRef.current,
                 };
                 setHistory(prev => [newRun, ...prev]);
+                storeRunRecord(newRun, sessionIdRef.current).catch(err =>
+                    setToast({
+                        message: `Failed to store run record: ${formatErrorMessage(err)}`,
+                        type: 'error',
+                    })
+                );
+                appendSession({
+                    role: 'user',
+                    content: userPromptRef.current,
+                    timestamp: Date.now(),
+                });
+                if (finalAnswerRef.current) {
+                    appendSession({
+                        role: 'assistant',
+                        content: finalAnswerRef.current,
+                        timestamp: Date.now(),
+                    });
+                }
                 currentRunDataRef.current = undefined; // Clear after use
             }
         }
-    }, [isLoading]);
+    }, [isLoading, sessionId, appendSession]);
 
 
     useEffect(() => {
@@ -355,47 +401,65 @@ const App: React.FC = () => {
             setSelectedRunId(null);
         }
 
-        const finalPrompt = prompt.trim() || (images.length > 0 ? `Analyze these ${images.length} image(s) and provide a detailed description.` : "");
-
-        if (!finalPrompt || isLoading || agentConfigs.length === 0) return;
-
-        if (finalPrompt && !queryHistory.includes(finalPrompt)) {
-            setQueryHistory(prev => [finalPrompt, ...prev].slice(0, MAX_HISTORY_LENGTH));
+        let sessionId = sessionIdRef.current;
+        if (!sessionId) {
+            sessionId = await getSessionId();
+            sessionIdRef.current = sessionId;
         }
+        const userPrompt =
+            prompt.trim() || (images.length > 0 ? `Analyze these ${images.length} image(s) and provide a detailed description.` : "");
+        userPromptRef.current = userPrompt;
+
+        if (isLoading || agentConfigs.length === 0) return;
 
         if (openAIAgentCount > 0 && !openAIApiKey) {
-            setError("Please set your OpenAI API key in the settings to use OpenAI models.");
+            setError(ERRORS[ERROR_CODES.OPENAI_API_KEY_MISSING.code]);
             setIsSettingsViewOpen(true);
             return;
         }
 
         if (openRouterAgentCount > 0 && !openRouterApiKey) {
-            setError("Please set your OpenRouter API key in the settings to use OpenRouter models.");
+            setError(ERRORS[ERROR_CODES.OPENROUTER_API_KEY_MISSING.code]);
             setIsSettingsViewOpen(true);
+            return;
+        }
+
+        if (!userPrompt.trim()) {
+            setError(ERRORS[ERROR_CODES.EMPTY_PROMPT.code]);
             return;
         }
 
         orchestratorAbortRef.current?.();
         orchestratorAbortRef.current = null;
-        setIsLoading(true);
         setError(null);
         setFinalAnswer('');
         setIsArbiterRunning(false);
         setAgents([]);
         setArbiterSwitchWarning(null);
-        
-        isRunCompletedRef.current = false;
-        currentRunDataRef.current = {
-            prompt: finalPrompt,
-            images,
-            agentConfigs,
-            arbiterModel,
-            openAIArbiterVerbosity,
-            openAIArbiterEffort,
-            geminiArbiterEffort
-        };
-        
+
+        let runSucceeded = false;
         try {
+            setIsLoading(true);
+
+            const {
+                prompt: finalPrompt,
+                memories,
+            } = await buildContextualPrompt(userPrompt, sessionId);
+            if (memories.length > 0) {
+                setToast({ message: `Including ${memories.length} relevant memories from history...`, type: 'success' });
+            }
+
+            isRunCompletedRef.current = false;
+            currentRunDataRef.current = {
+                // Store original user prompt for better traceability and debugging
+                prompt: userPrompt,
+                images,
+                agentConfigs,
+                arbiterModel,
+                openAIArbiterVerbosity,
+                openAIArbiterEffort,
+                geminiArbiterEffort,
+            };
             const onInitialAgents = (dispatchedExperts: ExpertDispatch[]) => {
                 const initialAgents = dispatchedExperts.map((expert): AgentState => ({
                     id: expert.agentId,
@@ -473,6 +537,7 @@ const App: React.FC = () => {
                 setFinalAnswer(fullText);
             }
 
+            runSucceeded = true;
         } catch (e) {
             if ((e as Error)?.name === 'AbortError') {
                 currentRunDataRef.current = undefined;
@@ -492,7 +557,8 @@ const App: React.FC = () => {
             setIsArbiterRunning(false);
             isRunCompletedRef.current = true;
         }
-    }, [prompt, images, isLoading, agentConfigs, arbiterModel, openAIArbiterVerbosity, openAIArbiterEffort, geminiArbiterEffort, openAIAgentCount, openAIApiKey, openRouterAgentCount, openRouterApiKey, queryHistory, selectedRunId]);
+        updateQueryHistory(userPrompt, runSucceeded);
+    }, [prompt, images, isLoading, agentConfigs, arbiterModel, openAIArbiterVerbosity, openAIArbiterEffort, geminiArbiterEffort, openAIAgentCount, openAIApiKey, openRouterAgentCount, openRouterApiKey, selectedRunId, updateQueryHistory]);
     
     const handleReset = useCallback(() => {
         orchestratorAbortRef.current?.();

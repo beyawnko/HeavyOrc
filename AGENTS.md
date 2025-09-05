@@ -49,6 +49,24 @@
 - Rate limit upstream API calls and user requests. Document provider-specific limits (e.g., Gemini ~60 RPM, OpenAI plan-specific RPM) and use concurrency guards to prevent overload.
 - Rotate keys regularly.
 
+### Memory Layer Security
+- Cap sanitized error responses at 32KB to prevent memory exhaustion.
+- Implement timeouts and retry/backoff for memory operations.
+- Add response size limits (~400KB) for memory fetches.
+- Use entropy-based detection for sensitive data in base64 strings.
+
+### URL and Network Safety
+- Validate URLs with strict hostname and protocol checks.
+- Normalize URLs using NFKC to handle IDN homograph attacks.
+- Block private network and localhost access in production.
+- Implement rate limiting for memory operations (30 req/min).
+
+### Cache Management
+- Set explicit TTLs for cached responses (5 min).
+- Implement size-based cache eviction (max 1000 entries).
+- Add integrity hashes for remote ESM imports.
+- Pin exact versions of CDN-hosted dependencies.
+
 ## Known Friction Points
 - Past issues center on Gemini timeouts, streaming, and error typing. Mitigation tips:
   - Respect `MIN_GEMINI_TIMEOUT_MS` and `MAX_GEMINI_TIMEOUT_MS` bounds.

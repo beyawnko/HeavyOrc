@@ -1,3 +1,5 @@
+import escapeHtmlImpl from 'escape-html';
+
 export const getAppUrl = (): string =>
   typeof window !== 'undefined' && window.location
     ? window.location.origin
@@ -13,6 +15,8 @@ export const getGeminiResponseText = (response: unknown): string => {
     ? textProp.call(response) ?? ''
     : (textProp as string | undefined) ?? '';
 };
+
+export const escapeHtml = (str: string): string => escapeHtmlImpl(str);
 
 export const combineAbortSignals = (
   ...signals: (AbortSignal | undefined)[]
