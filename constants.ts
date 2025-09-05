@@ -152,7 +152,8 @@ const envNumber = (key: string, viteKey: string, fallback: number): number => {
   const v =
     (typeof process !== 'undefined' && process.env[key]) ||
     (typeof import.meta !== 'undefined' && (import.meta as any).env?.[viteKey]);
-  return v ? Number(v) : fallback;
+  const num = Number(v);
+  return v == null || v === '' || isNaN(num) ? fallback : num;
 };
 
 export const MEMORY_PRESSURE_THRESHOLD = envNumber(
