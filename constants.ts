@@ -138,6 +138,11 @@ export const SESSION_ID_SECRET =
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SESSION_ID_SECRET) ||
   'dev-session-secret';
 
+export const SESSION_ID_KEY_SALT =
+  (typeof process !== 'undefined' && process.env.SESSION_ID_KEY_SALT) ||
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SESSION_ID_KEY_SALT) ||
+  'cipher-session-salt';
+
 export const SESSION_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

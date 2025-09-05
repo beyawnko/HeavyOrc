@@ -164,6 +164,7 @@ export function validateUrl(
   if (!url || url.length > 2048) return undefined;
   try {
     const parsed = new URL(url.normalize('NFKC'));
+    if (parsed.username || parsed.password) return undefined;
     let hostname = parsed.hostname;
     if (!ipaddr.isValid(hostname)) {
       try {
@@ -263,6 +264,8 @@ export function validateCsp(response: Response): void {
   const baseUri = directives.find(d => d.name === 'base-uri');
   const scriptSrc = directives.find(d => d.name === 'script-src');
   const styleSrc = directives.find(d => d.name === 'style-src');
+  const frameAncestors = directives.find(d => d.name === 'frame-ancestors');
+  const formAction = directives.find(d => d.name === 'form-action');
 
   const hasUnsafeSource = directives.some(d =>
     d.sources.some(
@@ -270,8 +273,12 @@ export function validateCsp(response: Response): void {
         s === "'unsafe-inline'" ||
         s === "'unsafe-eval'" ||
         s === "'unsafe-hashes'" ||
-        s === '*'
-    )
+        s === "'unsafe-dynamic'" ||
+        s === '*' ||
+        s.startsWith('data:') ||
+        s.startsWith('blob:') ||
+        s.startsWith('filesystem:')
+    ),
   );
   const isDefaultSrcStrict =
     !!defaultSrc &&
@@ -290,6 +297,12 @@ export function validateCsp(response: Response): void {
     !!scriptSrc && scriptSrc.sources.length === 1 && scriptSrc.sources[0] === "'none'";
   const isStyleSrcSafe =
     !!styleSrc && styleSrc.sources.length === 1 && styleSrc.sources[0] === "'none'";
+  const isFrameAncestorsSafe =
+    !frameAncestors ||
+    (frameAncestors.sources.length === 1 && frameAncestors.sources[0] === "'none'");
+  const isFormActionSafe =
+    !formAction ||
+    (formAction.sources.length === 1 && formAction.sources[0] === "'none'");
 
   if (
     !isDefaultSrcStrict ||
@@ -298,7 +311,9 @@ export function validateCsp(response: Response): void {
     !isObjectSrcSafe ||
     !isBaseUriSafe ||
     !isScriptSrcSafe ||
-    !isStyleSrcSafe
+    !isStyleSrcSafe ||
+    !isFrameAncestorsSafe ||
+    !isFormActionSafe
   ) {
     console.error('Invalid or insufficient CSP headers from memory server');
     throw new Error('Invalid CSP headers');

@@ -55,11 +55,11 @@ const expiryHeap = new MinHeap<[string, number]>((a, b) => a[1] - b[1]);
 const inFlightFetches = new Map<string, Promise<ImmutableMemoryEntry[]>>();
 
 class Mutex {
-  private mutex = Promise.resolve();
+  private mutex: Promise<void> = Promise.resolve();
   runExclusive<T>(fn: () => Promise<T> | T): Promise<T> {
-    const result = this.mutex.then(() => fn());
-    this.mutex = result.catch(() => {});
-    return result;
+    const run = this.mutex.then(() => fn());
+    this.mutex = run.then(() => undefined, () => undefined);
+    return run;
   }
 }
 const rateLimitMutex = new Mutex();
@@ -126,11 +126,21 @@ function deepFreeze<T extends object>(
   if (depth > maxDepth) throw new MaxDepthExceededError(maxDepth);
   if (!obj || Object.isFrozen(obj) || visited.has(obj)) return obj;
   visited.add(obj);
-  if (Object.hasOwn(obj, '__proto__')) {
+  if (Object.prototype.hasOwnProperty.call(obj, '__proto__')) {
     throw new UnsafePropertyError('__proto__');
   }
-  if (Object.hasOwn(obj, 'constructor')) {
+  if (Object.prototype.hasOwnProperty.call(obj, 'constructor')) {
     throw new UnsafePropertyError('constructor');
+  }
+  if (Object.prototype.hasOwnProperty.call(obj, 'prototype')) {
+    throw new UnsafePropertyError('prototype');
+  }
+  const proto = Object.getPrototypeOf(obj);
+  if (proto && proto !== Object.prototype && proto !== Array.prototype) {
+    throw new UnsafePropertyError('prototype');
+  }
+  if (proto === Object.prototype) {
+    Object.setPrototypeOf(obj, null);
   }
   Object.freeze(obj);
   for (const value of Object.values(obj)) {
@@ -195,13 +205,10 @@ function consumeFromBucket(
     );
     bucket.lastRefill = now;
   }
-  if (bucket.tokens < 1) {
-    buckets.set(key, bucket);
-    return false;
-  }
-  bucket.tokens -= 1;
+  const allow = bucket.tokens >= 1;
+  bucket.tokens = allow ? bucket.tokens - 1 : bucket.tokens;
   buckets.set(key, bucket);
-  return true;
+  return allow;
 }
 
 async function getClientIp(): Promise<string | null> {
@@ -211,8 +218,10 @@ async function getClientIp(): Promise<string | null> {
     if (typeof fetch === 'undefined' || !baseUrl) return null;
     try {
       const res = await fetch(`${baseUrl}/api/client-info`);
-      const data = await res.json();
-      return data.clientIp as string;
+      const text = await readLimitedText(res, 1024);
+      if (!text) return null;
+      const data = JSON.parse(text) as { clientIp?: string };
+      return typeof data.clientIp === 'string' ? data.clientIp : null;
     } catch {
       return null;
     }
@@ -224,14 +233,18 @@ async function getClientIp(): Promise<string | null> {
 
 async function consumeToken(sessionId: string): Promise<boolean> {
   // TODO: replace with a distributed rate limiter (e.g., Redis) for multi-instance deployments
-  const ip = await getClientIp();
+  const [ip, sessionKey] = await Promise.all([
+    getClientIp(),
+    hashSessionId(sessionId),
+  ]);
   const exec = () => {
-    const okSession = consumeFromBucket(sessionBuckets, sessionId);
+    const okSession = consumeFromBucket(sessionBuckets, sessionKey);
     const okIp = ip ? consumeFromBucket(ipBuckets, ip) : true;
     return okSession && okIp;
   };
+  const lockId = `cipher-rate:${sessionKey}`;
   if (typeof navigator !== 'undefined' && 'locks' in navigator && navigator.locks) {
-    return navigator.locks.request(`cipher-rate:${sessionId}`, exec);
+    return navigator.locks.request(lockId, exec);
   }
   return rateLimitMutex.runExclusive(() => Promise.resolve(exec()));
 }
@@ -275,7 +288,8 @@ export const storeRunRecords = async (
     );
     if (enforceCsp) validateCsp(response);
     if (!response.ok) {
-      const errorData = await response.text().catch(() => 'Unable to read error response');
+      const errorData =
+        (await readLimitedText(response, 32_768)) ?? 'Unable to read error response';
       console.error('Failed to store run records', {
         url: `${baseUrl}/memories/batch`,
         status: response.status,
@@ -371,9 +385,9 @@ export const fetchRelevantMemories = async (
 
       if (enforceCsp) validateCsp(response);
       if (!response.ok) {
-        const errorData = await response
-          .text()
-          .catch(() => 'Unable to read error response');
+        const errorData =
+          (await readLimitedText(response, 32_768)) ??
+          'Unable to read error response';
         console.error('Failed to fetch memories', {
           url: `${baseUrl}/memories/search`,
           status: response.status,

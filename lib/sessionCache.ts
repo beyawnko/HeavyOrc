@@ -3,6 +3,7 @@ import {
   SESSION_ID_STORAGE_KEY,
   SESSION_SUMMARY_CHAR_THRESHOLD,
   SESSION_ID_SECRET,
+  SESSION_ID_KEY_SALT,
   SESSION_MESSAGE_MAX_CHARS,
   SESSION_SUMMARY_KEEP_RATIO,
   SESSION_SUMMARY_DEBOUNCE_MS,
@@ -34,7 +35,10 @@ let dynamicMaxEntries = SESSION_CACHE_MAX_ENTRIES;
 let ephemeralSessionId: string | null = null;
 let sessionIdPromise: Promise<string> | null = null;
 const lastSummaryTime = new Map<string, number>();
-const importTimestamps: number[] = [];
+const IMPORT_WINDOW_MS = 60_000;
+const importBuffer = new Array<number>(SESSION_IMPORTS_PER_MINUTE);
+let importStart = 0;
+let importCount = 0;
 
 const clearRateLimiter = new RateLimiter(1, 1000);
 
@@ -100,11 +104,22 @@ function pruneSession(sessionId: string): void {
 }
 
 async function signSessionId(id: string): Promise<string> {
-  const keyData = encoder.encode(SESSION_ID_SECRET);
-  const key = await crypto.subtle.importKey(
+  const baseKey = await crypto.subtle.importKey(
     'raw',
-    keyData,
-    { name: 'HMAC', hash: 'SHA-256' },
+    encoder.encode(SESSION_ID_SECRET),
+    'HKDF',
+    false,
+    ['deriveKey'],
+  );
+  const key = await crypto.subtle.deriveKey(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: encoder.encode(SESSION_ID_KEY_SALT),
+      info: encoder.encode('session-id-signing'),
+    },
+    baseKey,
+    { name: 'HMAC', hash: 'SHA-256', length: 256 },
     false,
     ['sign'],
   );
@@ -238,7 +253,8 @@ export function __clearSessionCache(force = false): void {
   ephemeralSessionId = null;
   sessionIdPromise = null;
   lastSummaryTime.clear();
-  importTimestamps.length = 0;
+  importStart = 0;
+  importCount = 0;
   dynamicMaxEntries = SESSION_CACHE_MAX_ENTRIES;
 }
 
@@ -300,16 +316,18 @@ export function exportSession(sessionId: string): string {
 
 export async function importSession(serialized: string): Promise<string | null> {
   const now = Date.now();
-  while (importTimestamps.length && now - importTimestamps[0] > 60_000) {
-    importTimestamps.shift();
+  while (importCount > 0 && now - importBuffer[importStart] > IMPORT_WINDOW_MS) {
+    importStart = (importStart + 1) % importBuffer.length;
+    importCount--;
   }
-  if (importTimestamps.length >= SESSION_IMPORTS_PER_MINUTE) {
+  if (importCount >= SESSION_IMPORTS_PER_MINUTE) {
     const err = new SessionImportError('Rate limit exceeded');
     console.warn('Failed to import session', err);
     logMemory('session.import.error', { error: err });
     return null;
   }
-  importTimestamps.push(now);
+  importBuffer[(importStart + importCount) % importBuffer.length] = now;
+  if (importCount < SESSION_IMPORTS_PER_MINUTE) importCount++;
   try {
     const parsed = JSON.parse(serialized) as {
       sessionId: string;

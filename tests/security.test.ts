@@ -74,6 +74,10 @@ describe('validateUrl', () => {
     expect(validateUrl('https://example.com:8080', [], false)).toBeUndefined();
     expect(validateUrl('ftp://example.com', [], false)).toBeUndefined();
   });
+
+  test('rejects URLs with credentials', () => {
+    expect(validateUrl('https://user:pass@example.com')).toBeUndefined();
+  });
 });
 
 describe('validateCsp', () => {
@@ -108,6 +112,15 @@ describe('validateCsp', () => {
     const headers = new Headers({
       'Content-Security-Policy':
         "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none' 'unsafe-hashes'; style-src 'none'",
+    });
+    const response = new Response('', { headers });
+    expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
+  });
+
+  test('rejects data sources and unsafe ancestors', () => {
+    const headers = new Headers({
+      'Content-Security-Policy':
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; img-src data:; frame-ancestors 'self'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).toThrow('Invalid CSP headers');

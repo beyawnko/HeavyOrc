@@ -73,6 +73,8 @@ VITE_ENFORCE_CIPHER_CSP=false
 
 If the server is not running, HeavyOrc operates with ephemeral in-memory history. Cipher speaks the Model Context Protocol, so the same memory store can be shared with other tools. Security measures such as HTML escaping, redaction, rate limiting, and caching live in [`lib/security.ts`](./lib/security.ts).
 
+Session identifiers are signed with keys derived via HKDF. Set `SESSION_ID_SECRET` and `SESSION_ID_KEY_SALT` in your environment to customize the signing material.
+
 ## ESM imports
 
 `index.html` uses an import map to pin CDN-hosted ESM bundles to exact versions. When upgrading these dependencies, update the URLs in the map and verify the new files before deployment. For additional hardening, consider hosting vetted copies under `public/vendor` and updating the map to point to those local assets if the CDN becomes unavailable.
