@@ -20,7 +20,6 @@ For a detailed, AI-oriented overview of the architecture and tooling, see the [S
 - [DeepConf Overview](#deepconf-overview)
 - [Contributing](#contributing)
 - [License](#license)
-- [License](#license)
 
 ## Documentation
 
