@@ -18,6 +18,7 @@ import { SessionImportError } from '@/lib/errors';
 import { LRUCache } from '@/lib/lruCache';
 import { encoder, timingSafeEqual } from '@/lib/securityUtils';
 import { RateLimiter } from '@/lib/rateLimiter';
+import { equal } from '@stablelib/constant-time';
 
 export type CachedMessage = {
   role: 'user' | 'assistant';
@@ -224,12 +225,14 @@ export function __clearSessionCache(force = false): void {
       const threshold = Math.floor(
         memoryInfo.jsHeapSizeLimit * MEMORY_PRESSURE_THRESHOLD,
       );
+      const thresholdBytes = new Uint8Array(
+        new Float64Array([threshold]).buffer,
+      );
+      const usedBytes = new Uint8Array(
+        new Float64Array([memoryInfo.usedJSHeapSize]).buffer,
+      );
       return (
-        memoryInfo.usedJSHeapSize <= threshold ||
-        timingSafeEqual(
-          memoryInfo.usedJSHeapSize.toString(),
-          threshold.toString(),
-        )
+        memoryInfo.usedJSHeapSize <= threshold || equal(usedBytes, thresholdBytes)
       );
     })()
   ) {

@@ -80,6 +80,21 @@ export const ERROR_CODES = {
     severity: ErrorSeverity.HIGH,
     category: ErrorCategory.SECURITY,
   },
+  TIMEOUT: {
+    code: 'ERR_TIMEOUT',
+    severity: ErrorSeverity.MEDIUM,
+    category: ErrorCategory.SYSTEM,
+  },
+  CONNECTION_REFUSED: {
+    code: 'ERR_CONNECTION_REFUSED',
+    severity: ErrorSeverity.HIGH,
+    category: ErrorCategory.SYSTEM,
+  },
+  DNS_FAILURE: {
+    code: 'ERR_DNS_FAILURE',
+    severity: ErrorSeverity.HIGH,
+    category: ErrorCategory.SYSTEM,
+  },
 } as const;
 
 export const ERRORS = {
@@ -101,6 +116,11 @@ export const ERRORS = {
     'Authentication required to perform this action.',
   [ERROR_CODES.FORBIDDEN.code]:
     'You do not have permission to perform this action.',
+  [ERROR_CODES.TIMEOUT.code]: 'Request timed out. Please try again.',
+  [ERROR_CODES.CONNECTION_REFUSED.code]:
+    'Unable to connect to server. Please check your connection.',
+  [ERROR_CODES.DNS_FAILURE.code]:
+    'Unable to resolve server address. Please check your network settings.',
 } as const;
 
 export const SESSION_ID_STORAGE_KEY = 'cipher:sessionId';

@@ -1,6 +1,5 @@
 export class RateLimiter {
-  private lastTime = 0;
-  private count = 0;
+  private timestamps: number[] = [];
   constructor(private maxPerInterval: number, private intervalMs: number) {
     if (maxPerInterval <= 0) {
       throw new Error(
@@ -15,13 +14,12 @@ export class RateLimiter {
   }
   canProceed(): boolean {
     const now = Date.now();
-    if (now - this.lastTime >= this.intervalMs) {
-      this.lastTime = now;
-      this.count = 0;
+    while (this.timestamps.length > 0 && now - this.timestamps[0] >= this.intervalMs) {
+      this.timestamps.shift();
     }
-    return this.count < this.maxPerInterval;
+    return this.timestamps.length < this.maxPerInterval;
   }
   recordAction(): void {
-    this.count++;
+    this.timestamps.push(Date.now());
   }
 }
