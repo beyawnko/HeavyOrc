@@ -80,7 +80,7 @@ If the server is not running, HeavyOrc operates with ephemeral in-memory history
 
 ## Reasoning models and context management
 
-Reasoning models such as GPT‑5 and GPT‑5‑mini generate internal reasoning tokens before returning a final answer. These tokens count against the model's context window and are billed as output tokens. To avoid incomplete responses:
+Reasoning models such as GPT‑5 and GPT‑5‑mini generate internal reasoning tokens before returning a final answer. Be very considerate of the model you use, and its price, as api calls/token count can grow quickly with multiple agents. These tokens count against the model's context window and are billed as output tokens. To avoid incomplete responses:
 
 - Reserve ample room in the context window—OpenAI recommends leaving at least 25,000 tokens for reasoning and output.
 - Use `max_output_tokens` to cap total generated tokens. If the limit is reached, the response status will be `incomplete` with `reason` set to `max_output_tokens`.
@@ -155,7 +155,7 @@ Run unit tests with `npm test -- --run`.
          - uses: actions/checkout@v4
          - uses: actions/setup-node@v4
            with:
-             node-version: 18
+             node-version: 20
          - run: npm ci && npm run build
          - uses: peaceiris/actions-gh-pages@v3
            with:
@@ -182,4 +182,4 @@ Issues and pull requests are welcome. Open an issue to discuss major changes bef
 
 ## License
 
-This project is licensed under the MIT License © 2024 [beyawnko](https://github.com/beyawnko). See [LICENSE](./LICENSE) for details.
+This project is licensed under the MIT License © 2025 [beyawnko](https://github.com/beyawnko). See [LICENSE](./LICENSE) for details.
