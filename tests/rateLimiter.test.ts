@@ -1,4 +1,5 @@
 import { RateLimiter } from '@/lib/rateLimiter';
+import { __consumeFromBucket } from '@/services/cipherService';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('RateLimiter', () => {
@@ -19,6 +20,14 @@ describe('RateLimiter', () => {
     expect(rl.canProceed()).toBe(false);
     vi.advanceTimersByTime(500);
     expect(rl.canProceed()).toBe(true);
+  });
+
+  it('protects against timestamp overflow', () => {
+    const rl = new RateLimiter(2, 1000);
+    (rl as any).timestamps = [Number.MAX_SAFE_INTEGER];
+    vi.setSystemTime(new Date(0));
+    expect(rl.canProceed()).toBe(true);
+    expect((rl as any).timestamps.length).toBe(0);
   });
 
   it('reports remaining capacity and reset time', () => {
@@ -44,5 +53,15 @@ describe('RateLimiter', () => {
     expect(() => new RateLimiter(1, 0)).toThrow(
       'RateLimiter intervalMs must be positive, got: 0',
     );
+  });
+
+  it('handles integer overflow in token buckets', () => {
+    const buckets = new Map<string, { tokens: number; lastRefill: number }>();
+    const key = 'test';
+    buckets.set(key, { tokens: Number.MAX_SAFE_INTEGER, lastRefill: Number.MAX_SAFE_INTEGER });
+    expect(__consumeFromBucket(buckets, key)).toBe(true);
+    const bucket = buckets.get(key)!;
+    expect(bucket.tokens).toBeLessThanOrEqual(30);
+    expect(Number.isFinite(bucket.tokens)).toBe(true);
   });
 });

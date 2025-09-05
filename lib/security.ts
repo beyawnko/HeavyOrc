@@ -164,7 +164,7 @@ export function validateUrl(
   if (!url || url.length > 2048) return undefined;
   try {
     const parsed = new URL(url.normalize('NFKC'));
-    if (parsed.username || parsed.password) return undefined;
+    if (parsed.username || parsed.password || parsed.search || parsed.hash) return undefined;
     let hostname = parsed.hostname;
     if (!ipaddr.isValid(hostname)) {
       try {
@@ -264,6 +264,10 @@ export function validateCsp(response: Response): void {
   const baseUri = directives.find(d => d.name === 'base-uri');
   const scriptSrc = directives.find(d => d.name === 'script-src');
   const styleSrc = directives.find(d => d.name === 'style-src');
+  const scriptSrcAttr = directives.find(d => d.name === 'script-src-attr');
+  const scriptSrcElem = directives.find(d => d.name === 'script-src-elem');
+  const styleSrcAttr = directives.find(d => d.name === 'style-src-attr');
+  const styleSrcElem = directives.find(d => d.name === 'style-src-elem');
   const frameAncestors = directives.find(d => d.name === 'frame-ancestors');
   const formAction = directives.find(d => d.name === 'form-action');
 
@@ -273,7 +277,10 @@ export function validateCsp(response: Response): void {
         s === "'unsafe-inline'" ||
         s === "'unsafe-eval'" ||
         s === "'unsafe-hashes'" ||
+        s === "'unsafe-hashed-attributes'" ||
         s === "'unsafe-dynamic'" ||
+        s === "'wasm-unsafe-eval'" ||
+        s === "'unsafe-allow-redirects'" ||
         s === '*' ||
         s.startsWith('data:') ||
         s.startsWith('blob:') ||
@@ -297,6 +304,18 @@ export function validateCsp(response: Response): void {
     !!scriptSrc && scriptSrc.sources.length === 1 && scriptSrc.sources[0] === "'none'";
   const isStyleSrcSafe =
     !!styleSrc && styleSrc.sources.length === 1 && styleSrc.sources[0] === "'none'";
+  const isScriptSrcAttrSafe =
+    !scriptSrcAttr ||
+    (scriptSrcAttr.sources.length === 1 && scriptSrcAttr.sources[0] === "'none'");
+  const isScriptSrcElemSafe =
+    !scriptSrcElem ||
+    (scriptSrcElem.sources.length === 1 && scriptSrcElem.sources[0] === "'none'");
+  const isStyleSrcAttrSafe =
+    !styleSrcAttr ||
+    (styleSrcAttr.sources.length === 1 && styleSrcAttr.sources[0] === "'none'");
+  const isStyleSrcElemSafe =
+    !styleSrcElem ||
+    (styleSrcElem.sources.length === 1 && styleSrcElem.sources[0] === "'none'");
   const isFrameAncestorsSafe =
     !frameAncestors ||
     (frameAncestors.sources.length === 1 && frameAncestors.sources[0] === "'none'");
@@ -312,6 +331,10 @@ export function validateCsp(response: Response): void {
     !isBaseUriSafe ||
     !isScriptSrcSafe ||
     !isStyleSrcSafe ||
+    !isScriptSrcAttrSafe ||
+    !isScriptSrcElemSafe ||
+    !isStyleSrcAttrSafe ||
+    !isStyleSrcElemSafe ||
     !isFrameAncestorsSafe ||
     !isFormActionSafe
   ) {

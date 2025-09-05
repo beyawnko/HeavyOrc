@@ -133,10 +133,11 @@ export const SUMMARIZER_MAX_CHARS = 1000;
 export const SESSION_SUMMARY_DEBOUNCE_MS = 500;
 export const SESSION_IMPORTS_PER_MINUTE = 5;
 export const SESSION_CONTEXT_TTL_MS = 86_400_000; // 24 hours
+const DEFAULT_SESSION_SECRET = 'dev-session-secret';
 export const SESSION_ID_SECRET =
   (typeof process !== 'undefined' && process.env.SESSION_ID_SECRET) ||
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SESSION_ID_SECRET) ||
-  'dev-session-secret';
+  DEFAULT_SESSION_SECRET;
 
 export const SESSION_ID_KEY_SALT =
   (typeof process !== 'undefined' && process.env.SESSION_ID_KEY_SALT) ||
@@ -146,10 +147,18 @@ export const SESSION_ID_KEY_SALT =
 export const SESSION_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-if (SESSION_ID_SECRET === 'dev-session-secret') {
-  console.warn(
-    'SESSION_ID_SECRET is using a default development value; set a strong secret in production.',
-  );
+const isProd =
+  (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') ||
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.PROD);
+if (SESSION_ID_SECRET === DEFAULT_SESSION_SECRET) {
+  const msg =
+    'SESSION_ID_SECRET is using a default development value; set a strong secret in production.';
+  if (isProd) throw new Error(msg);
+  console.warn(msg);
+} else if (SESSION_ID_SECRET.length < 32) {
+  const msg = 'SESSION_ID_SECRET must be at least 32 characters';
+  if (isProd) throw new Error(msg);
+  console.warn(msg);
 }
 
 // Cache tuning

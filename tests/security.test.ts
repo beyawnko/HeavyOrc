@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { sanitizeErrorResponse, validateUrl, readLimitedText, validateCsp } from '@/lib/security';
+import { __deepFreeze } from '@/services/cipherService';
 
 describe('sanitizeErrorResponse arrays', () => {
   test('retains non-sensitive array items', () => {
@@ -78,6 +79,11 @@ describe('validateUrl', () => {
   test('rejects URLs with credentials', () => {
     expect(validateUrl('https://user:pass@example.com')).toBeUndefined();
   });
+
+  test('rejects URLs with query or fragment', () => {
+    expect(validateUrl('https://example.com/?q=1')).toBeUndefined();
+    expect(validateUrl('https://example.com/#frag')).toBeUndefined();
+  });
 });
 
 describe('validateCsp', () => {
@@ -124,6 +130,22 @@ describe('validateCsp', () => {
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
+  });
+
+  test('rejects wasm-unsafe-eval and unsafe-hashed-attributes', () => {
+    const headers1 = new Headers({
+      'Content-Security-Policy':
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none' 'wasm-unsafe-eval'; style-src 'none'",
+    });
+    const resp1 = new Response('', { headers: headers1 });
+    expect(() => validateCsp(resp1)).toThrow('Invalid CSP headers');
+
+    const headers2 = new Headers({
+      'Content-Security-Policy':
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none' 'unsafe-hashed-attributes'",
+    });
+    const resp2 = new Response('', { headers: headers2 });
+    expect(() => validateCsp(resp2)).toThrow('Invalid CSP headers');
   });
 });
 
@@ -189,5 +211,20 @@ describe('sanitizeErrorResponse limits', () => {
     const parsed = JSON.parse(output);
     expect(parsed._truncated).toBe(true);
     expect(parsed.message).toBe('[REDACTED]');
+  });
+});
+
+describe('deepFreeze', () => {
+  test('rejects getters', () => {
+    const obj: any = {};
+    Object.defineProperty(obj, 'foo', { get() { return 1; } });
+    expect(() => __deepFreeze(obj)).toThrow('foo');
+  });
+
+  test('rejects custom prototype', () => {
+    const proto = { evil: true };
+    const obj = Object.create(proto);
+    obj.bar = 1;
+    expect(() => __deepFreeze(obj)).toThrow('prototype');
   });
 });

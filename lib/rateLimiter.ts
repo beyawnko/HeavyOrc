@@ -29,11 +29,33 @@ export class RateLimiter {
     };
   }
   private pruneExpired(now: number): void {
-    while (this.timestamps.length > 0 && now - this.timestamps[0] >= this.intervalMs) {
-      this.timestamps.shift();
+    if (!Number.isSafeInteger(now)) {
+      this.timestamps = [];
+      return;
+    }
+    while (this.timestamps.length > 0) {
+      const diff = now - this.timestamps[0];
+      if (!Number.isSafeInteger(diff) || diff < 0) {
+        this.timestamps = [];
+        break;
+      }
+      if (diff >= this.intervalMs) {
+        this.timestamps.shift();
+      } else {
+        break;
+      }
+    }
+    if (this.timestamps.length > this.maxPerInterval) {
+      this.timestamps = this.timestamps.slice(-this.maxPerInterval);
     }
   }
   recordAction(): void {
-    this.timestamps.push(Date.now());
+    const now = Date.now();
+    if (!Number.isSafeInteger(now)) return;
+    this.pruneExpired(now);
+    this.timestamps.push(now);
+    if (this.timestamps.length > this.maxPerInterval) {
+      this.timestamps.shift();
+    }
   }
 }

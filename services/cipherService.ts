@@ -124,7 +124,11 @@ function deepFreeze<T extends object>(
   maxDepth = MAX_FREEZE_DEPTH,
 ): Readonly<T> {
   if (depth > maxDepth) throw new MaxDepthExceededError(maxDepth);
-  if (!obj || Object.isFrozen(obj) || visited.has(obj)) return obj;
+  if (!obj || typeof obj !== 'object' || Object.isFrozen(obj) || visited.has(obj)) return obj;
+  const tag = Object.prototype.toString.call(obj);
+  if (tag !== '[object Object]' && tag !== '[object Array]') {
+    throw new UnsafePropertyError('object type');
+  }
   visited.add(obj);
   if (Object.prototype.hasOwnProperty.call(obj, '__proto__')) {
     throw new UnsafePropertyError('__proto__');
@@ -142,14 +146,23 @@ function deepFreeze<T extends object>(
   if (proto === Object.prototype) {
     Object.setPrototypeOf(obj, null);
   }
+  const descriptors = Object.getOwnPropertyDescriptors(obj);
+  for (const [prop, desc] of Object.entries(descriptors)) {
+    if ('get' in desc || 'set' in desc) {
+      throw new UnsafePropertyError(prop);
+    }
+  }
   Object.freeze(obj);
-  for (const value of Object.values(obj)) {
+  for (const desc of Object.values(descriptors)) {
+    const value = desc.value;
     if (value && typeof value === 'object') {
       deepFreeze(value, visited, depth + 1, maxDepth);
     }
   }
   return obj;
 }
+
+export const __deepFreeze = deepFreeze;
 
 type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
 
@@ -195,21 +208,30 @@ function consumeFromBucket(
   buckets: Map<string, { tokens: number; lastRefill: number }>,
   key: string,
 ): boolean {
-  const bucket = buckets.get(key) || { tokens: MAX_REQUESTS, lastRefill: Date.now() };
   const now = Date.now();
-  const elapsed = now - bucket.lastRefill;
+  let bucket = buckets.get(key);
+  if (!bucket || !Number.isFinite(bucket.tokens) || !Number.isFinite(bucket.lastRefill)) {
+    bucket = { tokens: MAX_REQUESTS, lastRefill: now };
+  }
+  let elapsed = now - bucket.lastRefill;
+  if (!Number.isSafeInteger(elapsed) || elapsed < 0) {
+    bucket.tokens = MAX_REQUESTS;
+    bucket.lastRefill = now;
+    elapsed = 0;
+  }
   if (elapsed > 0) {
-    bucket.tokens = Math.min(
-      MAX_REQUESTS,
-      bucket.tokens + (elapsed / RATE_LIMIT_WINDOW) * MAX_REQUESTS,
-    );
+    const refill = (elapsed / RATE_LIMIT_WINDOW) * MAX_REQUESTS;
+    bucket.tokens = Math.min(MAX_REQUESTS, bucket.tokens + (Number.isFinite(refill) ? refill : 0));
     bucket.lastRefill = now;
   }
   const allow = bucket.tokens >= 1;
-  bucket.tokens = allow ? bucket.tokens - 1 : bucket.tokens;
+  if (allow) bucket.tokens -= 1;
+  bucket.tokens = Math.max(0, Math.min(bucket.tokens, MAX_REQUESTS));
   buckets.set(key, bucket);
   return allow;
 }
+
+export const __consumeFromBucket = consumeFromBucket;
 
 async function getClientIp(): Promise<string | null> {
   if (clientIpPromise) return clientIpPromise;
