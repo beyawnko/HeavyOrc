@@ -18,6 +18,7 @@ For a detailed, AI-oriented overview of the architecture and tooling, see the [S
 - **DeepConf**: confidence-driven generation modes (offline, online and judge-assisted).
 - **Streaming UI**: live progress bar and gallery of expert drafts.
 - **Session tools**: save and reload conversations or export all drafts as a ZIP.
+- **Adaptive cache**: monitors memory pressure and tunes eviction to protect critical data.
 
 ## Providers & API keys
 
