@@ -6,6 +6,22 @@ HeavyOrc is a web application that demonstrates a Mixture-of-Experts orchestrati
 
 For a detailed, AI-oriented overview of the architecture and tooling, see the [SPECS.md](./SPECS.md) technical specification.
 
+## Table of Contents
+
+- [Documentation](#documentation)
+- [Features](#features)
+- [Providers & API keys](#providers--api-keys)
+- [Persistent memory (Cipher)](#persistent-memory-cipher)
+- [ESM imports](#esm-imports)
+- [Reasoning models and context management](#reasoning-models-and-context-management)
+- [Prerequisites](#prerequisites)
+- [Development](#development)
+- [Testing](#testing)
+- [GitHub Pages deployment](#github-pages-deployment)
+- [DeepConf overview](#deepconf-overview)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Documentation
 
 - [AGENTS.md](./AGENTS.md) – project intent, tech stack, and coding guidelines.
@@ -56,16 +72,7 @@ VITE_CIPHER_SERVER_URL=http://localhost:3000
 VITE_ENFORCE_CIPHER_CSP=false
 ```
 
-If the server is not running, HeavyOrc continues to operate with ephemeral in-memory history. Cipher speaks the Model Context Protocol, so the same memory store can be shared with other tools in the future.
-
-Fetched memory snippets are HTML-escaped with [`escape-html`](https://www.npmjs.com/package/escape-html), replacing characters like `&`, `<`, `>`, `"` and `'` before including them in prompts. Error responses are recursively redacted: keys such as `token`, `password`, `secret`, `apiKey` and other credential-like fields—or high-entropy strings that look base64-encoded—are replaced with `[REDACTED]`. Redaction patterns and entropy checks are hardcoded in [`lib/security.ts`](./lib/security.ts) and can be customized there if needed. Responses from the memory server are streamed and capped at 400KB to mitigate denial-of-service attempts.
-Review and update these patterns regularly to catch newly emerging sensitive data types.
-
-Memory requests are rate-limited to 30 per minute, cap each entry at 4KB and limit total response size to 400KB. Successful responses are cached for five minutes (up to 1000 entries) using a min-heap for eviction. All fetches use the shared retry helpers and honor standard timeouts. A circuit breaker skips memory fetches after five consecutive failures and resets after 30 seconds. Tune these thresholds via `VITE_CIPHER_CIRCUIT_BREAKER_THRESHOLD` and `VITE_CIPHER_CIRCUIT_BREAKER_RESET_MS`.
-
-The in-browser session cache keeps up to 20 messages per conversation and prunes entries older than the configured TTL. When `navigator.storage.estimate` reports storage usage above 90% of the available quota (`MEMORY_PRESSURE_THRESHOLD`), the cache reduces its maximum size by 25% to relieve pressure. Browsers without this API skip the shrink step to preserve context.
-
-Session identifiers sent to the Cipher memory server are signed and verified using a constant-time comparison to resist timing attacks.
+If the server is not running, HeavyOrc operates with ephemeral in-memory history. Cipher speaks the Model Context Protocol, so the same memory store can be shared with other tools. Security measures such as HTML escaping, redaction, rate limiting, and caching live in [`lib/security.ts`](./lib/security.ts).
 
 ## ESM imports
 
@@ -113,6 +120,11 @@ All `gpt-5` family models, including `gpt-5-mini`, accept the `reasoning` parame
 
 When using function calling with a reasoning model, pass back the reasoning items from the previous response. You can either reference the `previous_response_id` or include all output items from the prior response to maintain the model's chain of thought.
 
+## Prerequisites
+
+- Node.js 18 or later
+- npm for dependency management
+
 ## Development
 
 1. Install dependencies: `npm install`
@@ -120,6 +132,10 @@ When using function calling with a reasoning model, pass back the reasoning item
 3. Start the dev server: `npm run dev`
 4. Build for production: `npm run build`
 5. Preview the build locally: `npm run preview`
+
+## Testing
+
+Run unit tests with `npm test -- --run`.
 
 ## GitHub Pages deployment
 
@@ -160,3 +176,10 @@ When using function calling with a reasoning model, pass back the reasoning item
 These modes work with any supported provider.
 
 
+## Contributing
+
+Issues and pull requests are welcome. Open an issue to discuss major changes before submitting a pull request.
+
+## License
+
+This project is licensed under the MIT License © 2024 [beyawnko](https://github.com/beyawnko). See [LICENSE](./LICENSE) for details.
