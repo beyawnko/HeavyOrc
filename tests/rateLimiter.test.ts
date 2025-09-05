@@ -1,5 +1,6 @@
 import { RateLimiter } from '@/lib/rateLimiter';
 import { __consumeFromBucket } from '@/services/cipherService';
+import * as securityUtils from '@/lib/securityUtils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('RateLimiter', () => {
@@ -63,5 +64,16 @@ describe('RateLimiter', () => {
     const bucket = buckets.get(key)!;
     expect(bucket.tokens).toBeLessThanOrEqual(30);
     expect(Number.isFinite(bucket.tokens)).toBe(true);
+  });
+
+  it('uses constant-time comparison for bucket keys', () => {
+    const buckets = new Map<string, { tokens: number; lastRefill: number }>([
+      ['a', { tokens: 1, lastRefill: Date.now() }],
+      ['b', { tokens: 1, lastRefill: Date.now() }],
+    ]);
+    const spy = vi.spyOn(securityUtils, 'timingSafeEqual');
+    expect(__consumeFromBucket(buckets, 'a')).toBe(true);
+    expect(spy).toHaveBeenCalledTimes(buckets.size);
+    spy.mockRestore();
   });
 });

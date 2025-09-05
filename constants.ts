@@ -150,6 +150,18 @@ export const SESSION_ID_PATTERN =
 const isProd =
   (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') ||
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.PROD);
+
+function estimateEntropy(str: string): number {
+  const counts: Record<string, number> = {};
+  for (const ch of str) counts[ch] = (counts[ch] || 0) + 1;
+  const len = str.length;
+  let entropy = 0;
+  for (const c of Object.values(counts)) {
+    const p = c / len;
+    entropy -= p * Math.log2(p);
+  }
+  return entropy * len;
+}
 if (SESSION_ID_SECRET === DEFAULT_SESSION_SECRET) {
   const msg =
     'SESSION_ID_SECRET is using a default development value; set a strong secret in production.';
@@ -159,6 +171,13 @@ if (SESSION_ID_SECRET === DEFAULT_SESSION_SECRET) {
   const msg = 'SESSION_ID_SECRET must be at least 32 characters';
   if (isProd) throw new Error(msg);
   console.warn(msg);
+} else {
+  const entropy = estimateEntropy(SESSION_ID_SECRET);
+  if (entropy < 80) {
+    const msg = 'SESSION_ID_SECRET must have at least 80 bits of entropy';
+    if (isProd) throw new Error(msg);
+    console.warn(msg);
+  }
 }
 
 // Cache tuning

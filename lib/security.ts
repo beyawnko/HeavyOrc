@@ -174,6 +174,16 @@ export function validateUrl(
       }
     }
     const bareHost = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
+    if (ipaddr.isValid(bareHost)) {
+      try {
+        const addr = ipaddr.parse(bareHost);
+        const normalized = addr.toNormalizedString();
+        const compare = bareHost.toLowerCase();
+        if (normalized !== compare) return undefined;
+      } catch {
+        return undefined;
+      }
+    }
     const allowedProtocols = ['http:', 'https:'];
     // Only allow standard HTTP/S ports to reduce SSRF risk
     const allowedPorts = ['', '80', '443'];
@@ -257,7 +267,7 @@ export function validateCsp(response: Response): void {
     .map(d => d.trim())
     .filter(Boolean)
     .map(parseDirective)
-    .filter(d => d.name && d.sources.length > 0);
+    .filter(d => d.name);
   const defaultSrc = directives.find(d => d.name === 'default-src');
   const connectSrc = directives.find(d => d.name === 'connect-src');
   const objectSrc = directives.find(d => d.name === 'object-src');
@@ -270,6 +280,8 @@ export function validateCsp(response: Response): void {
   const styleSrcElem = directives.find(d => d.name === 'style-src-elem');
   const frameAncestors = directives.find(d => d.name === 'frame-ancestors');
   const formAction = directives.find(d => d.name === 'form-action');
+  const sandbox = directives.find(d => d.name === 'sandbox');
+  const trustedTypes = directives.find(d => d.name === 'trusted-types');
 
   const hasUnsafeSource = directives.some(d =>
     d.sources.some(
@@ -322,6 +334,11 @@ export function validateCsp(response: Response): void {
   const isFormActionSafe =
     !formAction ||
     (formAction.sources.length === 1 && formAction.sources[0] === "'none'");
+  const isSandboxStrict = !!sandbox && sandbox.sources.length === 0;
+  const isTrustedTypesSafe =
+    !!trustedTypes &&
+    trustedTypes.sources.length === 1 &&
+    trustedTypes.sources[0] === "'none'";
 
   if (
     !isDefaultSrcStrict ||
@@ -336,7 +353,9 @@ export function validateCsp(response: Response): void {
     !isStyleSrcAttrSafe ||
     !isStyleSrcElemSafe ||
     !isFrameAncestorsSafe ||
-    !isFormActionSafe
+    !isFormActionSafe ||
+    !isSandboxStrict ||
+    !isTrustedTypesSafe
   ) {
     console.error('Invalid or insufficient CSP headers from memory server');
     throw new Error('Invalid CSP headers');

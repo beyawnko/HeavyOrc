@@ -9,7 +9,7 @@ import {
 import { MinHeap } from '@/lib/minHeap';
 import { logMemory } from '@/lib/memoryLogger';
 import { SESSION_ID_PATTERN, ERRORS, ERROR_CODES } from '@/constants';
-import { hashSessionId } from '@/lib/securityUtils';
+import { hashSessionId, timingSafeEqual } from '@/lib/securityUtils';
 
 /**
  * Immutable memory record stored in the cache.
@@ -147,7 +147,14 @@ function deepFreeze<T extends object>(
     Object.setPrototypeOf(obj, null);
   }
   const descriptors = Object.getOwnPropertyDescriptors(obj);
+  const symbols = Object.getOwnPropertySymbols(obj);
+  if (symbols.length > 0) {
+    throw new UnsafePropertyError('symbol');
+  }
   for (const [prop, desc] of Object.entries(descriptors)) {
+    if (prop === '__proto__' || prop === 'constructor' || prop === 'prototype') {
+      throw new UnsafePropertyError(prop);
+    }
     if ('get' in desc || 'set' in desc) {
       throw new UnsafePropertyError(prop);
     }
@@ -209,7 +216,14 @@ function consumeFromBucket(
   key: string,
 ): boolean {
   const now = Date.now();
-  let bucket = buckets.get(key);
+  let foundKey: string | null = null;
+  let bucket: { tokens: number; lastRefill: number } | undefined;
+  for (const [k, v] of buckets.entries()) {
+    if (timingSafeEqual(k, key)) {
+      foundKey = k;
+      bucket = v;
+    }
+  }
   if (!bucket || !Number.isFinite(bucket.tokens) || !Number.isFinite(bucket.lastRefill)) {
     bucket = { tokens: MAX_REQUESTS, lastRefill: now };
   }
@@ -227,7 +241,7 @@ function consumeFromBucket(
   const allow = bucket.tokens >= 1;
   if (allow) bucket.tokens -= 1;
   bucket.tokens = Math.max(0, Math.min(bucket.tokens, MAX_REQUESTS));
-  buckets.set(key, bucket);
+  buckets.set(foundKey ?? key, bucket);
   return allow;
 }
 

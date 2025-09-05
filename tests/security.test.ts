@@ -67,6 +67,8 @@ describe('validateUrl', () => {
     expect(validateUrl('http://0x7f000001', [], false)).toBeUndefined();
     expect(validateUrl('http://017700000001', [], false)).toBeUndefined();
     expect(validateUrl('http://2130706433', [], false)).toBeUndefined();
+    expect(validateUrl('http://127.1', [], false)).toBeUndefined();
+    expect(validateUrl('http://[::ffff:127.0.0.1]', [], false)).toBeUndefined();
     expect(
       validateUrl('https://subdomain.1.2.3.4.com', [], false),
     ).toBe('https://subdomain.1.2.3.4.com');
@@ -90,7 +92,7 @@ describe('validateCsp', () => {
   test('accepts strict policy', () => {
     const headers = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; sandbox; trusted-types 'none'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).not.toThrow();
@@ -99,7 +101,7 @@ describe('validateCsp', () => {
   test('rejects missing script-src', () => {
     const headers = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; style-src 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; style-src 'none'; sandbox; trusted-types 'none'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
@@ -108,7 +110,7 @@ describe('validateCsp', () => {
   test('rejects unsafe style-src', () => {
     const headers = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src *",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src *; sandbox; trusted-types 'none'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
@@ -117,7 +119,7 @@ describe('validateCsp', () => {
   test('rejects unsafe hashes', () => {
     const headers = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none' 'unsafe-hashes'; style-src 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none' 'unsafe-hashes'; style-src 'none'; sandbox; trusted-types 'none'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
@@ -126,7 +128,7 @@ describe('validateCsp', () => {
   test('rejects data sources and unsafe ancestors', () => {
     const headers = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; img-src data:; frame-ancestors 'self'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; img-src data:; frame-ancestors 'self'; sandbox; trusted-types 'none'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
@@ -135,17 +137,38 @@ describe('validateCsp', () => {
   test('rejects wasm-unsafe-eval and unsafe-hashed-attributes', () => {
     const headers1 = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none' 'wasm-unsafe-eval'; style-src 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none' 'wasm-unsafe-eval'; style-src 'none'; sandbox; trusted-types 'none'",
     });
     const resp1 = new Response('', { headers: headers1 });
     expect(() => validateCsp(resp1)).toThrow('Invalid CSP headers');
 
     const headers2 = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none' 'unsafe-hashed-attributes'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none' 'unsafe-hashed-attributes'; sandbox; trusted-types 'none'",
     });
     const resp2 = new Response('', { headers: headers2 });
     expect(() => validateCsp(resp2)).toThrow('Invalid CSP headers');
+  });
+
+  test('rejects missing sandbox or trusted-types', () => {
+    const headers = new Headers({
+      'Content-Security-Policy':
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'",
+    });
+    const response = new Response('', { headers });
+    expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
+    const headers2 = new Headers({
+      'Content-Security-Policy':
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; sandbox; trusted-types default",
+    });
+    const resp2 = new Response('', { headers: headers2 });
+    expect(() => validateCsp(resp2)).toThrow('Invalid CSP headers');
+    const headers3 = new Headers({
+      'Content-Security-Policy':
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; sandbox allow-scripts; trusted-types 'none'",
+    });
+    const resp3 = new Response('', { headers: headers3 });
+    expect(() => validateCsp(resp3)).toThrow('Invalid CSP headers');
   });
 });
 
@@ -226,5 +249,11 @@ describe('deepFreeze', () => {
     const obj = Object.create(proto);
     obj.bar = 1;
     expect(() => __deepFreeze(obj)).toThrow('prototype');
+  });
+
+  test('rejects symbol properties', () => {
+    const sym = Symbol('evil');
+    const obj: any = { [sym]: 1 };
+    expect(() => __deepFreeze(obj)).toThrow('symbol');
   });
 });
