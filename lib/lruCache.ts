@@ -89,6 +89,9 @@ export class LRUCache<K, V> {
           memoryInfo.usedJSHeapSize >
           memoryInfo.jsHeapSizeLimit * this.memoryPressureThreshold;
       } else if (typeof navigator !== 'undefined') {
+        // Fallback for browsers without performance.memory (e.g. Firefox, Safari).
+        // Use a coarse deviceMemory heuristic: on low-memory devices (<=4GB)
+        // treat a near-capacity cache as memory pressure and trim entries.
         const nav = navigator as Navigator & { deviceMemory?: number };
         if (
           typeof nav.deviceMemory === 'number' &&

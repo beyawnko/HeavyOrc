@@ -241,13 +241,12 @@ export const storeRunRecords = async (
   sessionId: string,
 ): Promise<void> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return;
+  const sessionIdHash = await hashSessionId(sessionId);
   if (!SESSION_ID_PATTERN.test(sessionId)) {
-    const sessionIdHash = await hashSessionId(sessionId);
     console.warn('Invalid sessionId format');
     logMemory('cipher.store.invalidSession', { sessionIdHash });
     throw new Error(ERRORS[ERROR_CODES.INVALID_SESSION_ID.code]);
   }
-  const sessionIdHash = await hashSessionId(sessionId);
   if (!(await consumeToken(sessionId))) {
     console.warn('Rate limit exceeded for memory storage');
     logMemory('cipher.store.rateLimit', { sessionIdHash });
@@ -313,13 +312,12 @@ export const fetchRelevantMemories = async (
   sessionId: string,
 ): Promise<ImmutableMemoryEntry[]> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return [];
+  const sessionIdHash = await hashSessionId(sessionId);
   if (!SESSION_ID_PATTERN.test(sessionId)) {
-    const sessionIdHash = await hashSessionId(sessionId);
     console.warn('Invalid sessionId format');
     logMemory('cipher.fetch.invalidSession', { sessionIdHash });
     return [];
   }
-  const sessionIdHash = await hashSessionId(sessionId);
   pruneCache();
   const cacheKey = `${sessionId}:${query}`;
   const cached = memoryCache.get(cacheKey);
