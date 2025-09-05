@@ -162,6 +162,13 @@ export function validateUrl(
   dev: boolean = import.meta.env.DEV,
 ): string | undefined {
   if (!url || url.length > 2048) return undefined;
+  const pathStart = url.indexOf('/', url.indexOf('://') + 3);
+  if (pathStart !== -1) {
+    const rawPath = url.slice(pathStart);
+    if (rawPath.includes('..') || rawPath.includes('\\') || /\/\//.test(rawPath)) {
+      return undefined;
+    }
+  }
   try {
     const parsed = new URL(url.normalize('NFKC'));
     if (parsed.username || parsed.password || parsed.search || parsed.hash) return undefined;
@@ -194,6 +201,10 @@ export function validateUrl(
       (!dev && (parsed.protocol !== 'https:' || isPrivateOrLocalhost(hostname) || (parsed.port && !allowedPorts.includes(parsed.port)))) ||
       (allowedHosts.length > 0 && !allowedHosts.includes(hostname))
     ) {
+      return undefined;
+    }
+    const path = parsed.pathname;
+    if (path.includes('..') || path.includes('\\') || /\/\//.test(path)) {
       return undefined;
     }
     parsed.hostname = hostname;
@@ -328,9 +339,10 @@ export function validateCsp(response: Response): void {
   const isStyleSrcElemSafe =
     !styleSrcElem ||
     (styleSrcElem.sources.length === 1 && styleSrcElem.sources[0] === "'none'");
-  const isFrameAncestorsSafe =
-    !frameAncestors ||
-    (frameAncestors.sources.length === 1 && frameAncestors.sources[0] === "'none'");
+  const isFrameAncestorsStrict =
+    !!frameAncestors &&
+    frameAncestors.sources.length === 1 &&
+    frameAncestors.sources[0] === "'none'";
   const isFormActionSafe =
     !formAction ||
     (formAction.sources.length === 1 && formAction.sources[0] === "'none'");
@@ -352,7 +364,7 @@ export function validateCsp(response: Response): void {
     !isScriptSrcElemSafe ||
     !isStyleSrcAttrSafe ||
     !isStyleSrcElemSafe ||
-    !isFrameAncestorsSafe ||
+    !isFrameAncestorsStrict ||
     !isFormActionSafe ||
     !isSandboxStrict ||
     !isTrustedTypesSafe

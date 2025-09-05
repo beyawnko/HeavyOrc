@@ -73,7 +73,7 @@ VITE_ENFORCE_CIPHER_CSP=false
 
 If the server is not running, HeavyOrc operates with ephemeral in-memory history. Cipher speaks the Model Context Protocol, so the same memory store can be shared with other tools. Security measures such as HTML escaping, redaction, rate limiting, and caching live in [`lib/security.ts`](./lib/security.ts).
 
-Session identifiers are signed with keys derived via HKDF. For production, set a random `SESSION_ID_SECRET` of at least 32 characters and `SESSION_ID_KEY_SALT` in your environment to customize the signing material.
+Session identifiers are signed with keys derived via HKDF. For production, set `SESSION_ID_SECRET` to a comma-separated list of 64-hex-character secrets (the first is used for signing; others allow key rotation) and define `SESSION_ID_KEY_SALT` to customize the signing material.
 
 ## ESM imports
 

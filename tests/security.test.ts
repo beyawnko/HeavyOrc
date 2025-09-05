@@ -86,13 +86,19 @@ describe('validateUrl', () => {
     expect(validateUrl('https://example.com/?q=1')).toBeUndefined();
     expect(validateUrl('https://example.com/#frag')).toBeUndefined();
   });
+
+  test('rejects URLs with unsafe paths', () => {
+    expect(validateUrl('https://example.com/..')).toBeUndefined();
+    expect(validateUrl('https://example.com//evil')).toBeUndefined();
+    expect(validateUrl('https://example.com/\\evil')).toBeUndefined();
+  });
 });
 
 describe('validateCsp', () => {
   test('accepts strict policy', () => {
     const headers = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; sandbox; trusted-types 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).not.toThrow();
@@ -101,7 +107,7 @@ describe('validateCsp', () => {
   test('rejects missing script-src', () => {
     const headers = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; style-src 'none'; sandbox; trusted-types 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; style-src 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
@@ -110,7 +116,7 @@ describe('validateCsp', () => {
   test('rejects unsafe style-src', () => {
     const headers = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src *; sandbox; trusted-types 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src *; frame-ancestors 'none'; sandbox; trusted-types 'none'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
@@ -119,7 +125,7 @@ describe('validateCsp', () => {
   test('rejects unsafe hashes', () => {
     const headers = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none' 'unsafe-hashes'; style-src 'none'; sandbox; trusted-types 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none' 'unsafe-hashes'; style-src 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
@@ -137,14 +143,14 @@ describe('validateCsp', () => {
   test('rejects wasm-unsafe-eval and unsafe-hashed-attributes', () => {
     const headers1 = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none' 'wasm-unsafe-eval'; style-src 'none'; sandbox; trusted-types 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none' 'wasm-unsafe-eval'; style-src 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
     });
     const resp1 = new Response('', { headers: headers1 });
     expect(() => validateCsp(resp1)).toThrow('Invalid CSP headers');
 
     const headers2 = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none' 'unsafe-hashed-attributes'; sandbox; trusted-types 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none' 'unsafe-hashed-attributes'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
     });
     const resp2 = new Response('', { headers: headers2 });
     expect(() => validateCsp(resp2)).toThrow('Invalid CSP headers');
@@ -153,22 +159,31 @@ describe('validateCsp', () => {
   test('rejects missing sandbox or trusted-types', () => {
     const headers = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-ancestors 'none'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
     const headers2 = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; sandbox; trusted-types default",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-ancestors 'none'; sandbox; trusted-types default",
     });
     const resp2 = new Response('', { headers: headers2 });
     expect(() => validateCsp(resp2)).toThrow('Invalid CSP headers');
     const headers3 = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; sandbox allow-scripts; trusted-types 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-ancestors 'none'; sandbox allow-scripts; trusted-types 'none'",
     });
     const resp3 = new Response('', { headers: headers3 });
     expect(() => validateCsp(resp3)).toThrow('Invalid CSP headers');
+  });
+
+  test('rejects missing frame-ancestors', () => {
+    const headers = new Headers({
+      'Content-Security-Policy':
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; sandbox; trusted-types 'none'",
+    });
+    const response = new Response('', { headers });
+    expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
   });
 });
 
@@ -255,5 +270,10 @@ describe('deepFreeze', () => {
     const sym = Symbol('evil');
     const obj: any = { [sym]: 1 };
     expect(() => __deepFreeze(obj)).toThrow('symbol');
+  });
+
+  test('rejects function properties', () => {
+    const obj: any = { fn: () => {} };
+    expect(() => __deepFreeze(obj)).toThrow('fn');
   });
 });

@@ -294,6 +294,31 @@ describe('sessionCache', () => {
     );
   });
 
+  it('accepts signatures from rotated secrets', async () => {
+    vi.stubEnv('SESSION_ID_SECRET', `${'b'.repeat(64)},${'a'.repeat(64)}`);
+    vi.resetModules();
+    const { getSessionId, __signSessionId } = await import('@/lib/sessionCache');
+    const { SESSION_ID_STORAGE_KEY } = await import('@/constants');
+    const store: Record<string, string> = {};
+    (globalThis as any).window = {
+      localStorage: {
+        getItem: (k: string) => store[k] ?? null,
+        setItem: (k: string, v: string) => {
+          store[k] = v;
+        },
+      },
+    };
+    const sessionId = '123e4567-e89b-12d3-a456-426614174888';
+    store[SESSION_ID_STORAGE_KEY] = `${sessionId}.${await __signSessionId(
+      sessionId,
+      'a'.repeat(64),
+      1,
+    )}`;
+    const id = await getSessionId();
+    expect(id).toBe(sessionId);
+    vi.unstubAllEnvs();
+  });
+
   it('sanitizes message content on append', () => {
     const sessionId = 'xss';
     appendSessionContext(sessionId, {

@@ -3,6 +3,7 @@ import {
   SESSION_ID_STORAGE_KEY,
   SESSION_SUMMARY_CHAR_THRESHOLD,
   SESSION_ID_SECRET,
+  SESSION_ID_SECRETS,
   SESSION_ID_KEY_SALT,
   SESSION_MESSAGE_MAX_CHARS,
   SESSION_SUMMARY_KEEP_RATIO,
@@ -104,9 +105,17 @@ function pruneSession(sessionId: string): void {
 }
 
 async function signSessionId(id: string): Promise<string> {
+  return signSessionIdWithSecret(id, SESSION_ID_SECRET, 0);
+}
+
+async function signSessionIdWithSecret(
+  id: string,
+  secret: string = SESSION_ID_SECRET,
+  index: number = 0,
+): Promise<string> {
   const baseKey = await crypto.subtle.importKey(
     'raw',
-    encoder.encode(SESSION_ID_SECRET),
+    encoder.encode(secret),
     'HKDF',
     false,
     ['deriveKey'],
@@ -116,7 +125,7 @@ async function signSessionId(id: string): Promise<string> {
       name: 'HKDF',
       hash: 'SHA-256',
       salt: encoder.encode(SESSION_ID_KEY_SALT),
-      info: encoder.encode('session-id-signing'),
+      info: encoder.encode(`session-id-signing:${index}`),
     },
     baseKey,
     { name: 'HMAC', hash: 'SHA-256', length: 256 },
@@ -127,6 +136,14 @@ async function signSessionId(id: string): Promise<string> {
   return Array.from(new Uint8Array(signature))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
+}
+
+async function verifySessionId(id: string, sig: string): Promise<boolean> {
+  for (let i = 0; i < SESSION_ID_SECRETS.length; i++) {
+    const expected = await signSessionIdWithSecret(id, SESSION_ID_SECRETS[i], i);
+    if (timingSafeEqual(expected, sig)) return true;
+  }
+  return false;
 }
 
 function isValidSessionId(id: string): boolean {
@@ -152,15 +169,14 @@ async function readSessionId(): Promise<string | null> {
     if (!raw) return null;
     const [id, sig] = raw.split('.');
     if (!id || !sig || !isValidSessionId(id)) return null;
-    const expected = await signSessionId(id);
-    return timingSafeEqual(expected, sig) ? id : null;
+    return (await verifySessionId(id, sig)) ? id : null;
   } catch (e) {
     console.warn('Failed to read sessionId', e);
     return null;
   }
 }
 
-export const __signSessionId = signSessionId; // for tests
+export const __signSessionId = signSessionIdWithSecret; // for tests
 
 function hasLocalStorage(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';

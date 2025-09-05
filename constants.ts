@@ -133,11 +133,25 @@ export const SUMMARIZER_MAX_CHARS = 1000;
 export const SESSION_SUMMARY_DEBOUNCE_MS = 500;
 export const SESSION_IMPORTS_PER_MINUTE = 5;
 export const SESSION_CONTEXT_TTL_MS = 86_400_000; // 24 hours
-const DEFAULT_SESSION_SECRET = 'dev-session-secret';
-export const SESSION_ID_SECRET =
+function generateSecret(): string {
+  if (typeof crypto !== 'undefined' && 'getRandomValues' in crypto) {
+    const buf = new Uint8Array(32);
+    crypto.getRandomValues(buf);
+    return Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
+  }
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  return require('crypto').randomBytes(32).toString('hex');
+}
+const DEFAULT_SESSION_SECRET = generateSecret();
+const rawSecrets =
   (typeof process !== 'undefined' && process.env.SESSION_ID_SECRET) ||
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SESSION_ID_SECRET) ||
   DEFAULT_SESSION_SECRET;
+export const SESSION_ID_SECRETS = rawSecrets
+  .split(',')
+  .map((s: string) => s.trim())
+  .filter(Boolean);
+export const SESSION_ID_SECRET = SESSION_ID_SECRETS[0];
 
 export const SESSION_ID_KEY_SALT =
   (typeof process !== 'undefined' && process.env.SESSION_ID_KEY_SALT) ||
@@ -150,34 +164,19 @@ export const SESSION_ID_PATTERN =
 const isProd =
   (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') ||
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.PROD);
-
-function estimateEntropy(str: string): number {
-  const counts: Record<string, number> = {};
-  for (const ch of str) counts[ch] = (counts[ch] || 0) + 1;
-  const len = str.length;
-  let entropy = 0;
-  for (const c of Object.values(counts)) {
-    const p = c / len;
-    entropy -= p * Math.log2(p);
+for (const secret of SESSION_ID_SECRETS) {
+  if (!/^[0-9a-f]{64}$/i.test(secret)) {
+    const msg = 'SESSION_ID_SECRET must be 64 hex characters';
+    if (isProd) throw new Error(msg);
+    console.warn(msg);
+    break;
   }
-  return entropy * len;
 }
 if (SESSION_ID_SECRET === DEFAULT_SESSION_SECRET) {
   const msg =
-    'SESSION_ID_SECRET is using a default development value; set a strong secret in production.';
+    'SESSION_ID_SECRET is using a temporary development value; set a strong secret in production.';
   if (isProd) throw new Error(msg);
   console.warn(msg);
-} else if (SESSION_ID_SECRET.length < 32) {
-  const msg = 'SESSION_ID_SECRET must be at least 32 characters';
-  if (isProd) throw new Error(msg);
-  console.warn(msg);
-} else {
-  const entropy = estimateEntropy(SESSION_ID_SECRET);
-  if (entropy < 80) {
-    const msg = 'SESSION_ID_SECRET must have at least 80 bits of entropy';
-    if (isProd) throw new Error(msg);
-    console.warn(msg);
-  }
 }
 
 // Cache tuning

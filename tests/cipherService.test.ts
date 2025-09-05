@@ -21,27 +21,27 @@ const sampleRun: RunRecord = {
 const originalFetch = global.fetch;
 const VALID_CSP_HEADER = {
   'Content-Security-Policy':
-    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; sandbox; trusted-types 'none'",
+    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
 };
 const WILDCARD_CSP_HEADER = {
   'Content-Security-Policy':
-    "default-src 'none'; connect-src *; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'",
+    "default-src 'none'; connect-src *; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-ancestors 'none'",
 };
 const UNSAFE_CSP_HEADER = {
   'Content-Security-Policy':
-    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'unsafe-inline'; style-src 'none'",
+    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'unsafe-inline'; style-src 'none'; frame-ancestors 'none'",
 };
 const DANGEROUS_CSP_HEADER = {
   'Content-Security-Policy':
-    "default-src 'none'; connect-src 'self'; object-src *; base-uri *; script-src 'none'; style-src 'none'",
+    "default-src 'none'; connect-src 'self'; object-src *; base-uri *; script-src 'none'; style-src 'none'; frame-ancestors 'none'",
 };
 const MISSING_SCRIPT_CSP_HEADER = {
   'Content-Security-Policy':
-    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; style-src 'none'",
+    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; style-src 'none'; frame-ancestors 'none'",
 };
 const MISSING_STYLE_CSP_HEADER = {
   'Content-Security-Policy':
-    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'",
+    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; frame-ancestors 'none'",
 };
 const MEMORIES_RESPONSE = {
   memories: [

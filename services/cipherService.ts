@@ -9,7 +9,7 @@ import {
 import { MinHeap } from '@/lib/minHeap';
 import { logMemory } from '@/lib/memoryLogger';
 import { SESSION_ID_PATTERN, ERRORS, ERROR_CODES } from '@/constants';
-import { hashSessionId, timingSafeEqual } from '@/lib/securityUtils';
+import { hashKey, timingSafeEqual } from '@/lib/securityUtils';
 
 /**
  * Immutable memory record stored in the cache.
@@ -158,6 +158,9 @@ function deepFreeze<T extends object>(
     if ('get' in desc || 'set' in desc) {
       throw new UnsafePropertyError(prop);
     }
+    if (typeof desc.value === 'function') {
+      throw new UnsafePropertyError(prop);
+    }
   }
   Object.freeze(obj);
   for (const desc of Object.values(descriptors)) {
@@ -269,13 +272,14 @@ async function getClientIp(): Promise<string | null> {
 
 async function consumeToken(sessionId: string): Promise<boolean> {
   // TODO: replace with a distributed rate limiter (e.g., Redis) for multi-instance deployments
-  const [ip, sessionKey] = await Promise.all([
+  const [ipRaw, sessionKey] = await Promise.all([
     getClientIp(),
-    hashSessionId(sessionId),
+    hashKey(sessionId),
   ]);
+  const ipKey = ipRaw ? await hashKey(ipRaw) : null;
   const exec = () => {
     const okSession = consumeFromBucket(sessionBuckets, sessionKey);
-    const okIp = ip ? consumeFromBucket(ipBuckets, ip) : true;
+    const okIp = ipKey ? consumeFromBucket(ipBuckets, ipKey) : true;
     return okSession && okIp;
   };
   const lockId = `cipher-rate:${sessionKey}`;
@@ -290,7 +294,7 @@ export const storeRunRecords = async (
   sessionId: string,
 ): Promise<void> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return;
-  const sessionIdHash = await hashSessionId(sessionId);
+  const sessionIdHash = await hashKey(sessionId);
   if (!SESSION_ID_PATTERN.test(sessionId)) {
     console.warn('Invalid sessionId format');
     logMemory('cipher.store.invalidSession', { sessionIdHash });
@@ -362,7 +366,7 @@ export const fetchRelevantMemories = async (
   sessionId: string,
 ): Promise<ImmutableMemoryEntry[]> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return [];
-  const sessionIdHash = await hashSessionId(sessionId);
+  const sessionIdHash = await hashKey(sessionId);
   if (!SESSION_ID_PATTERN.test(sessionId)) {
     console.warn('Invalid sessionId format');
     logMemory('cipher.fetch.invalidSession', { sessionIdHash });
