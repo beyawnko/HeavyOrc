@@ -8,6 +8,15 @@ export function timingSafeEqual(a: string, b: string): boolean {
   }
   const aBytes = encoder.encode(a);
   const bBytes = encoder.encode(b);
+  if (aBytes.length !== bBytes.length) {
+    const len = Math.max(aBytes.length, bBytes.length);
+    const aBuf = new Uint8Array(len);
+    const bBuf = new Uint8Array(len);
+    aBuf.set(aBytes);
+    bBuf.set(bBytes);
+    equal(aBuf, bBuf);
+    return false;
+  }
   return equal(aBytes, bBytes);
 }
 

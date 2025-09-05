@@ -15,7 +15,11 @@ export class RateLimiter {
   canProceed(): boolean {
     const now = Date.now();
     this.pruneExpired(now);
-    return this.timestamps.length < this.maxPerInterval;
+    const limit =
+      this.maxPerInterval >= 20
+        ? Math.floor(this.maxPerInterval * 0.95)
+        : this.maxPerInterval;
+    return this.timestamps.length < limit;
   }
   getRemainingCapacity(): { remaining: number; resetMs: number } {
     const now = Date.now();

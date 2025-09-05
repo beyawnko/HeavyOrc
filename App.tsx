@@ -272,13 +272,14 @@ const App: React.FC = () => {
 
     const updateQueryHistory = useCallback(
         (query: string, succeeded: boolean) => {
-            if (succeeded && !queryHistory.includes(query)) {
-                setQueryHistory(prev =>
-                    [query, ...prev].slice(0, MAX_HISTORY_LENGTH),
-                );
-            }
+            if (!succeeded) return;
+            setQueryHistory(prev =>
+                prev.includes(query)
+                    ? prev
+                    : [query, ...prev].slice(0, MAX_HISTORY_LENGTH),
+            );
         },
-        [queryHistory],
+        [],
     );
 
     const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
