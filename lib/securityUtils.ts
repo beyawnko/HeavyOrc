@@ -8,12 +8,7 @@ export function timingSafeEqual(a: string, b: string): boolean {
   }
   const aBytes = encoder.encode(a);
   const bBytes = encoder.encode(b);
-  const len = Math.max(aBytes.length, bBytes.length);
-  const aBuf = new Uint8Array(len);
-  const bBuf = new Uint8Array(len);
-  aBuf.set(aBytes);
-  bBuf.set(bBytes);
-  return equal(aBuf, bBuf) && aBytes.length === bBytes.length;
+  return equal(aBytes, bBytes);
 }
 
 export async function hashSessionId(id: string): Promise<string> {

@@ -10,7 +10,6 @@ export class LRUCache<K, V> {
   private memoryPressureThreshold: number;
   private evictionRatio: number;
   private checkInterval: number;
-  private opsSinceCheck = 0;
   private isCheckingMemory = false;
   private lastCheckTime = 0;
 
@@ -56,6 +55,10 @@ export class LRUCache<K, V> {
   }
 
   private scheduleMemoryCheck(): void {
+    const now = Date.now();
+    if (now - this.lastCheckTime < this.checkInterval) {
+      return;
+    }
     const cb = () => void this.checkMemoryPressure();
     const ric = globalThis.requestIdleCallback;
     if (typeof ric === 'function') {
@@ -66,16 +69,11 @@ export class LRUCache<K, V> {
   }
 
   private async checkMemoryPressure(): Promise<void> {
-    const now = Date.now();
-    if (
-      this.isCheckingMemory ||
-      typeof performance === 'undefined' ||
-      now - this.lastCheckTime < this.checkInterval
-    ) {
+    if (this.isCheckingMemory || typeof performance === 'undefined') {
       return;
     }
     this.isCheckingMemory = true;
-    this.lastCheckTime = now;
+    this.lastCheckTime = Date.now();
     try {
       const perf = performance as Performance & { memory?: PerformanceMemory };
       let memoryInfo: PerformanceMemory | undefined;
@@ -118,10 +116,7 @@ export class LRUCache<K, V> {
   }
 
   set(key: K, value: V): void {
-    if (++this.opsSinceCheck >= this.checkInterval) {
-      this.opsSinceCheck = 0;
-      this.scheduleMemoryCheck();
-    }
+    this.scheduleMemoryCheck();
     if (this.cache.has(key)) {
       this.cache.delete(key);
     } else if (this.cache.size >= this.max) {

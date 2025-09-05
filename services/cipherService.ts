@@ -242,14 +242,15 @@ export const storeRunRecords = async (
 ): Promise<void> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return;
   if (!SESSION_ID_PATTERN.test(sessionId)) {
-    const sanitizedId = await hashSessionId(sessionId);
+    const sessionIdHash = await hashSessionId(sessionId);
     console.warn('Invalid sessionId format');
-    logMemory('cipher.store.invalidSession', { sessionId: sanitizedId });
+    logMemory('cipher.store.invalidSession', { sessionIdHash });
     throw new Error(ERRORS[ERROR_CODES.INVALID_SESSION_ID.code]);
   }
+  const sessionIdHash = await hashSessionId(sessionId);
   if (!(await consumeToken(sessionId))) {
     console.warn('Rate limit exceeded for memory storage');
-    logMemory('cipher.store.rateLimit', { sessionId });
+    logMemory('cipher.store.rateLimit', { sessionIdHash });
     return;
   }
   for (const run of runs) {
@@ -259,7 +260,7 @@ export const storeRunRecords = async (
       run.agents.some(a => a.content.length > MAX_MEMORY_LENGTH)
     ) {
       console.warn('Run record exceeds memory size limit and will not be stored.');
-      logMemory('cipher.store.tooLarge', { sessionId });
+      logMemory('cipher.store.tooLarge', { sessionIdHash });
       return;
     }
   }
@@ -285,7 +286,7 @@ export const storeRunRecords = async (
       throw new Error('Failed to store run records with status ' + response.status);
     }
     logMemory('cipher.store', {
-      sessionId,
+      sessionIdHash,
       promptLength: runs.reduce((s, r) => s + r.prompt.length, 0),
       finalLength: runs.reduce((s, r) => s + r.finalAnswer.length, 0),
       agentCount: runs.reduce((s, r) => s + r.agents.length, 0),
@@ -297,7 +298,7 @@ export const storeRunRecords = async (
       url: `${baseUrl}/memories/batch`,
       error: e,
     });
-    logMemory('cipher.store.error', { sessionId, error: e });
+    logMemory('cipher.store.error', { sessionIdHash, error: e });
     throw e;
   }
 };
@@ -313,17 +314,18 @@ export const fetchRelevantMemories = async (
 ): Promise<ImmutableMemoryEntry[]> => {
   if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return [];
   if (!SESSION_ID_PATTERN.test(sessionId)) {
-    const sanitizedId = await hashSessionId(sessionId);
+    const sessionIdHash = await hashSessionId(sessionId);
     console.warn('Invalid sessionId format');
-    logMemory('cipher.fetch.invalidSession', { sessionId: sanitizedId });
+    logMemory('cipher.fetch.invalidSession', { sessionIdHash });
     return [];
   }
+  const sessionIdHash = await hashSessionId(sessionId);
   pruneCache();
   const cacheKey = `${sessionId}:${query}`;
   const cached = memoryCache.get(cacheKey);
   if (cached && cached.expiry > Date.now()) {
     logMemory('cipher.fetch.cacheHit', {
-      sessionId,
+      sessionIdHash,
       query,
       count: cached.data.length,
     });
@@ -342,7 +344,7 @@ export const fetchRelevantMemories = async (
         resetInMs,
       });
       logMemory('cipher.fetch.circuitOpen', {
-        sessionId,
+        sessionIdHash,
         query,
         failures: circuitBreaker.failures,
         resetInMs,
@@ -358,7 +360,7 @@ export const fetchRelevantMemories = async (
   const fetchPromise = (async () => {
     if (!(await consumeToken(sessionId))) {
       console.warn('Rate limit exceeded for memory fetching');
-      logMemory('cipher.fetch.rateLimit', { sessionId, query });
+      logMemory('cipher.fetch.rateLimit', { sessionIdHash, query });
       return [];
     }
 
@@ -411,7 +413,7 @@ export const fetchRelevantMemories = async (
       expiryHeap.push([cacheKey, expiry]);
       currentCacheSize += size;
       pruneCache();
-      logMemory('cipher.fetch', { sessionId, query, count: frozenMemories.length });
+      logMemory('cipher.fetch', { sessionIdHash, query, count: frozenMemories.length });
       resetCircuit();
       return [...frozenMemories];
     } catch (error) {
@@ -422,7 +424,7 @@ export const fetchRelevantMemories = async (
       });
       recordFailure();
       logMemory('cipher.fetch.error', {
-        sessionId,
+        sessionIdHash,
         errorType: error instanceof Error ? error.name : typeof error,
         recoverable:
           error instanceof Error && /temporarily unavailable/i.test(error.message),

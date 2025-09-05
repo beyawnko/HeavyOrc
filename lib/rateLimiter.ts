@@ -14,10 +14,24 @@ export class RateLimiter {
   }
   canProceed(): boolean {
     const now = Date.now();
+    this.pruneExpired(now);
+    return this.timestamps.length < this.maxPerInterval;
+  }
+  getRemainingCapacity(): { remaining: number; resetMs: number } {
+    const now = Date.now();
+    this.pruneExpired(now);
+    return {
+      remaining: Math.max(0, this.maxPerInterval - this.timestamps.length),
+      resetMs:
+        this.timestamps.length > 0
+          ? this.timestamps[0] + this.intervalMs - now
+          : 0,
+    };
+  }
+  private pruneExpired(now: number): void {
     while (this.timestamps.length > 0 && now - this.timestamps[0] >= this.intervalMs) {
       this.timestamps.shift();
     }
-    return this.timestamps.length < this.maxPerInterval;
   }
   recordAction(): void {
     this.timestamps.push(Date.now());

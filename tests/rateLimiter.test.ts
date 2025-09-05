@@ -17,6 +17,22 @@ describe('RateLimiter', () => {
     expect(rl.canProceed()).toBe(true);
   });
 
+  it('reports remaining capacity and reset time', () => {
+    const rl = new RateLimiter(2, 1000);
+    let info = rl.getRemainingCapacity();
+    expect(info.remaining).toBe(2);
+    expect(info.resetMs).toBe(0);
+    rl.recordAction();
+    vi.advanceTimersByTime(400);
+    info = rl.getRemainingCapacity();
+    expect(info.remaining).toBe(1);
+    expect(info.resetMs).toBe(600);
+    vi.advanceTimersByTime(600);
+    info = rl.getRemainingCapacity();
+    expect(info.remaining).toBe(2);
+    expect(info.resetMs).toBe(0);
+  });
+
   it('validates constructor inputs', () => {
     expect(() => new RateLimiter(0, 1000)).toThrow(
       'RateLimiter maxPerInterval must be positive, got: 0',

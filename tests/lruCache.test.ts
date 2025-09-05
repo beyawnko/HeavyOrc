@@ -37,6 +37,7 @@ describe('LRUCache', () => {
     vi.runAllTimers();
     const mem = (globalThis.performance as any).memory;
     mem.usedJSHeapSize = mem.jsHeapSizeLimit * MEMORY_PRESSURE_THRESHOLD + 1;
+    vi.advanceTimersByTime(1);
     cache.set('c', 3);
     vi.runAllTimers();
     expect(warn).toHaveBeenCalledWith(
@@ -63,6 +64,7 @@ describe('LRUCache', () => {
     vi.runAllTimers();
     const mem = (globalThis.performance as any).memory;
     mem.usedJSHeapSize = mem.jsHeapSizeLimit * 0.6;
+    vi.advanceTimersByTime(1);
     cache.set('e', 5);
     vi.runAllTimers();
     expect(warn).toHaveBeenCalledWith(
