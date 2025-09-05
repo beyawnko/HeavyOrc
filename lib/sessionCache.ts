@@ -16,6 +16,8 @@ import { logMemory } from '@/lib/memoryLogger';
 import { escapeHtml } from '@/lib/utils';
 import { SessionImportError } from '@/lib/errors';
 import { LRUCache } from '@/lib/lruCache';
+import { encoder, timingSafeEqual } from '@/lib/securityUtils';
+import { RateLimiter } from '@/lib/rateLimiter';
 
 export type CachedMessage = {
   role: 'user' | 'assistant';
@@ -34,6 +36,8 @@ let sessionIdPromise: Promise<string> | null = null;
 const lastSummaryTime = new Map<string, number>();
 const importTimestamps: number[] = [];
 
+const clearRateLimiter = new RateLimiter(1, 1000);
+
 function integrityHash(input: string): string {
   let hash = 0;
   for (let i = 0; i < input.length; i++) {
@@ -49,16 +53,6 @@ function detectCacheLeak(): void {
     logMemory('session.cache.leak', { size: cache.size });
   }
 
-  // Monitor browser memory pressure
-  const memoryInfo = (performance as any).memory;
-  if (memoryInfo && memoryInfo.usedJSHeapSize > memoryInfo.jsHeapSizeLimit * 0.9) {
-    console.warn('High memory pressure detected');
-    logMemory('session.cache.memory_pressure', {
-      used: memoryInfo.usedJSHeapSize,
-      limit: memoryInfo.jsHeapSizeLimit,
-    });
-    cache.clear();
-  }
 }
 
 type StorageEstimateResult = { usage?: number; quota?: number };
@@ -106,7 +100,6 @@ function pruneSession(sessionId: string): void {
 }
 
 async function signSessionId(id: string): Promise<string> {
-  const encoder = new TextEncoder();
   const keyData = encoder.encode(SESSION_ID_SECRET);
   const key = await crypto.subtle.importKey(
     'raw',
@@ -123,15 +116,6 @@ async function signSessionId(id: string): Promise<string> {
 
 function isValidSessionId(id: string): boolean {
   return SESSION_ID_PATTERN.test(id) && new Set(id).size >= 10;
-}
-
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return result === 0;
 }
 
 async function storeSessionId(id: string): Promise<boolean> {
@@ -229,8 +213,28 @@ export function appendSessionContext(
   detectCacheLeak();
 }
 
-export function __clearSessionCache(): void {
+export function __clearSessionCache(force = false): void {
+  if (!force && !clearRateLimiter.canProceed()) return;
+  const perf = performance as Performance & { memory?: PerformanceMemory };
+  const memoryInfo = perf.memory;
+  if (
+    !force &&
+    memoryInfo &&
+    memoryInfo.usedJSHeapSize <=
+      Math.floor(memoryInfo.jsHeapSizeLimit * MEMORY_PRESSURE_THRESHOLD)
+  ) {
+    return;
+  }
   cache.clear();
+  if (!force) {
+    clearRateLimiter.recordAction();
+  }
+  if (memoryInfo) {
+    logMemory('session.cache.clear', {
+      used: memoryInfo.usedJSHeapSize,
+      limit: memoryInfo.jsHeapSizeLimit,
+    });
+  }
   ephemeralSessionId = null;
   sessionIdPromise = null;
   lastSummaryTime.clear();

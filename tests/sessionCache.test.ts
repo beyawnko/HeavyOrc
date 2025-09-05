@@ -27,7 +27,7 @@ function setNavigator(value: any): void {
 
 describe('sessionCache', () => {
   beforeEach(() => {
-    __clearSessionCache();
+    __clearSessionCache(true);
     // reset environment
     delete (globalThis as any).window;
     delete (globalThis as any).navigator;
@@ -47,6 +47,33 @@ describe('sessionCache', () => {
     expect(ctx).toHaveLength(SESSION_CACHE_MAX_ENTRIES);
     expect(ctx[0].content).toBe('m5');
     expect(ctx[ctx.length - 1].content).toBe(`m${SESSION_CACHE_MAX_ENTRIES + 4}`);
+  });
+
+  it('rate limits cache clearing', () => {
+    vi.useFakeTimers();
+    __clearSessionCache(true);
+    const originalPerf = globalThis.performance;
+    const perf = { memory: { usedJSHeapSize: 91, jsHeapSizeLimit: 100 } } as any;
+    Object.defineProperty(globalThis, 'performance', { value: perf, configurable: true });
+    appendSessionContext('s', {
+      role: 'user',
+      content: 'm',
+      timestamp: Date.now(),
+    });
+    __clearSessionCache();
+    appendSessionContext('s', {
+      role: 'user',
+      content: 'm2',
+      timestamp: Date.now(),
+    });
+    __clearSessionCache();
+    const ctx = loadSessionContext('s');
+    expect(ctx).toHaveLength(1);
+    vi.useRealTimers();
+    Object.defineProperty(globalThis, 'performance', {
+      value: originalPerf,
+      configurable: true,
+    });
   });
 
   it('evicts messages past TTL', () => {
@@ -187,7 +214,7 @@ describe('sessionCache', () => {
       timestamp: Date.now(),
     });
     const serialized = exportSession(sessionId);
-    __clearSessionCache();
+    __clearSessionCache(true);
     const store: Record<string, string> = {};
     (globalThis as any).window = {
       localStorage: {
@@ -398,7 +425,7 @@ describe('sessionCache', () => {
     await __adjustCacheSize();
     expect(__getMaxEntries()).toBe(SESSION_CACHE_MAX_ENTRIES);
 
-    __clearSessionCache();
+    __clearSessionCache(true);
     setNavigator({
       storage: {
         estimate: () => Promise.resolve({ usage: 100 }),
