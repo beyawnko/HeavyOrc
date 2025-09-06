@@ -51,13 +51,22 @@ describe('RateLimiter', () => {
 
   it('validates constructor inputs', () => {
     expect(() => new RateLimiter(0, 1000)).toThrow(
-      'RateLimiter maxPerInterval must be positive, got: 0',
+      'RateLimiter maxPerInterval must be a positive safe integer, got: 0',
     );
     expect(() => new RateLimiter(1, 0)).toThrow(
-      'RateLimiter intervalMs must be positive, got: 0',
+      'RateLimiter intervalMs must be a positive safe integer, got: 0',
     );
     expect(() => new RateLimiter(RATE_LIMITER_MAX_CAPACITY + 1, 1000)).toThrow(
       `RateLimiter maxPerInterval must be <= ${RATE_LIMITER_MAX_CAPACITY}`,
+    );
+  });
+
+  it('requires integer constructor arguments', () => {
+    expect(() => new RateLimiter(1.5, 1000)).toThrow(
+      'RateLimiter maxPerInterval must be a positive safe integer',
+    );
+    expect(() => new RateLimiter(1, 1000.5)).toThrow(
+      'RateLimiter intervalMs must be a positive safe integer',
     );
   });
 

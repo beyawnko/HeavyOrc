@@ -5,14 +5,22 @@ export class RateLimiter {
   private start = 0;
   private count = 0;
   constructor(private maxPerInterval: number, private intervalMs: number) {
-    if (maxPerInterval <= 0) {
+    if (
+      typeof maxPerInterval !== 'number' ||
+      !Number.isSafeInteger(maxPerInterval) ||
+      maxPerInterval <= 0
+    ) {
       throw new Error(
-        `RateLimiter maxPerInterval must be positive, got: ${maxPerInterval}`,
+        `RateLimiter maxPerInterval must be a positive safe integer, got: ${maxPerInterval}`,
       );
     }
-    if (intervalMs <= 0) {
+    if (
+      typeof intervalMs !== 'number' ||
+      !Number.isSafeInteger(intervalMs) ||
+      intervalMs <= 0
+    ) {
       throw new Error(
-        `RateLimiter intervalMs must be positive, got: ${intervalMs}`,
+        `RateLimiter intervalMs must be a positive safe integer, got: ${intervalMs}`,
       );
     }
     if (maxPerInterval > RATE_LIMITER_MAX_CAPACITY) {

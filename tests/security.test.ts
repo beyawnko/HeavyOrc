@@ -94,13 +94,22 @@ describe('validateUrl', () => {
     expect(validateUrl('https://example.com/ bad')).toBeUndefined();
     expect(validateUrl('https://example.com/\n')).toBeUndefined();
   });
+
+  test('rejects non-normalized IPv6 hosts', () => {
+    expect(
+      validateUrl('https://[2001:4860:4860:0:0:0:0:8888]', [], false),
+    ).toBeUndefined();
+    expect(
+      validateUrl('https://[2001:4860:4860::8888%25eth0]', [], false),
+    ).toBeUndefined();
+  });
 });
 
 describe('validateCsp', () => {
   test('accepts strict policy', () => {
     const headers = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'; require-trusted-types-for 'script'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-src 'none'; navigate-to 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'; require-trusted-types-for 'script'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).not.toThrow();
@@ -109,7 +118,7 @@ describe('validateCsp', () => {
   test('rejects missing script-src', () => {
     const headers = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; style-src 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; style-src 'none'; frame-src 'none'; navigate-to 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
@@ -118,7 +127,7 @@ describe('validateCsp', () => {
   test('rejects unsafe style-src', () => {
     const headers = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src *; frame-ancestors 'none'; sandbox; trusted-types 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src *; frame-src 'none'; navigate-to 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
@@ -127,7 +136,7 @@ describe('validateCsp', () => {
   test('rejects unsafe hashes', () => {
     const headers = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none' 'unsafe-hashes'; style-src 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none' 'unsafe-hashes'; style-src 'none'; frame-src 'none'; navigate-to 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
@@ -136,7 +145,7 @@ describe('validateCsp', () => {
   test('rejects data sources and unsafe ancestors', () => {
     const headers = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; img-src data:; frame-ancestors 'self'; sandbox; trusted-types 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; img-src data:; frame-src 'none'; navigate-to 'none'; frame-ancestors 'self'; sandbox; trusted-types 'none'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
@@ -145,14 +154,14 @@ describe('validateCsp', () => {
   test('rejects wasm-unsafe-eval and unsafe-hashed-attributes', () => {
     const headers1 = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none' 'wasm-unsafe-eval'; style-src 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none' 'wasm-unsafe-eval'; style-src 'none'; frame-src 'none'; navigate-to 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
     });
     const resp1 = new Response('', { headers: headers1 });
     expect(() => validateCsp(resp1)).toThrow('Invalid CSP headers');
 
     const headers2 = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none' 'unsafe-hashed-attributes'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none' 'unsafe-hashed-attributes'; frame-src 'none'; navigate-to 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
     });
     const resp2 = new Response('', { headers: headers2 });
     expect(() => validateCsp(resp2)).toThrow('Invalid CSP headers');
@@ -161,25 +170,25 @@ describe('validateCsp', () => {
   test('rejects missing sandbox or trusted-types', () => {
     const headers = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-ancestors 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-src 'none'; navigate-to 'none'; frame-ancestors 'none'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
     const headers2 = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-ancestors 'none'; sandbox; trusted-types default; require-trusted-types-for 'script'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-src 'none'; navigate-to 'none'; frame-ancestors 'none'; sandbox; trusted-types default; require-trusted-types-for 'script'",
     });
     const resp2 = new Response('', { headers: headers2 });
     expect(() => validateCsp(resp2)).toThrow('Invalid CSP headers');
     const headers3 = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-ancestors 'none'; sandbox allow-scripts; trusted-types 'none'; require-trusted-types-for 'script'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-src 'none'; navigate-to 'none'; frame-ancestors 'none'; sandbox allow-scripts; trusted-types 'none'; require-trusted-types-for 'script'",
     });
     const resp3 = new Response('', { headers: headers3 });
     expect(() => validateCsp(resp3)).toThrow('Invalid CSP headers');
     const headers4 = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-src 'none'; navigate-to 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
     });
     const resp4 = new Response('', { headers: headers4 });
     expect(() => validateCsp(resp4)).toThrow('Invalid CSP headers');
@@ -188,10 +197,26 @@ describe('validateCsp', () => {
   test('rejects missing frame-ancestors', () => {
     const headers = new Headers({
       'Content-Security-Policy':
-        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; sandbox; trusted-types 'none'",
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-src 'none'; navigate-to 'none'; sandbox; trusted-types 'none'",
     });
     const response = new Response('', { headers });
     expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
+  });
+
+  test('rejects strict-dynamic and navigate-to self', () => {
+    const headers1 = new Headers({
+      'Content-Security-Policy':
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none' 'strict-dynamic'; style-src 'none'; frame-src 'none'; navigate-to 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'; require-trusted-types-for 'script'",
+    });
+    const resp1 = new Response('', { headers: headers1 });
+    expect(() => validateCsp(resp1)).toThrow('Invalid CSP headers');
+
+    const headers2 = new Headers({
+      'Content-Security-Policy':
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-src 'none'; navigate-to 'self'; frame-ancestors 'none'; sandbox; trusted-types 'none'; require-trusted-types-for 'script'",
+    });
+    const resp2 = new Response('', { headers: headers2 });
+    expect(() => validateCsp(resp2)).toThrow('Invalid CSP headers');
   });
 });
 
@@ -288,5 +313,14 @@ describe('deepFreeze', () => {
   test('rejects unsafe property names', () => {
     const obj: any = { 'bad name': 1 };
     expect(() => __deepFreeze(obj)).toThrow('bad name');
+  });
+
+  test('rejects non-configurable or non-writable properties', () => {
+    const obj1: any = {};
+    Object.defineProperty(obj1, 'a', { value: 1, configurable: false });
+    expect(() => __deepFreeze(obj1)).toThrow('a');
+    const obj2: any = {};
+    Object.defineProperty(obj2, 'b', { value: 1, writable: false, configurable: true });
+    expect(() => __deepFreeze(obj2)).toThrow('b');
   });
 });

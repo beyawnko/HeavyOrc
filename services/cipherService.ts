@@ -9,7 +9,11 @@ import {
 import { MinHeap } from '@/lib/minHeap';
 import { logMemory } from '@/lib/memoryLogger';
 import { RATE_LIMIT_BUCKETS_MAX, SESSION_ID_PATTERN, ERRORS, ERROR_CODES } from '@/constants';
-import { hashKey, timingSafeEqual } from '@/lib/securityUtils';
+import {
+  hashKey,
+  timingSafeEqual,
+  secureRandom,
+} from '@/lib/securityUtils';
 
 /**
  * Immutable memory record stored in the cache.
@@ -88,7 +92,7 @@ function recordFailure() {
   circuitBreaker.failures += 1;
   circuitBreaker.lastFailure = Date.now();
   if (circuitBreaker.failures >= circuitBreaker.threshold) {
-    const jitter = 0.5 + Math.random();
+    const jitter = 0.5 + secureRandom();
     circuitBreaker.backoffFactor = Math.min(
       circuitBreaker.backoffFactor * 2 * jitter,
       MAX_BACKOFF_FACTOR,
@@ -144,11 +148,14 @@ function deepFreeze<T extends object>(
     throw new UnsafePropertyError('prototype');
   }
   const proto = Object.getPrototypeOf(obj);
-  if (proto && proto !== Object.prototype && proto !== Array.prototype) {
-    throw new UnsafePropertyError('prototype');
-  }
   if (proto === Object.prototype) {
     Object.setPrototypeOf(obj, null);
+  } else if (proto === Array.prototype) {
+    if (Object.getPrototypeOf(proto) !== Object.prototype) {
+      throw new UnsafePropertyError('prototype');
+    }
+  } else if (proto !== null) {
+    throw new UnsafePropertyError('prototype');
   }
   const descriptors = Object.getOwnPropertyDescriptors(obj);
   const symbols = Object.getOwnPropertySymbols(obj);
@@ -168,6 +175,11 @@ function deepFreeze<T extends object>(
     }
     if (typeof desc.value === 'function') {
       throw new UnsafePropertyError(prop);
+    }
+    if (desc.configurable === false || desc.writable === false) {
+      if (!(Array.isArray(obj) && prop === 'length' && desc.writable === true)) {
+        throw new UnsafePropertyError(prop);
+      }
     }
   }
   Object.freeze(obj);
@@ -236,7 +248,13 @@ function consumeFromBucket(
       bucket = v;
     }
   }
-  if (!bucket || !Number.isFinite(bucket.tokens) || !Number.isFinite(bucket.lastRefill)) {
+  if (
+    !bucket ||
+    typeof bucket.tokens !== 'number' ||
+    typeof bucket.lastRefill !== 'number' ||
+    !Number.isFinite(bucket.tokens) ||
+    !Number.isFinite(bucket.lastRefill)
+  ) {
     bucket = { tokens: MAX_REQUESTS, lastRefill: now };
   }
   let elapsed = now - bucket.lastRefill;

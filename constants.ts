@@ -1,3 +1,4 @@
+import { secureRandomBytes } from './lib/securityUtils';
 
 
 
@@ -135,15 +136,9 @@ export const SESSION_IMPORTS_PER_MINUTE = 5;
 export const SESSION_CONTEXT_TTL_MS = 86_400_000; // 24 hours
 export const RATE_LIMIT_BUCKETS_MAX = 1000;
 export const RATE_LIMITER_MAX_CAPACITY = 1000;
-export const SESSION_ID_VERSION = 0;
 function generateSecret(): string {
-  if (typeof crypto !== 'undefined' && 'getRandomValues' in crypto) {
-    const buf = new Uint8Array(32);
-    crypto.getRandomValues(buf);
-    return Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
-  }
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  return require('crypto').randomBytes(32).toString('hex');
+  const buf = secureRandomBytes(32);
+  return Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
 }
 const DEFAULT_SESSION_SECRET = generateSecret();
 const rawSecrets =
@@ -154,7 +149,14 @@ export const SESSION_ID_SECRETS = rawSecrets
   .split(',')
   .map((s: string) => s.trim())
   .filter(Boolean);
-export const SESSION_ID_SECRET = SESSION_ID_SECRETS[0];
+const rawVersion =
+  (typeof process !== 'undefined' && process.env.SESSION_ID_VERSION) ||
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SESSION_ID_VERSION);
+export const SESSION_ID_VERSION = (() => {
+  const v = Number(rawVersion);
+  return Number.isInteger(v) && v >= 0 && v < SESSION_ID_SECRETS.length ? v : 0;
+})();
+export const SESSION_ID_SECRET = SESSION_ID_SECRETS[SESSION_ID_VERSION];
 
 export const SESSION_ID_KEY_SALT =
   (typeof process !== 'undefined' && process.env.SESSION_ID_KEY_SALT) ||

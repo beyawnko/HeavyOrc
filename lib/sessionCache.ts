@@ -106,7 +106,7 @@ function pruneSession(sessionId: string): void {
 }
 
 async function signSessionId(id: string): Promise<string> {
-  return signSessionIdWithSecret(id, SESSION_ID_SECRET, 0);
+  return signSessionIdWithSecret(id, SESSION_ID_SECRET, SESSION_ID_VERSION);
 }
 
 async function signSessionIdWithSecret(

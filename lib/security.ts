@@ -128,28 +128,26 @@ function isPrivateOrLocalhost(hostname: string): boolean {
   const host = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
   if (host === 'localhost' || /^localhost\./i.test(host)) return true;
   if (ipaddr.isValid(host)) {
-    let parsed = ipaddr.parse(host);
-    if (parsed.kind() === 'ipv6') {
-      const ipv6 = parsed as ipaddr.IPv6;
-      if (host.includes('%')) return true; // Block zone IDs
-      if (ipv6.isIPv4MappedAddress()) {
-        parsed = ipv6.toIPv4Address();
+    try {
+      let parsed = ipaddr.parse(host);
+      if (parsed.kind() === 'ipv6') {
+        const ipv6 = parsed as ipaddr.IPv6;
+        if (host.includes('%')) return true; // Block zone IDs
+        if (ipv6.isIPv4MappedAddress()) {
+          parsed = ipv6.toIPv4Address();
+        }
       }
+      const normalized = parsed.toNormalizedString();
+      if (normalized.toLowerCase() !== host.toLowerCase()) return true;
+      const range = parsed.range();
+      return range !== 'unicast';
+    } catch {
+      return true;
     }
-    const range = parsed.range();
-    return [
-      'loopback',
-      'linkLocal',
-      'uniqueLocal',
-      'private',
-      'unspecified',
-      'broadcast',
-      'multicast',
-    ].includes(range);
   }
   // Block DNS rebinding or obfuscated IP forms
   return (
-    /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?\d\d?)$/.test(host) || // Dotted decimal
+    /^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)$/.test(host) || // Dotted decimal
     /^0x[0-9a-f]+$/i.test(host) || // Hexadecimal
     /^[0-7]+$/.test(host) || // Octal
     /^\d+$/.test(host) // Decimal integer
@@ -186,8 +184,8 @@ export function validateUrl(
       try {
         const addr = ipaddr.parse(bareHost);
         const normalized = addr.toNormalizedString();
-        const compare = bareHost.toLowerCase();
-        if (normalized !== compare) return undefined;
+        if (normalized.toLowerCase() !== bareHost.toLowerCase()) return undefined;
+        hostname = addr.kind() === 'ipv6' ? `[${normalized}]` : normalized;
       } catch {
         return undefined;
       }
@@ -298,6 +296,8 @@ export function validateCsp(response: Response): void {
   const requireTrustedTypesFor = directives.find(
     d => d.name === 'require-trusted-types-for',
   );
+  const frameSrc = directives.find(d => d.name === 'frame-src');
+  const navigateTo = directives.find(d => d.name === 'navigate-to');
 
   const hasUnsafeSource = directives.some(d =>
     d.sources.some(
@@ -309,6 +309,7 @@ export function validateCsp(response: Response): void {
         s === "'unsafe-dynamic'" ||
         s === "'wasm-unsafe-eval'" ||
         s === "'unsafe-allow-redirects'" ||
+        s === "'strict-dynamic'" ||
         s === '*' ||
         s.startsWith('data:') ||
         s.startsWith('blob:') ||
@@ -348,6 +349,8 @@ export function validateCsp(response: Response): void {
     !!frameAncestors &&
     frameAncestors.sources.length === 1 &&
     frameAncestors.sources[0] === "'none'";
+  const isFrameSrcSafe =
+    !frameSrc || (frameSrc.sources.length === 1 && frameSrc.sources[0] === "'none'");
   const isFormActionSafe =
     !formAction ||
     (formAction.sources.length === 1 && formAction.sources[0] === "'none'");
@@ -360,6 +363,9 @@ export function validateCsp(response: Response): void {
     !!requireTrustedTypesFor &&
     requireTrustedTypesFor.sources.length === 1 &&
     requireTrustedTypesFor.sources[0] === "'script'";
+  const isNavigateToSafe =
+    !navigateTo ||
+    (navigateTo.sources.length === 1 && navigateTo.sources[0] === "'none'");
 
   if (
     !isDefaultSrcStrict ||
@@ -374,10 +380,12 @@ export function validateCsp(response: Response): void {
     !isStyleSrcAttrSafe ||
     !isStyleSrcElemSafe ||
     !isFrameAncestorsStrict ||
+    !isFrameSrcSafe ||
     !isFormActionSafe ||
     !isSandboxStrict ||
     !isTrustedTypesSafe ||
-    !isRequireTrustedTypesForScript
+    !isRequireTrustedTypesForScript ||
+    !isNavigateToSafe
   ) {
     console.error('Invalid or insufficient CSP headers from memory server');
     throw new Error('Invalid CSP headers');
