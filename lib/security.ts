@@ -161,7 +161,7 @@ export function validateUrl(
   allowedHosts: string[] = [],
   dev: boolean = import.meta.env.DEV,
 ): string | undefined {
-  if (!url || url.length > 2048) return undefined;
+  if (!url || url.length > 2048 || /[\u0000-\u001F\u007F\s]/.test(url)) return undefined;
   const pathStart = url.indexOf('/', url.indexOf('://') + 3);
   if (pathStart !== -1) {
     const rawPath = url.slice(pathStart);
@@ -173,6 +173,7 @@ export function validateUrl(
     const parsed = new URL(url.normalize('NFKC'));
     if (parsed.username || parsed.password || parsed.search || parsed.hash) return undefined;
     let hostname = parsed.hostname;
+    const normalizedAllowed = allowedHosts.map(h => h.toLowerCase());
     if (!ipaddr.isValid(hostname)) {
       try {
         hostname = new URL(`http://${hostname}`).hostname;
@@ -194,12 +195,13 @@ export function validateUrl(
     const allowedProtocols = ['http:', 'https:'];
     // Only allow standard HTTP/S ports to reduce SSRF risk
     const allowedPorts = ['', '80', '443'];
+    const hostLower = hostname.toLowerCase();
     if (
       !allowedProtocols.includes(parsed.protocol) ||
       hostname.length > 255 ||
       (!ipaddr.isValid(bareHost) && !/^(?!-)[a-zA-Z0-9-]+(?<!-)(?:\.[a-zA-Z0-9-]+)*$/.test(bareHost)) ||
       (!dev && (parsed.protocol !== 'https:' || isPrivateOrLocalhost(hostname) || (parsed.port && !allowedPorts.includes(parsed.port)))) ||
-      (allowedHosts.length > 0 && !allowedHosts.includes(hostname))
+      (normalizedAllowed.length > 0 && !normalizedAllowed.includes(hostLower))
     ) {
       return undefined;
     }
@@ -293,6 +295,9 @@ export function validateCsp(response: Response): void {
   const formAction = directives.find(d => d.name === 'form-action');
   const sandbox = directives.find(d => d.name === 'sandbox');
   const trustedTypes = directives.find(d => d.name === 'trusted-types');
+  const requireTrustedTypesFor = directives.find(
+    d => d.name === 'require-trusted-types-for',
+  );
 
   const hasUnsafeSource = directives.some(d =>
     d.sources.some(
@@ -351,6 +356,10 @@ export function validateCsp(response: Response): void {
     !!trustedTypes &&
     trustedTypes.sources.length === 1 &&
     trustedTypes.sources[0] === "'none'";
+  const isRequireTrustedTypesForScript =
+    !!requireTrustedTypesFor &&
+    requireTrustedTypesFor.sources.length === 1 &&
+    requireTrustedTypesFor.sources[0] === "'script'";
 
   if (
     !isDefaultSrcStrict ||
@@ -367,7 +376,8 @@ export function validateCsp(response: Response): void {
     !isFrameAncestorsStrict ||
     !isFormActionSafe ||
     !isSandboxStrict ||
-    !isTrustedTypesSafe
+    !isTrustedTypesSafe ||
+    !isRequireTrustedTypesForScript
   ) {
     console.error('Invalid or insufficient CSP headers from memory server');
     throw new Error('Invalid CSP headers');

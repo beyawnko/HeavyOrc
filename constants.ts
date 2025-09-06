@@ -133,6 +133,9 @@ export const SUMMARIZER_MAX_CHARS = 1000;
 export const SESSION_SUMMARY_DEBOUNCE_MS = 500;
 export const SESSION_IMPORTS_PER_MINUTE = 5;
 export const SESSION_CONTEXT_TTL_MS = 86_400_000; // 24 hours
+export const RATE_LIMIT_BUCKETS_MAX = 1000;
+export const RATE_LIMITER_MAX_CAPACITY = 1000;
+export const SESSION_ID_VERSION = 0;
 function generateSecret(): string {
   if (typeof crypto !== 'undefined' && 'getRandomValues' in crypto) {
     const buf = new Uint8Array(32);
@@ -165,8 +168,9 @@ const isProd =
   (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') ||
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.PROD);
 for (const secret of SESSION_ID_SECRETS) {
-  if (!/^[0-9a-f]{64}$/i.test(secret)) {
-    const msg = 'SESSION_ID_SECRET must be 64 hex characters';
+  if (!/^[0-9a-f]{64}$/i.test(secret) || new Set(secret).size < 16) {
+    const msg =
+      'SESSION_ID_SECRET must be 64 hex characters with high entropy';
     if (isProd) throw new Error(msg);
     console.warn(msg);
     break;

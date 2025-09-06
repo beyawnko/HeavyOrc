@@ -19,6 +19,7 @@ import {
   SESSION_IMPORTS_PER_MINUTE,
   SESSION_CONTEXT_TTL_MS,
   SESSION_CACHE_MAX_SESSIONS,
+  SESSION_ID_VERSION,
 } from '@/constants';
 
 function setNavigator(value: any): void {
@@ -139,7 +140,7 @@ describe('sessionCache', () => {
     const id2 = await getSessionId();
     expect(id1).toBe(id2);
     expect(store[SESSION_ID_STORAGE_KEY]).toBe(
-      `${id1}.${await __signSessionId(id1)}`,
+      `${SESSION_ID_VERSION}:${id1}.${await __signSessionId(id1)}`,
     );
   });
 
@@ -227,7 +228,7 @@ describe('sessionCache', () => {
     const importedId = await importSession(serialized);
     expect(importedId).toBe(sessionId);
     expect(store[SESSION_ID_STORAGE_KEY]).toBe(
-      `${sessionId}.${await __signSessionId(sessionId)}`,
+      `${SESSION_ID_VERSION}:${sessionId}.${await __signSessionId(sessionId)}`,
     );
     const ctx = loadSessionContext(sessionId);
     expect(ctx).toHaveLength(1);
@@ -286,11 +287,11 @@ describe('sessionCache', () => {
       },
     };
     const id1 = await getSessionId();
-    store[SESSION_ID_STORAGE_KEY] = `${id1}.bogus`;
+    store[SESSION_ID_STORAGE_KEY] = `${SESSION_ID_VERSION}:${id1}.bogus`;
     const id2 = await getSessionId();
     expect(id2).not.toBe(id1);
     expect(store[SESSION_ID_STORAGE_KEY]).toBe(
-      `${id2}.${await __signSessionId(id2)}`,
+      `${SESSION_ID_VERSION}:${id2}.${await __signSessionId(id2)}`,
     );
   });
 
@@ -309,7 +310,7 @@ describe('sessionCache', () => {
       },
     };
     const sessionId = '123e4567-e89b-12d3-a456-426614174888';
-    store[SESSION_ID_STORAGE_KEY] = `${sessionId}.${await __signSessionId(
+    store[SESSION_ID_STORAGE_KEY] = `1:${sessionId}.${await __signSessionId(
       sessionId,
       'a'.repeat(64),
       1,

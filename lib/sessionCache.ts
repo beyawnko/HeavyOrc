@@ -13,6 +13,7 @@ import {
   MEMORY_PRESSURE_THRESHOLD,
   SESSION_CACHE_MAX_SESSIONS,
   SESSION_ID_PATTERN,
+  SESSION_ID_VERSION,
 } from '@/constants';
 import { logMemory } from '@/lib/memoryLogger';
 import { escapeHtml } from '@/lib/utils';
@@ -138,7 +139,19 @@ async function signSessionIdWithSecret(
     .join('');
 }
 
-async function verifySessionId(id: string, sig: string): Promise<boolean> {
+async function verifySessionId(
+  id: string,
+  sig: string,
+  version?: number,
+): Promise<boolean> {
+  if (version !== undefined && SESSION_ID_SECRETS[version]) {
+    const expected = await signSessionIdWithSecret(
+      id,
+      SESSION_ID_SECRETS[version],
+      version,
+    );
+    return timingSafeEqual(expected, sig);
+  }
   for (let i = 0; i < SESSION_ID_SECRETS.length; i++) {
     const expected = await signSessionIdWithSecret(id, SESSION_ID_SECRETS[i], i);
     if (timingSafeEqual(expected, sig)) return true;
@@ -147,14 +160,17 @@ async function verifySessionId(id: string, sig: string): Promise<boolean> {
 }
 
 function isValidSessionId(id: string): boolean {
-  return SESSION_ID_PATTERN.test(id) && new Set(id).size >= 10;
+  return SESSION_ID_PATTERN.test(id) && new Set(id).size >= 12;
 }
 
 async function storeSessionId(id: string): Promise<boolean> {
   if (!hasLocalStorage()) return false;
   try {
     const sig = await signSessionId(id);
-    window.localStorage.setItem(SESSION_ID_STORAGE_KEY, `${id}.${sig}`);
+    window.localStorage.setItem(
+      SESSION_ID_STORAGE_KEY,
+      `${SESSION_ID_VERSION}:${id}.${sig}`,
+    );
     return true;
   } catch (e) {
     console.warn('Failed to persist sessionId', e);
@@ -167,9 +183,13 @@ async function readSessionId(): Promise<string | null> {
   try {
     const raw = window.localStorage.getItem(SESSION_ID_STORAGE_KEY);
     if (!raw) return null;
-    const [id, sig] = raw.split('.');
+    const [verPart, rest] = raw.split(':');
+    const version = Number(verPart);
+    const [id, sig] = rest?.split('.') ?? [];
     if (!id || !sig || !isValidSessionId(id)) return null;
-    return (await verifySessionId(id, sig)) ? id : null;
+    return (await verifySessionId(id, sig, Number.isFinite(version) ? version : undefined))
+      ? id
+      : null;
   } catch (e) {
     console.warn('Failed to read sessionId', e);
     return null;

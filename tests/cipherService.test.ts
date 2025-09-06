@@ -21,7 +21,7 @@ const sampleRun: RunRecord = {
 const originalFetch = global.fetch;
 const VALID_CSP_HEADER = {
   'Content-Security-Policy':
-    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'",
+    "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'; require-trusted-types-for 'script'",
 };
 const WILDCARD_CSP_HEADER = {
   'Content-Security-Policy':

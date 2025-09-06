@@ -8,7 +8,7 @@ import {
 } from '@/lib/security';
 import { MinHeap } from '@/lib/minHeap';
 import { logMemory } from '@/lib/memoryLogger';
-import { SESSION_ID_PATTERN, ERRORS, ERROR_CODES } from '@/constants';
+import { RATE_LIMIT_BUCKETS_MAX, SESSION_ID_PATTERN, ERRORS, ERROR_CODES } from '@/constants';
 import { hashKey, timingSafeEqual } from '@/lib/securityUtils';
 
 /**
@@ -27,7 +27,11 @@ type DeepReadonly<T> = {
 };
 
 const useCipher = import.meta.env.VITE_USE_CIPHER_MEMORY === 'true';
-const baseUrl = validateUrl(import.meta.env.VITE_CIPHER_SERVER_URL, [], import.meta.env.DEV);
+const baseUrl = validateUrl(
+  import.meta.env.VITE_CIPHER_SERVER_URL,
+  [],
+  (import.meta.env.DEV as boolean | undefined) ?? true,
+);
 const allowedHosts = baseUrl ? [new URL(baseUrl).hostname] : [];
 const enforceCsp = import.meta.env.VITE_ENFORCE_CIPHER_CSP === 'true';
 
@@ -151,8 +155,12 @@ function deepFreeze<T extends object>(
   if (symbols.length > 0) {
     throw new UnsafePropertyError('symbol');
   }
+  const safeKey = /^[A-Za-z0-9_-]+$/;
   for (const [prop, desc] of Object.entries(descriptors)) {
     if (prop === '__proto__' || prop === 'constructor' || prop === 'prototype') {
+      throw new UnsafePropertyError(prop);
+    }
+    if (!safeKey.test(prop)) {
       throw new UnsafePropertyError(prop);
     }
     if ('get' in desc || 'set' in desc) {
@@ -217,6 +225,7 @@ function pruneCache() {
 function consumeFromBucket(
   buckets: Map<string, { tokens: number; lastRefill: number }>,
   key: string,
+  maxBuckets = RATE_LIMIT_BUCKETS_MAX,
 ): boolean {
   const now = Date.now();
   let foundKey: string | null = null;
@@ -245,6 +254,12 @@ function consumeFromBucket(
   if (allow) bucket.tokens -= 1;
   bucket.tokens = Math.max(0, Math.min(bucket.tokens, MAX_REQUESTS));
   buckets.set(foundKey ?? key, bucket);
+  if (buckets.size > maxBuckets) {
+    const oldest = buckets.keys().next().value;
+    if (oldest && oldest !== (foundKey ?? key)) {
+      buckets.delete(oldest);
+    }
+  }
   return allow;
 }
 
@@ -278,8 +293,14 @@ async function consumeToken(sessionId: string): Promise<boolean> {
   ]);
   const ipKey = ipRaw ? await hashKey(ipRaw) : null;
   const exec = () => {
-    const okSession = consumeFromBucket(sessionBuckets, sessionKey);
-    const okIp = ipKey ? consumeFromBucket(ipBuckets, ipKey) : true;
+    const okSession = consumeFromBucket(
+      sessionBuckets,
+      sessionKey,
+      RATE_LIMIT_BUCKETS_MAX,
+    );
+    const okIp = ipKey
+      ? consumeFromBucket(ipBuckets, ipKey, RATE_LIMIT_BUCKETS_MAX)
+      : true;
     return okSession && okIp;
   };
   const lockId = `cipher-rate:${sessionKey}`;
@@ -293,7 +314,12 @@ export const storeRunRecords = async (
   runs: RunRecord[],
   sessionId: string,
 ): Promise<void> => {
-  if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return;
+  if (
+    !useCipher ||
+    !baseUrl ||
+    !validateUrl(baseUrl, allowedHosts, (import.meta.env.DEV as boolean | undefined) ?? true)
+  )
+    return;
   const sessionIdHash = await hashKey(sessionId);
   if (!SESSION_ID_PATTERN.test(sessionId)) {
     console.warn('Invalid sessionId format');
@@ -365,7 +391,12 @@ export const fetchRelevantMemories = async (
   query: string,
   sessionId: string,
 ): Promise<ImmutableMemoryEntry[]> => {
-  if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return [];
+  if (
+    !useCipher ||
+    !baseUrl ||
+    !validateUrl(baseUrl, allowedHosts, (import.meta.env.DEV as boolean | undefined) ?? true)
+  )
+    return [];
   const sessionIdHash = await hashKey(sessionId);
   if (!SESSION_ID_PATTERN.test(sessionId)) {
     console.warn('Invalid sessionId format');

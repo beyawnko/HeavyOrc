@@ -1,6 +1,7 @@
 import { RateLimiter } from '@/lib/rateLimiter';
 import { __consumeFromBucket } from '@/services/cipherService';
 import * as securityUtils from '@/lib/securityUtils';
+import { RATE_LIMITER_MAX_CAPACITY } from '@/constants';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('RateLimiter', () => {
@@ -24,11 +25,12 @@ describe('RateLimiter', () => {
   });
 
   it('protects against timestamp overflow', () => {
-    const rl = new RateLimiter(2, 1000);
-    (rl as any).timestamps = [Number.MAX_SAFE_INTEGER];
+    const rl: any = new RateLimiter(2, 1000);
+    rl.buffer[0] = Number.MAX_SAFE_INTEGER;
+    rl.count = 1;
     vi.setSystemTime(new Date(0));
     expect(rl.canProceed()).toBe(true);
-    expect((rl as any).timestamps.length).toBe(0);
+    expect(rl.count).toBe(0);
   });
 
   it('reports remaining capacity and reset time', () => {
@@ -54,6 +56,9 @@ describe('RateLimiter', () => {
     expect(() => new RateLimiter(1, 0)).toThrow(
       'RateLimiter intervalMs must be positive, got: 0',
     );
+    expect(() => new RateLimiter(RATE_LIMITER_MAX_CAPACITY + 1, 1000)).toThrow(
+      `RateLimiter maxPerInterval must be <= ${RATE_LIMITER_MAX_CAPACITY}`,
+    );
   });
 
   it('handles integer overflow in token buckets', () => {
@@ -75,5 +80,13 @@ describe('RateLimiter', () => {
     expect(__consumeFromBucket(buckets, 'a')).toBe(true);
     expect(spy).toHaveBeenCalledTimes(buckets.size);
     spy.mockRestore();
+  });
+
+  it('bounds bucket map size', () => {
+    const buckets = new Map<string, { tokens: number; lastRefill: number }>();
+    __consumeFromBucket(buckets, 'a', 2);
+    __consumeFromBucket(buckets, 'b', 2);
+    __consumeFromBucket(buckets, 'c', 2);
+    expect(buckets.size).toBeLessThanOrEqual(2);
   });
 });
