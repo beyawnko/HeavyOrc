@@ -95,6 +95,13 @@ describe('validateUrl', () => {
     expect(validateUrl('https://example.com/\n')).toBeUndefined();
   });
 
+  test('rejects encoded traversal sequences', () => {
+    expect(validateUrl('https://example.com/%2e%2e/')).toBeUndefined();
+    expect(validateUrl('https://example.com/%2e%2e%2fsecret')).toBeUndefined();
+    expect(validateUrl('https://example.com/%252e%252e%252f')).toBeUndefined();
+    expect(validateUrl('https://example.com/%2f%2fsecret')).toBeUndefined();
+  });
+
   test('rejects non-normalized IPv6 hosts', () => {
     expect(
       validateUrl('https://[2001:4860:4860:0:0:0:0:8888]', [], false),
@@ -165,6 +172,30 @@ describe('validateCsp', () => {
     });
     const resp2 = new Response('', { headers: headers2 });
     expect(() => validateCsp(resp2)).toThrow('Invalid CSP headers');
+  });
+
+  test('rejects unsafe worker and manifest sources', () => {
+    const headers1 = new Headers({
+      'Content-Security-Policy':
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; worker-src 'self'; frame-src 'none'; navigate-to 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'; require-trusted-types-for 'script'",
+    });
+    const resp1 = new Response('', { headers: headers1 });
+    expect(() => validateCsp(resp1)).toThrow('Invalid CSP headers');
+    const headers2 = new Headers({
+      'Content-Security-Policy':
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none'; style-src 'none'; manifest-src https://evil.com; frame-src 'none'; navigate-to 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'; require-trusted-types-for 'script'",
+    });
+    const resp2 = new Response('', { headers: headers2 });
+    expect(() => validateCsp(resp2)).toThrow('Invalid CSP headers');
+  });
+
+  test('rejects unsafe-allow-attributes', () => {
+    const headers = new Headers({
+      'Content-Security-Policy':
+        "default-src 'none'; connect-src 'self'; object-src 'none'; base-uri 'none'; script-src 'none' 'unsafe-allow-attributes'; style-src 'none'; frame-src 'none'; navigate-to 'none'; frame-ancestors 'none'; sandbox; trusted-types 'none'; require-trusted-types-for 'script'",
+    });
+    const response = new Response('', { headers });
+    expect(() => validateCsp(response)).toThrow('Invalid CSP headers');
   });
 
   test('rejects missing sandbox or trusted-types', () => {

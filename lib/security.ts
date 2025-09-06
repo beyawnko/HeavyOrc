@@ -160,13 +160,22 @@ export function validateUrl(
   dev: boolean = import.meta.env.DEV,
 ): string | undefined {
   if (!url || url.length > 2048 || /[\u0000-\u001F\u007F\s]/.test(url)) return undefined;
-  const pathStart = url.indexOf('/', url.indexOf('://') + 3);
-  if (pathStart !== -1) {
-    const rawPath = url.slice(pathStart);
-    if (rawPath.includes('..') || rawPath.includes('\\') || /\/\//.test(rawPath)) {
-      return undefined;
+  const hasTraversal = (p: string): boolean => {
+    let check = p;
+    for (let i = 0; i < 4; i++) {
+      if (check.includes('..') || check.includes('\\') || /\/\//.test(check)) return true;
+      try {
+        const dec = decodeURIComponent(check);
+        if (dec === check) break;
+        check = dec;
+      } catch {
+        break;
+      }
     }
-  }
+    return false;
+  };
+  const pathStart = url.indexOf('/', url.indexOf('://') + 3);
+  if (pathStart !== -1 && hasTraversal(url.slice(pathStart))) return undefined;
   try {
     const parsed = new URL(url.normalize('NFKC'));
     if (parsed.username || parsed.password || parsed.search || parsed.hash) return undefined;
@@ -203,10 +212,7 @@ export function validateUrl(
     ) {
       return undefined;
     }
-    const path = parsed.pathname;
-    if (path.includes('..') || path.includes('\\') || /\/\//.test(path)) {
-      return undefined;
-    }
+    if (hasTraversal(parsed.pathname)) return undefined;
     parsed.hostname = hostname;
     return parsed.toString().replace(/\/$/, '');
   } catch {
@@ -298,6 +304,9 @@ export function validateCsp(response: Response): void {
   );
   const frameSrc = directives.find(d => d.name === 'frame-src');
   const navigateTo = directives.find(d => d.name === 'navigate-to');
+  const workerSrc = directives.find(d => d.name === 'worker-src');
+  const childSrc = directives.find(d => d.name === 'child-src');
+  const manifestSrc = directives.find(d => d.name === 'manifest-src');
 
   const hasUnsafeSource = directives.some(d =>
     d.sources.some(
@@ -307,6 +316,7 @@ export function validateCsp(response: Response): void {
         s === "'unsafe-hashes'" ||
         s === "'unsafe-hashed-attributes'" ||
         s === "'unsafe-dynamic'" ||
+        s === "'unsafe-allow-attributes'" ||
         s === "'wasm-unsafe-eval'" ||
         s === "'unsafe-allow-redirects'" ||
         s === "'strict-dynamic'" ||
@@ -354,6 +364,13 @@ export function validateCsp(response: Response): void {
   const isFormActionSafe =
     !formAction ||
     (formAction.sources.length === 1 && formAction.sources[0] === "'none'");
+  const isWorkerSrcSafe =
+    !workerSrc || (workerSrc.sources.length === 1 && workerSrc.sources[0] === "'none'");
+  const isChildSrcSafe =
+    !childSrc || (childSrc.sources.length === 1 && childSrc.sources[0] === "'none'");
+  const isManifestSrcSafe =
+    !manifestSrc ||
+    (manifestSrc.sources.length === 1 && manifestSrc.sources[0] === "'none'");
   const isSandboxStrict = !!sandbox && sandbox.sources.length === 0;
   const isTrustedTypesSafe =
     !!trustedTypes &&
@@ -382,6 +399,9 @@ export function validateCsp(response: Response): void {
     !isFrameAncestorsStrict ||
     !isFrameSrcSafe ||
     !isFormActionSafe ||
+    !isWorkerSrcSafe ||
+    !isChildSrcSafe ||
+    !isManifestSrcSafe ||
     !isSandboxStrict ||
     !isTrustedTypesSafe ||
     !isRequireTrustedTypesForScript ||

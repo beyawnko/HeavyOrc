@@ -14,6 +14,7 @@ import {
   timingSafeEqual,
   secureRandom,
 } from '@/lib/securityUtils';
+import { z } from 'zod';
 
 /**
  * Immutable memory record stored in the cache.
@@ -47,6 +48,13 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_ENTRIES = 1000;
 const MAX_CACHE_SIZE = MAX_RESPONSE_SIZE; // 400KB overall cache limit
 const MAX_FREEZE_DEPTH = 100;
+
+const runRecordSchema = z.object({
+  prompt: z.string().max(MAX_MEMORY_LENGTH),
+  finalAnswer: z.string().max(MAX_MEMORY_LENGTH),
+  agents: z.array(z.object({ content: z.string().max(MAX_MEMORY_LENGTH) })),
+});
+const querySchema = z.string().max(MAX_MEMORY_LENGTH);
 
 const sessionBuckets = new Map<string, { tokens: number; lastRefill: number }>();
 const ipBuckets = new Map<string, { tokens: number; lastRefill: number }>();
@@ -248,6 +256,9 @@ function consumeFromBucket(
       bucket = v;
     }
   }
+  for (let i = buckets.size; i < maxBuckets; i++) {
+    timingSafeEqual(key, key);
+  }
   if (
     !bucket ||
     typeof bucket.tokens !== 'number' ||
@@ -350,13 +361,10 @@ export const storeRunRecords = async (
     return;
   }
   for (const run of runs) {
-    if (
-      run.prompt.length > MAX_MEMORY_LENGTH ||
-      run.finalAnswer.length > MAX_MEMORY_LENGTH ||
-      run.agents.some(a => a.content.length > MAX_MEMORY_LENGTH)
-    ) {
-      console.warn('Run record exceeds memory size limit and will not be stored.');
-      logMemory('cipher.store.tooLarge', { sessionIdHash });
+    const res = runRecordSchema.safeParse(run);
+    if (!res.success) {
+      console.warn('Invalid run record', res.error.issues);
+      logMemory('cipher.store.invalidRun', { sessionIdHash });
       return;
     }
   }
@@ -422,6 +430,7 @@ export const fetchRelevantMemories = async (
     return [];
   }
   pruneCache();
+  if (!querySchema.safeParse(query).success) return [];
   const cacheKey = `${sessionId}:${query}`;
   const cached = memoryCache.get(cacheKey);
   if (cached && cached.expiry > Date.now()) {
@@ -433,7 +442,6 @@ export const fetchRelevantMemories = async (
     const clone = structuredClone(cached.data) as ImmutableMemoryEntry[];
     return deepFreeze(clone) as ImmutableMemoryEntry[];
   }
-  if (query.length > MAX_MEMORY_LENGTH) return [];
   if (isCircuitOpen()) {
     const elapsed = Date.now() - circuitBreaker.lastFailure;
     if (elapsed > circuitBreaker.resetTimeMs) {

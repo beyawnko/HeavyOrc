@@ -86,8 +86,8 @@ describe('RateLimiter', () => {
       ['b', { tokens: 1, lastRefill: Date.now() }],
     ]);
     const spy = vi.spyOn(securityUtils, 'timingSafeEqual');
-    expect(__consumeFromBucket(buckets, 'a')).toBe(true);
-    expect(spy).toHaveBeenCalledTimes(buckets.size);
+    expect(__consumeFromBucket(buckets, 'a', 4)).toBe(true);
+    expect(spy).toHaveBeenCalledTimes(4);
     spy.mockRestore();
   });
 
