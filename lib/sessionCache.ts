@@ -3,6 +3,8 @@ import {
   SESSION_ID_STORAGE_KEY,
   SESSION_SUMMARY_CHAR_THRESHOLD,
   SESSION_ID_SECRET,
+  SESSION_ID_SECRETS,
+  SESSION_ID_KEY_SALT,
   SESSION_MESSAGE_MAX_CHARS,
   SESSION_SUMMARY_KEEP_RATIO,
   SESSION_SUMMARY_DEBOUNCE_MS,
@@ -11,6 +13,7 @@ import {
   MEMORY_PRESSURE_THRESHOLD,
   SESSION_CACHE_MAX_SESSIONS,
   SESSION_ID_PATTERN,
+  SESSION_ID_VERSION,
 } from '@/constants';
 import { logMemory } from '@/lib/memoryLogger';
 import { escapeHtml } from '@/lib/utils';
@@ -34,7 +37,10 @@ let dynamicMaxEntries = SESSION_CACHE_MAX_ENTRIES;
 let ephemeralSessionId: string | null = null;
 let sessionIdPromise: Promise<string> | null = null;
 const lastSummaryTime = new Map<string, number>();
-const importTimestamps: number[] = [];
+const IMPORT_WINDOW_MS = 60_000;
+const importBuffer = new Array<number>(SESSION_IMPORTS_PER_MINUTE);
+let importStart = 0;
+let importCount = 0;
 
 const clearRateLimiter = new RateLimiter(1, 1000);
 
@@ -100,11 +106,30 @@ function pruneSession(sessionId: string): void {
 }
 
 async function signSessionId(id: string): Promise<string> {
-  const keyData = encoder.encode(SESSION_ID_SECRET);
-  const key = await crypto.subtle.importKey(
+  return signSessionIdWithSecret(id, SESSION_ID_SECRET, SESSION_ID_VERSION);
+}
+
+async function signSessionIdWithSecret(
+  id: string,
+  secret: string = SESSION_ID_SECRET,
+  index: number = 0,
+): Promise<string> {
+  const baseKey = await crypto.subtle.importKey(
     'raw',
-    keyData,
-    { name: 'HMAC', hash: 'SHA-256' },
+    encoder.encode(secret),
+    'HKDF',
+    false,
+    ['deriveKey'],
+  );
+  const key = await crypto.subtle.deriveKey(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: encoder.encode(SESSION_ID_KEY_SALT),
+      info: encoder.encode(`session-id-signing:${index}`),
+    },
+    baseKey,
+    { name: 'HMAC', hash: 'SHA-256', length: 256 },
     false,
     ['sign'],
   );
@@ -114,15 +139,38 @@ async function signSessionId(id: string): Promise<string> {
     .join('');
 }
 
+async function verifySessionId(
+  id: string,
+  sig: string,
+  version?: number,
+): Promise<boolean> {
+  if (version !== undefined && SESSION_ID_SECRETS[version]) {
+    const expected = await signSessionIdWithSecret(
+      id,
+      SESSION_ID_SECRETS[version],
+      version,
+    );
+    return timingSafeEqual(expected, sig);
+  }
+  for (let i = 0; i < SESSION_ID_SECRETS.length; i++) {
+    const expected = await signSessionIdWithSecret(id, SESSION_ID_SECRETS[i], i);
+    if (timingSafeEqual(expected, sig)) return true;
+  }
+  return false;
+}
+
 function isValidSessionId(id: string): boolean {
-  return SESSION_ID_PATTERN.test(id) && new Set(id).size >= 10;
+  return SESSION_ID_PATTERN.test(id) && new Set(id).size >= 12;
 }
 
 async function storeSessionId(id: string): Promise<boolean> {
   if (!hasLocalStorage()) return false;
   try {
     const sig = await signSessionId(id);
-    window.localStorage.setItem(SESSION_ID_STORAGE_KEY, `${id}.${sig}`);
+    window.localStorage.setItem(
+      SESSION_ID_STORAGE_KEY,
+      `${SESSION_ID_VERSION}:${id}.${sig}`,
+    );
     return true;
   } catch (e) {
     console.warn('Failed to persist sessionId', e);
@@ -135,17 +183,20 @@ async function readSessionId(): Promise<string | null> {
   try {
     const raw = window.localStorage.getItem(SESSION_ID_STORAGE_KEY);
     if (!raw) return null;
-    const [id, sig] = raw.split('.');
+    const [verPart, rest] = raw.split(':');
+    const version = Number(verPart);
+    const [id, sig] = rest?.split('.') ?? [];
     if (!id || !sig || !isValidSessionId(id)) return null;
-    const expected = await signSessionId(id);
-    return timingSafeEqual(expected, sig) ? id : null;
+    return (await verifySessionId(id, sig, Number.isFinite(version) ? version : undefined))
+      ? id
+      : null;
   } catch (e) {
     console.warn('Failed to read sessionId', e);
     return null;
   }
 }
 
-export const __signSessionId = signSessionId; // for tests
+export const __signSessionId = signSessionIdWithSecret; // for tests
 
 function hasLocalStorage(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -238,7 +289,8 @@ export function __clearSessionCache(force = false): void {
   ephemeralSessionId = null;
   sessionIdPromise = null;
   lastSummaryTime.clear();
-  importTimestamps.length = 0;
+  importStart = 0;
+  importCount = 0;
   dynamicMaxEntries = SESSION_CACHE_MAX_ENTRIES;
 }
 
@@ -300,16 +352,18 @@ export function exportSession(sessionId: string): string {
 
 export async function importSession(serialized: string): Promise<string | null> {
   const now = Date.now();
-  while (importTimestamps.length && now - importTimestamps[0] > 60_000) {
-    importTimestamps.shift();
+  while (importCount > 0 && now - importBuffer[importStart] > IMPORT_WINDOW_MS) {
+    importStart = (importStart + 1) % importBuffer.length;
+    importCount--;
   }
-  if (importTimestamps.length >= SESSION_IMPORTS_PER_MINUTE) {
+  if (importCount >= SESSION_IMPORTS_PER_MINUTE) {
     const err = new SessionImportError('Rate limit exceeded');
     console.warn('Failed to import session', err);
     logMemory('session.import.error', { error: err });
     return null;
   }
-  importTimestamps.push(now);
+  importBuffer[(importStart + importCount) % importBuffer.length] = now;
+  if (importCount < SESSION_IMPORTS_PER_MINUTE) importCount++;
   try {
     const parsed = JSON.parse(serialized) as {
       sessionId: string;

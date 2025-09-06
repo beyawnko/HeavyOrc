@@ -8,8 +8,13 @@ import {
 } from '@/lib/security';
 import { MinHeap } from '@/lib/minHeap';
 import { logMemory } from '@/lib/memoryLogger';
-import { SESSION_ID_PATTERN, ERRORS, ERROR_CODES } from '@/constants';
-import { hashSessionId } from '@/lib/securityUtils';
+import { RATE_LIMIT_BUCKETS_MAX, SESSION_ID_PATTERN, ERRORS, ERROR_CODES } from '@/constants';
+import {
+  hashKey,
+  timingSafeEqual,
+  secureRandom,
+} from '@/lib/securityUtils';
+import { z } from 'zod';
 
 /**
  * Immutable memory record stored in the cache.
@@ -27,7 +32,11 @@ type DeepReadonly<T> = {
 };
 
 const useCipher = import.meta.env.VITE_USE_CIPHER_MEMORY === 'true';
-const baseUrl = validateUrl(import.meta.env.VITE_CIPHER_SERVER_URL, [], import.meta.env.DEV);
+const baseUrl = validateUrl(
+  import.meta.env.VITE_CIPHER_SERVER_URL,
+  [],
+  (import.meta.env.DEV as boolean | undefined) ?? true,
+);
 const allowedHosts = baseUrl ? [new URL(baseUrl).hostname] : [];
 const enforceCsp = import.meta.env.VITE_ENFORCE_CIPHER_CSP === 'true';
 
@@ -39,6 +48,13 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_ENTRIES = 1000;
 const MAX_CACHE_SIZE = MAX_RESPONSE_SIZE; // 400KB overall cache limit
 const MAX_FREEZE_DEPTH = 100;
+
+const runRecordSchema = z.object({
+  prompt: z.string().max(MAX_MEMORY_LENGTH),
+  finalAnswer: z.string().max(MAX_MEMORY_LENGTH),
+  agents: z.array(z.object({ content: z.string().max(MAX_MEMORY_LENGTH) })),
+});
+const querySchema = z.string().max(MAX_MEMORY_LENGTH);
 
 const sessionBuckets = new Map<string, { tokens: number; lastRefill: number }>();
 const ipBuckets = new Map<string, { tokens: number; lastRefill: number }>();
@@ -55,11 +71,11 @@ const expiryHeap = new MinHeap<[string, number]>((a, b) => a[1] - b[1]);
 const inFlightFetches = new Map<string, Promise<ImmutableMemoryEntry[]>>();
 
 class Mutex {
-  private mutex = Promise.resolve();
+  private mutex: Promise<void> = Promise.resolve();
   runExclusive<T>(fn: () => Promise<T> | T): Promise<T> {
-    const result = this.mutex.then(() => fn());
-    this.mutex = result.catch(() => {});
-    return result;
+    const run = this.mutex.then(() => fn());
+    this.mutex = run.then(() => undefined, () => undefined);
+    return run;
   }
 }
 const rateLimitMutex = new Mutex();
@@ -84,7 +100,7 @@ function recordFailure() {
   circuitBreaker.failures += 1;
   circuitBreaker.lastFailure = Date.now();
   if (circuitBreaker.failures >= circuitBreaker.threshold) {
-    const jitter = 0.5 + Math.random();
+    const jitter = 0.5 + secureRandom();
     circuitBreaker.backoffFactor = Math.min(
       circuitBreaker.backoffFactor * 2 * jitter,
       MAX_BACKOFF_FACTOR,
@@ -124,22 +140,67 @@ function deepFreeze<T extends object>(
   maxDepth = MAX_FREEZE_DEPTH,
 ): Readonly<T> {
   if (depth > maxDepth) throw new MaxDepthExceededError(maxDepth);
-  if (!obj || Object.isFrozen(obj) || visited.has(obj)) return obj;
+  if (!obj || typeof obj !== 'object' || Object.isFrozen(obj) || visited.has(obj)) return obj;
+  const tag = Object.prototype.toString.call(obj);
+  if (tag !== '[object Object]' && tag !== '[object Array]') {
+    throw new UnsafePropertyError('object type');
+  }
   visited.add(obj);
-  if (Object.hasOwn(obj, '__proto__')) {
+  if (Object.prototype.hasOwnProperty.call(obj, '__proto__')) {
     throw new UnsafePropertyError('__proto__');
   }
-  if (Object.hasOwn(obj, 'constructor')) {
+  if (Object.prototype.hasOwnProperty.call(obj, 'constructor')) {
     throw new UnsafePropertyError('constructor');
   }
+  if (Object.prototype.hasOwnProperty.call(obj, 'prototype')) {
+    throw new UnsafePropertyError('prototype');
+  }
+  const proto = Object.getPrototypeOf(obj);
+  if (proto === Object.prototype) {
+    Object.setPrototypeOf(obj, null);
+  } else if (proto === Array.prototype) {
+    if (Object.getPrototypeOf(proto) !== Object.prototype) {
+      throw new UnsafePropertyError('prototype');
+    }
+  } else if (proto !== null) {
+    throw new UnsafePropertyError('prototype');
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(obj);
+  const symbols = Object.getOwnPropertySymbols(obj);
+  if (symbols.length > 0) {
+    throw new UnsafePropertyError('symbol');
+  }
+  const safeKey = /^[A-Za-z0-9_-]+$/;
+  for (const [prop, desc] of Object.entries(descriptors)) {
+    if (prop === '__proto__' || prop === 'constructor' || prop === 'prototype') {
+      throw new UnsafePropertyError(prop);
+    }
+    if (!safeKey.test(prop)) {
+      throw new UnsafePropertyError(prop);
+    }
+    if ('get' in desc || 'set' in desc) {
+      throw new UnsafePropertyError(prop);
+    }
+    if (typeof desc.value === 'function') {
+      throw new UnsafePropertyError(prop);
+    }
+    if (desc.configurable === false || desc.writable === false) {
+      if (!(Array.isArray(obj) && prop === 'length' && desc.writable === true)) {
+        throw new UnsafePropertyError(prop);
+      }
+    }
+  }
   Object.freeze(obj);
-  for (const value of Object.values(obj)) {
+  for (const desc of Object.values(descriptors)) {
+    const value = desc.value;
     if (value && typeof value === 'object') {
       deepFreeze(value, visited, depth + 1, maxDepth);
     }
   }
   return obj;
 }
+
+export const __deepFreeze = deepFreeze;
 
 type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
 
@@ -184,25 +245,54 @@ function pruneCache() {
 function consumeFromBucket(
   buckets: Map<string, { tokens: number; lastRefill: number }>,
   key: string,
+  maxBuckets = RATE_LIMIT_BUCKETS_MAX,
 ): boolean {
-  const bucket = buckets.get(key) || { tokens: MAX_REQUESTS, lastRefill: Date.now() };
   const now = Date.now();
-  const elapsed = now - bucket.lastRefill;
+  let foundKey: string | null = null;
+  let bucket: { tokens: number; lastRefill: number } | undefined;
+  for (const [k, v] of buckets.entries()) {
+    if (timingSafeEqual(k, key)) {
+      foundKey = k;
+      bucket = v;
+    }
+  }
+  for (let i = buckets.size; i < maxBuckets; i++) {
+    timingSafeEqual(key, key);
+  }
+  if (
+    !bucket ||
+    typeof bucket.tokens !== 'number' ||
+    typeof bucket.lastRefill !== 'number' ||
+    !Number.isFinite(bucket.tokens) ||
+    !Number.isFinite(bucket.lastRefill)
+  ) {
+    bucket = { tokens: MAX_REQUESTS, lastRefill: now };
+  }
+  let elapsed = now - bucket.lastRefill;
+  if (!Number.isSafeInteger(elapsed) || elapsed < 0) {
+    bucket.tokens = MAX_REQUESTS;
+    bucket.lastRefill = now;
+    elapsed = 0;
+  }
   if (elapsed > 0) {
-    bucket.tokens = Math.min(
-      MAX_REQUESTS,
-      bucket.tokens + (elapsed / RATE_LIMIT_WINDOW) * MAX_REQUESTS,
-    );
+    const refill = (elapsed / RATE_LIMIT_WINDOW) * MAX_REQUESTS;
+    bucket.tokens = Math.min(MAX_REQUESTS, bucket.tokens + (Number.isFinite(refill) ? refill : 0));
     bucket.lastRefill = now;
   }
-  if (bucket.tokens < 1) {
-    buckets.set(key, bucket);
-    return false;
+  const allow = bucket.tokens >= 1;
+  if (allow) bucket.tokens -= 1;
+  bucket.tokens = Math.max(0, Math.min(bucket.tokens, MAX_REQUESTS));
+  buckets.set(foundKey ?? key, bucket);
+  if (buckets.size > maxBuckets) {
+    const oldest = buckets.keys().next().value;
+    if (oldest && oldest !== (foundKey ?? key)) {
+      buckets.delete(oldest);
+    }
   }
-  bucket.tokens -= 1;
-  buckets.set(key, bucket);
-  return true;
+  return allow;
 }
+
+export const __consumeFromBucket = consumeFromBucket;
 
 async function getClientIp(): Promise<string | null> {
   if (clientIpPromise) return clientIpPromise;
@@ -211,8 +301,10 @@ async function getClientIp(): Promise<string | null> {
     if (typeof fetch === 'undefined' || !baseUrl) return null;
     try {
       const res = await fetch(`${baseUrl}/api/client-info`);
-      const data = await res.json();
-      return data.clientIp as string;
+      const text = await readLimitedText(res, 1024);
+      if (!text) return null;
+      const data = JSON.parse(text) as { clientIp?: string };
+      return typeof data.clientIp === 'string' ? data.clientIp : null;
     } catch {
       return null;
     }
@@ -224,14 +316,25 @@ async function getClientIp(): Promise<string | null> {
 
 async function consumeToken(sessionId: string): Promise<boolean> {
   // TODO: replace with a distributed rate limiter (e.g., Redis) for multi-instance deployments
-  const ip = await getClientIp();
+  const [ipRaw, sessionKey] = await Promise.all([
+    getClientIp(),
+    hashKey(sessionId),
+  ]);
+  const ipKey = ipRaw ? await hashKey(ipRaw) : null;
   const exec = () => {
-    const okSession = consumeFromBucket(sessionBuckets, sessionId);
-    const okIp = ip ? consumeFromBucket(ipBuckets, ip) : true;
+    const okSession = consumeFromBucket(
+      sessionBuckets,
+      sessionKey,
+      RATE_LIMIT_BUCKETS_MAX,
+    );
+    const okIp = ipKey
+      ? consumeFromBucket(ipBuckets, ipKey, RATE_LIMIT_BUCKETS_MAX)
+      : true;
     return okSession && okIp;
   };
+  const lockId = `cipher-rate:${sessionKey}`;
   if (typeof navigator !== 'undefined' && 'locks' in navigator && navigator.locks) {
-    return navigator.locks.request(`cipher-rate:${sessionId}`, exec);
+    return navigator.locks.request(lockId, exec);
   }
   return rateLimitMutex.runExclusive(() => Promise.resolve(exec()));
 }
@@ -240,8 +343,13 @@ export const storeRunRecords = async (
   runs: RunRecord[],
   sessionId: string,
 ): Promise<void> => {
-  if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return;
-  const sessionIdHash = await hashSessionId(sessionId);
+  if (
+    !useCipher ||
+    !baseUrl ||
+    !validateUrl(baseUrl, allowedHosts, (import.meta.env.DEV as boolean | undefined) ?? true)
+  )
+    return;
+  const sessionIdHash = await hashKey(sessionId);
   if (!SESSION_ID_PATTERN.test(sessionId)) {
     console.warn('Invalid sessionId format');
     logMemory('cipher.store.invalidSession', { sessionIdHash });
@@ -253,13 +361,10 @@ export const storeRunRecords = async (
     return;
   }
   for (const run of runs) {
-    if (
-      run.prompt.length > MAX_MEMORY_LENGTH ||
-      run.finalAnswer.length > MAX_MEMORY_LENGTH ||
-      run.agents.some(a => a.content.length > MAX_MEMORY_LENGTH)
-    ) {
-      console.warn('Run record exceeds memory size limit and will not be stored.');
-      logMemory('cipher.store.tooLarge', { sessionIdHash });
+    const res = runRecordSchema.safeParse(run);
+    if (!res.success) {
+      console.warn('Invalid run record', res.error.issues);
+      logMemory('cipher.store.invalidRun', { sessionIdHash });
       return;
     }
   }
@@ -275,7 +380,8 @@ export const storeRunRecords = async (
     );
     if (enforceCsp) validateCsp(response);
     if (!response.ok) {
-      const errorData = await response.text().catch(() => 'Unable to read error response');
+      const errorData =
+        (await readLimitedText(response, 32_768)) ?? 'Unable to read error response';
       console.error('Failed to store run records', {
         url: `${baseUrl}/memories/batch`,
         status: response.status,
@@ -311,14 +417,20 @@ export const fetchRelevantMemories = async (
   query: string,
   sessionId: string,
 ): Promise<ImmutableMemoryEntry[]> => {
-  if (!useCipher || !baseUrl || !validateUrl(baseUrl, allowedHosts)) return [];
-  const sessionIdHash = await hashSessionId(sessionId);
+  if (
+    !useCipher ||
+    !baseUrl ||
+    !validateUrl(baseUrl, allowedHosts, (import.meta.env.DEV as boolean | undefined) ?? true)
+  )
+    return [];
+  const sessionIdHash = await hashKey(sessionId);
   if (!SESSION_ID_PATTERN.test(sessionId)) {
     console.warn('Invalid sessionId format');
     logMemory('cipher.fetch.invalidSession', { sessionIdHash });
     return [];
   }
   pruneCache();
+  if (!querySchema.safeParse(query).success) return [];
   const cacheKey = `${sessionId}:${query}`;
   const cached = memoryCache.get(cacheKey);
   if (cached && cached.expiry > Date.now()) {
@@ -330,7 +442,6 @@ export const fetchRelevantMemories = async (
     const clone = structuredClone(cached.data) as ImmutableMemoryEntry[];
     return deepFreeze(clone) as ImmutableMemoryEntry[];
   }
-  if (query.length > MAX_MEMORY_LENGTH) return [];
   if (isCircuitOpen()) {
     const elapsed = Date.now() - circuitBreaker.lastFailure;
     if (elapsed > circuitBreaker.resetTimeMs) {
@@ -371,9 +482,9 @@ export const fetchRelevantMemories = async (
 
       if (enforceCsp) validateCsp(response);
       if (!response.ok) {
-        const errorData = await response
-          .text()
-          .catch(() => 'Unable to read error response');
+        const errorData =
+          (await readLimitedText(response, 32_768)) ??
+          'Unable to read error response';
         console.error('Failed to fetch memories', {
           url: `${baseUrl}/memories/search`,
           status: response.status,

@@ -128,28 +128,26 @@ function isPrivateOrLocalhost(hostname: string): boolean {
   const host = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
   if (host === 'localhost' || /^localhost\./i.test(host)) return true;
   if (ipaddr.isValid(host)) {
-    let parsed = ipaddr.parse(host);
-    if (parsed.kind() === 'ipv6') {
-      const ipv6 = parsed as ipaddr.IPv6;
-      if (host.includes('%')) return true; // Block zone IDs
-      if (ipv6.isIPv4MappedAddress()) {
-        parsed = ipv6.toIPv4Address();
+    try {
+      let parsed = ipaddr.parse(host);
+      if (parsed.kind() === 'ipv6') {
+        const ipv6 = parsed as ipaddr.IPv6;
+        if (host.includes('%')) return true; // Block zone IDs
+        if (ipv6.isIPv4MappedAddress()) {
+          parsed = ipv6.toIPv4Address();
+        }
       }
+      const normalized = parsed.toNormalizedString();
+      if (normalized.toLowerCase() !== host.toLowerCase()) return true;
+      const range = parsed.range();
+      return range !== 'unicast';
+    } catch {
+      return true;
     }
-    const range = parsed.range();
-    return [
-      'loopback',
-      'linkLocal',
-      'uniqueLocal',
-      'private',
-      'unspecified',
-      'broadcast',
-      'multicast',
-    ].includes(range);
   }
   // Block DNS rebinding or obfuscated IP forms
   return (
-    /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?\d\d?)$/.test(host) || // Dotted decimal
+    /^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)$/.test(host) || // Dotted decimal
     /^0x[0-9a-f]+$/i.test(host) || // Hexadecimal
     /^[0-7]+$/.test(host) || // Octal
     /^\d+$/.test(host) // Decimal integer
@@ -161,10 +159,28 @@ export function validateUrl(
   allowedHosts: string[] = [],
   dev: boolean = import.meta.env.DEV,
 ): string | undefined {
-  if (!url || url.length > 2048) return undefined;
+  if (!url || url.length > 2048 || /[\u0000-\u001F\u007F\s]/.test(url)) return undefined;
+  const hasTraversal = (p: string): boolean => {
+    let check = p;
+    for (let i = 0; i < 4; i++) {
+      if (check.includes('..') || check.includes('\\') || /\/\//.test(check)) return true;
+      try {
+        const dec = decodeURIComponent(check);
+        if (dec === check) break;
+        check = dec;
+      } catch {
+        break;
+      }
+    }
+    return false;
+  };
+  const pathStart = url.indexOf('/', url.indexOf('://') + 3);
+  if (pathStart !== -1 && hasTraversal(url.slice(pathStart))) return undefined;
   try {
     const parsed = new URL(url.normalize('NFKC'));
+    if (parsed.username || parsed.password || parsed.search || parsed.hash) return undefined;
     let hostname = parsed.hostname;
+    const normalizedAllowed = allowedHosts.map(h => h.toLowerCase());
     if (!ipaddr.isValid(hostname)) {
       try {
         hostname = new URL(`http://${hostname}`).hostname;
@@ -173,18 +189,30 @@ export function validateUrl(
       }
     }
     const bareHost = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
+    if (ipaddr.isValid(bareHost)) {
+      try {
+        const addr = ipaddr.parse(bareHost);
+        const normalized = addr.toNormalizedString();
+        if (normalized.toLowerCase() !== bareHost.toLowerCase()) return undefined;
+        hostname = addr.kind() === 'ipv6' ? `[${normalized}]` : normalized;
+      } catch {
+        return undefined;
+      }
+    }
     const allowedProtocols = ['http:', 'https:'];
     // Only allow standard HTTP/S ports to reduce SSRF risk
     const allowedPorts = ['', '80', '443'];
+    const hostLower = hostname.toLowerCase();
     if (
       !allowedProtocols.includes(parsed.protocol) ||
       hostname.length > 255 ||
       (!ipaddr.isValid(bareHost) && !/^(?!-)[a-zA-Z0-9-]+(?<!-)(?:\.[a-zA-Z0-9-]+)*$/.test(bareHost)) ||
       (!dev && (parsed.protocol !== 'https:' || isPrivateOrLocalhost(hostname) || (parsed.port && !allowedPorts.includes(parsed.port)))) ||
-      (allowedHosts.length > 0 && !allowedHosts.includes(hostname))
+      (normalizedAllowed.length > 0 && !normalizedAllowed.includes(hostLower))
     ) {
       return undefined;
     }
+    if (hasTraversal(parsed.pathname)) return undefined;
     parsed.hostname = hostname;
     return parsed.toString().replace(/\/$/, '');
   } catch {
@@ -256,13 +284,29 @@ export function validateCsp(response: Response): void {
     .map(d => d.trim())
     .filter(Boolean)
     .map(parseDirective)
-    .filter(d => d.name && d.sources.length > 0);
+    .filter(d => d.name);
   const defaultSrc = directives.find(d => d.name === 'default-src');
   const connectSrc = directives.find(d => d.name === 'connect-src');
   const objectSrc = directives.find(d => d.name === 'object-src');
   const baseUri = directives.find(d => d.name === 'base-uri');
   const scriptSrc = directives.find(d => d.name === 'script-src');
   const styleSrc = directives.find(d => d.name === 'style-src');
+  const scriptSrcAttr = directives.find(d => d.name === 'script-src-attr');
+  const scriptSrcElem = directives.find(d => d.name === 'script-src-elem');
+  const styleSrcAttr = directives.find(d => d.name === 'style-src-attr');
+  const styleSrcElem = directives.find(d => d.name === 'style-src-elem');
+  const frameAncestors = directives.find(d => d.name === 'frame-ancestors');
+  const formAction = directives.find(d => d.name === 'form-action');
+  const sandbox = directives.find(d => d.name === 'sandbox');
+  const trustedTypes = directives.find(d => d.name === 'trusted-types');
+  const requireTrustedTypesFor = directives.find(
+    d => d.name === 'require-trusted-types-for',
+  );
+  const frameSrc = directives.find(d => d.name === 'frame-src');
+  const navigateTo = directives.find(d => d.name === 'navigate-to');
+  const workerSrc = directives.find(d => d.name === 'worker-src');
+  const childSrc = directives.find(d => d.name === 'child-src');
+  const manifestSrc = directives.find(d => d.name === 'manifest-src');
 
   const hasUnsafeSource = directives.some(d =>
     d.sources.some(
@@ -270,8 +314,17 @@ export function validateCsp(response: Response): void {
         s === "'unsafe-inline'" ||
         s === "'unsafe-eval'" ||
         s === "'unsafe-hashes'" ||
-        s === '*'
-    )
+        s === "'unsafe-hashed-attributes'" ||
+        s === "'unsafe-dynamic'" ||
+        s === "'unsafe-allow-attributes'" ||
+        s === "'wasm-unsafe-eval'" ||
+        s === "'unsafe-allow-redirects'" ||
+        s === "'strict-dynamic'" ||
+        s === '*' ||
+        s.startsWith('data:') ||
+        s.startsWith('blob:') ||
+        s.startsWith('filesystem:')
+    ),
   );
   const isDefaultSrcStrict =
     !!defaultSrc &&
@@ -290,6 +343,46 @@ export function validateCsp(response: Response): void {
     !!scriptSrc && scriptSrc.sources.length === 1 && scriptSrc.sources[0] === "'none'";
   const isStyleSrcSafe =
     !!styleSrc && styleSrc.sources.length === 1 && styleSrc.sources[0] === "'none'";
+  const isScriptSrcAttrSafe =
+    !scriptSrcAttr ||
+    (scriptSrcAttr.sources.length === 1 && scriptSrcAttr.sources[0] === "'none'");
+  const isScriptSrcElemSafe =
+    !scriptSrcElem ||
+    (scriptSrcElem.sources.length === 1 && scriptSrcElem.sources[0] === "'none'");
+  const isStyleSrcAttrSafe =
+    !styleSrcAttr ||
+    (styleSrcAttr.sources.length === 1 && styleSrcAttr.sources[0] === "'none'");
+  const isStyleSrcElemSafe =
+    !styleSrcElem ||
+    (styleSrcElem.sources.length === 1 && styleSrcElem.sources[0] === "'none'");
+  const isFrameAncestorsStrict =
+    !!frameAncestors &&
+    frameAncestors.sources.length === 1 &&
+    frameAncestors.sources[0] === "'none'";
+  const isFrameSrcSafe =
+    !frameSrc || (frameSrc.sources.length === 1 && frameSrc.sources[0] === "'none'");
+  const isFormActionSafe =
+    !formAction ||
+    (formAction.sources.length === 1 && formAction.sources[0] === "'none'");
+  const isWorkerSrcSafe =
+    !workerSrc || (workerSrc.sources.length === 1 && workerSrc.sources[0] === "'none'");
+  const isChildSrcSafe =
+    !childSrc || (childSrc.sources.length === 1 && childSrc.sources[0] === "'none'");
+  const isManifestSrcSafe =
+    !manifestSrc ||
+    (manifestSrc.sources.length === 1 && manifestSrc.sources[0] === "'none'");
+  const isSandboxStrict = !!sandbox && sandbox.sources.length === 0;
+  const isTrustedTypesSafe =
+    !!trustedTypes &&
+    trustedTypes.sources.length === 1 &&
+    trustedTypes.sources[0] === "'none'";
+  const isRequireTrustedTypesForScript =
+    !!requireTrustedTypesFor &&
+    requireTrustedTypesFor.sources.length === 1 &&
+    requireTrustedTypesFor.sources[0] === "'script'";
+  const isNavigateToSafe =
+    !navigateTo ||
+    (navigateTo.sources.length === 1 && navigateTo.sources[0] === "'none'");
 
   if (
     !isDefaultSrcStrict ||
@@ -298,7 +391,21 @@ export function validateCsp(response: Response): void {
     !isObjectSrcSafe ||
     !isBaseUriSafe ||
     !isScriptSrcSafe ||
-    !isStyleSrcSafe
+    !isStyleSrcSafe ||
+    !isScriptSrcAttrSafe ||
+    !isScriptSrcElemSafe ||
+    !isStyleSrcAttrSafe ||
+    !isStyleSrcElemSafe ||
+    !isFrameAncestorsStrict ||
+    !isFrameSrcSafe ||
+    !isFormActionSafe ||
+    !isWorkerSrcSafe ||
+    !isChildSrcSafe ||
+    !isManifestSrcSafe ||
+    !isSandboxStrict ||
+    !isTrustedTypesSafe ||
+    !isRequireTrustedTypesForScript ||
+    !isNavigateToSafe
   ) {
     console.error('Invalid or insufficient CSP headers from memory server');
     throw new Error('Invalid CSP headers');

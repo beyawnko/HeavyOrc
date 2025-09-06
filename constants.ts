@@ -1,3 +1,4 @@
+import { secureRandomBytes } from './lib/securityUtils';
 
 
 
@@ -133,18 +134,55 @@ export const SUMMARIZER_MAX_CHARS = 1000;
 export const SESSION_SUMMARY_DEBOUNCE_MS = 500;
 export const SESSION_IMPORTS_PER_MINUTE = 5;
 export const SESSION_CONTEXT_TTL_MS = 86_400_000; // 24 hours
-export const SESSION_ID_SECRET =
+export const RATE_LIMIT_BUCKETS_MAX = 1000;
+export const RATE_LIMITER_MAX_CAPACITY = 1000;
+function generateSecret(): string {
+  const buf = secureRandomBytes(32);
+  return Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
+}
+const DEFAULT_SESSION_SECRET = generateSecret();
+const rawSecrets =
   (typeof process !== 'undefined' && process.env.SESSION_ID_SECRET) ||
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SESSION_ID_SECRET) ||
-  'dev-session-secret';
+  DEFAULT_SESSION_SECRET;
+export const SESSION_ID_SECRETS = rawSecrets
+  .split(',')
+  .map((s: string) => s.trim())
+  .filter(Boolean);
+const rawVersion =
+  (typeof process !== 'undefined' && process.env.SESSION_ID_VERSION) ||
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SESSION_ID_VERSION);
+export const SESSION_ID_VERSION = (() => {
+  const v = Number(rawVersion);
+  return Number.isInteger(v) && v >= 0 && v < SESSION_ID_SECRETS.length ? v : 0;
+})();
+export const SESSION_ID_SECRET = SESSION_ID_SECRETS[SESSION_ID_VERSION];
+
+export const SESSION_ID_KEY_SALT =
+  (typeof process !== 'undefined' && process.env.SESSION_ID_KEY_SALT) ||
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SESSION_ID_KEY_SALT) ||
+  'cipher-session-salt';
 
 export const SESSION_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-if (SESSION_ID_SECRET === 'dev-session-secret') {
-  console.warn(
-    'SESSION_ID_SECRET is using a default development value; set a strong secret in production.',
-  );
+const isProd =
+  (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') ||
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.PROD);
+for (const secret of SESSION_ID_SECRETS) {
+  if (!/^[0-9a-f]{64}$/i.test(secret) || new Set(secret).size < 16) {
+    const msg =
+      'SESSION_ID_SECRET must be 64 hex characters with high entropy';
+    if (isProd) throw new Error(msg);
+    console.warn(msg);
+    break;
+  }
+}
+if (SESSION_ID_SECRET === DEFAULT_SESSION_SECRET) {
+  const msg =
+    'SESSION_ID_SECRET is using a temporary development value; set a strong secret in production.';
+  if (isProd) throw new Error(msg);
+  console.warn(msg);
 }
 
 // Cache tuning
